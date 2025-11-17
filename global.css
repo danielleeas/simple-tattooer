@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: 'arial', system-ui, -apple-system, sans-serif;
+  }
+  
+  :root {
+    --background: #05080F;
+    --background-secondary: #14171F;
+    --foreground: #FFFFFF;
+    --card: #05080F;
+    --card-foreground: #FFFFFF;
+    --popover: #05080F;
+    --popover-foreground: #FFFFFF;
+    --primary: #FAFAFA;
+    --primary-foreground: #171717;
+    --secondary: #262626;
+    --secondary-foreground: #FAFAFA;
+    --muted: #262626;
+    --muted-foreground: #A3A3A3;
+    --accent: #262626;
+    --accent-foreground: #FAFAFA;
+    --border: #1E293B;
+    --border-white: #94A3B8;
+    --border-secondary: #475569;
+    --input: #262626;
+    --ring: #737373;
+    --chart-1: #3B82F6;
+    --chart-2: #10B981;
+    --chart-3: #F59E0B;
+    --chart-4: #8B5CF6;
+    --chart-5: #EC4899;
+
+    --warning: #F4C201;
+    --success: #00BC7D;
+    --destructive: #F15B5B;
+    --info: #10A19C;
+
+    --button-label: #0F172A;
+    --button-label-secondary: #334155;
+
+    --disabled: #0F172A;
+    --disabled-foreground: #334155;
+
+    --text-secondary: #CBD5E1;
+    --text-tertiary: #94A3B8;
+    --radius: 0.375rem;
+
+    --purple: #B68FBC;
+    --green: #299865
+  }
+
+  .dark:root {
+    --background: #05080F;
+    --background-secondary: #14171F;
+    --foreground: #FFFFFF;
+    --card: #05080F;
+    --card-foreground: #FFFFFF;
+    --popover: #05080F;
+    --popover-foreground: #FFFFFF;
+    --primary: #FAFAFA;
+    --primary-foreground: #171717;
+    --secondary: #262626;
+    --secondary-foreground: #FAFAFA;
+    --muted: #262626;
+    --muted-foreground: #A3A3A3;
+    --accent: #262626;
+    --accent-foreground: #FAFAFA;
+    --border: #1E293B;
+    --border-white: #94A3B8;
+    --border-secondary: #475569;
+    --input: #262626;
+    --ring: #737373;
+    --chart-1: #3B82F6;
+    --chart-2: #10B981;
+    --chart-3: #F59E0B;
+    --chart-4: #8B5CF6;
+    --chart-5: #EC4899;
+
+    --warning: #F4C201;
+    --success: #00BC7D;
+    --destructive: #F15B5B;
+    --info: #10A19C;
+
+    --button-label: #0F172A;
+    --button-label-secondary: #334155;
+
+    --disabled: #0F172A;
+    --disabled-foreground: #334155;
+
+    --text-secondary: #CBD5E1;
+    --text-tertiary: #94A3B8;
+    --radius: 0.5rem;
+
+    --purple: #B68FBC;
+    --green: #299865
+  }
+}
