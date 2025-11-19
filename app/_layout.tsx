@@ -10,8 +10,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import { Provider } from 'react-redux';
 
+import { ToastProvider, AuthProvider } from '@/lib/contexts';
 import { customFonts } from '@/lib/fonts';
+import { store } from '@/lib/redux/store';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -29,7 +32,7 @@ export default function RootLayout() {
       setAppIsReady(true);
     }
   }, [loaded, error]);
-  
+
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
       // Hide the splash screen after the app content is ready
@@ -42,16 +45,22 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <ThemeProvider value={NAV_THEME.dark}>
-          <StatusBar style='light' />
-          <KeyboardProvider>
-            <Stack />
-          </KeyboardProvider>
-          <PortalHost />
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+    <Provider store={store}>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          <ThemeProvider value={NAV_THEME.dark}>
+            <AuthProvider>
+              <ToastProvider>
+                <StatusBar style='light' />
+                <KeyboardProvider>
+                  <Stack />
+                </KeyboardProvider>
+                <PortalHost />
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    </Provider>
   );
 }
