@@ -54,10 +54,6 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
     }
   };
 
-  const formatTime = (time: Date) => {
-    return time.toTimeString().slice(0, 5); // Returns "HH:MM" format
-  }
-
   const handleFinish = async () => {
     if (!artist?.id) {
       Alert.alert('Error', 'Artist ID not found. Please try again.');

@@ -10,8 +10,8 @@ import { DepositStep } from './steps/DepositStep';
 import { BookingRulesStep } from './steps/BookingRulesStep';
 import { DrawingRulesStep } from './steps/DrawingRulesStep';
 import { CancellationListStep } from './steps/CancellationListStep';
-// import { PaymentMethodStep } from './steps/PaymentMethodStep';
-// import { WaiverUploadStep } from './steps/WaiverUploadStep';
+import { PaymentMethodStep } from './steps/PaymentMethodStep';
+import { WaiverUploadStep } from './steps/WaiverUploadStep';
 import { WizardNavigation } from '@/components/wizard/WizardNavigation';
 import { WizardProgress } from '@/components/wizard/WizardProgress';
 import { LoadingOverlay } from '@/components/lib/loading-overlay';
@@ -27,9 +27,8 @@ const STEP_COMPONENTS = [
   BookingRulesStep,
   DrawingRulesStep,
   CancellationListStep,
-  // PaymentMethodStep,
-  // WaiverUploadStep,
-  // Add more steps here as needed
+  PaymentMethodStep,
+  WaiverUploadStep,
 ];
 
 export function AnimatedWizard() {
