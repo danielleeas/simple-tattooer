@@ -54,7 +54,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
     };
 
     const handleCalendar = () => {
-        // router.push('/preview/calendar');
+        router.push('/preview/calendar');
     };
 
     const handleSettings = () => {
