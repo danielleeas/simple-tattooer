@@ -110,7 +110,7 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
   };
 
   return (
-    <View className="px-4 py-4 bg-background">
+    <View className="px-4 py-4 pb-8 bg-background">
       <LoadingOverlay
         visible={isSaving}
         title="Setting up your profile"
