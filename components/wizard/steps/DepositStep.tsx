@@ -18,7 +18,7 @@ export function DepositStep() {
     ]
 
     return (
-        <KeyboardAwareScrollView bottomOffset={80} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={80} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled'>
             <View className="gap-6 pb-4">
                 <View className="items-center justify-center pb-2">
                     <Image

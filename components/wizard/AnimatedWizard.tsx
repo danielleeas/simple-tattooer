@@ -6,7 +6,7 @@ import Welcome from './steps/Welcome';
 import { DetailsStep } from './steps/DetailsStep';
 import { BrandingStep } from './steps/BrandingStep';
 import { CalendarStep } from './steps/CalendarStep';
-// import { DepositStep } from './steps/DepositStep';
+import { DepositStep } from './steps/DepositStep';
 // import { BookingRulesStep } from './steps/BookingRulesStep';
 // import { DrawingRulesStep } from './steps/DrawingRulesStep';
 // import { CancellationListStep } from './steps/CancellationListStep';
@@ -23,7 +23,7 @@ const STEP_COMPONENTS = [
   DetailsStep,
   BrandingStep,
   CalendarStep,
-  // DepositStep,
+  DepositStep,
   // BookingRulesStep,
   // DrawingRulesStep,
   // CancellationListStep,
