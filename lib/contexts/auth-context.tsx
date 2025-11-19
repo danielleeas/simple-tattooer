@@ -76,7 +76,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Authentication timeout')), 15000);
+          setTimeout(() => reject(new Error('Authentication timeout')), 60000);
         });
 
         const authPromise = (async () => {

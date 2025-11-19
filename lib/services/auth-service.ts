@@ -45,7 +45,7 @@ export const signInUser = async (
 
 export const generateBookingLink = async (fullName: string) => {
   const baseName = fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  
+
   let bookingLink = baseName;
   let counter = 1;
 
@@ -56,7 +56,7 @@ export const generateBookingLink = async (fullName: string) => {
       .select('booking_link')
       .eq('booking_link', buildBookingLink(BASE_URL, bookingLink))
       .single();
-    
+
     if (error && error.code === 'PGRST116') {
       // No rows found, meaning the booking link is unique
       break;
@@ -64,7 +64,7 @@ export const generateBookingLink = async (fullName: string) => {
       console.error('Error checking booking link uniqueness:', error);
       throw new Error(`Failed to check booking link uniqueness: ${error.message}`);
     }
-    
+
     // If we found a row, the booking link exists, so we need to try a different one
     bookingLink = `${baseName}${counter}`;
     counter++;
@@ -107,8 +107,8 @@ export const createArtistProfile = async (userId: string, artistData: { full_nam
 
 // Update artist subscription status
 export const updateSubscriptionStatus = async (
-  artistId: string, 
-  subscriptionType: string | null, 
+  artistId: string,
+  subscriptionType: string | null,
   isActive: boolean = true
 ): Promise<void> => {
   try {
@@ -116,7 +116,7 @@ export const updateSubscriptionStatus = async (
       subscription_active: isActive,
       updated_at: new Date().toISOString(),
     };
-    
+
     // Only update subscription_type if it's not null
     if (subscriptionType !== null) {
       updateData.subscription_type = subscriptionType;
@@ -138,68 +138,57 @@ export const updateSubscriptionStatus = async (
 
 // Get artist profile with subscription details - optimized with retry and caching
 export const getArtistProfile = async (artistId: string): Promise<Artist | null> => {
-  return safeAsync(
-    () => withRetryAndTimeout(
-      async () => {
-        // Use the optimized database function to get all artist data in one query
-        const { data: artistData, error: artistError } = await supabase
-          .rpc('get_artist_full_data', { artist_uuid: artistId });
+  const { data: artistData, error: artistError } = await supabase
+    .rpc('get_artist_full_data', { artist_uuid: artistId });
 
-        if (artistError) {
-          console.error('Error fetching artist profile:', artistError);
-          console.error('Error details:', {
-            code: artistError.code,
-            message: artistError.message,
-            details: artistError.details,
-            hint: artistError.hint
-          });
-          
-          // Check if it's a "no rows returned" error (PGRST116)
-          if (artistError.code === 'PGRST116') {
-            return null;
-          }
-          
-          // Check if it's an RLS policy issue (42501) or permission denied (PGRST301)
-          if (artistError.code === '42501' || artistError.code === 'PGRST301') {
-            console.error('Permission denied - artist may not have access to this data yet. This can happen immediately after signup.');
-            return null;
-          }
-          
-          throw new Error(`Failed to get artist profile: ${artistError.message}`);
-        }
+  if (artistError) {
+    console.error('Error fetching artist profile:', artistError);
+    console.error('Error details:', {
+      code: artistError.code,
+      message: artistError.message,
+      details: artistError.details,
+      hint: artistError.hint
+    });
 
-        if (!artistData || artistData.length === 0) {
-          return null;
-        }
+    // Check if it's a "no rows returned" error (PGRST116)
+    if (artistError.code === 'PGRST116') {
+      return null;
+    }
 
-        const artist = artistData[0];
+    // Check if it's an RLS policy issue (42501) or permission denied (PGRST301)
+    if (artistError.code === '42501' || artistError.code === 'PGRST301') {
+      console.error('Permission denied - artist may not have access to this data yet. This can happen immediately after signup.');
+      return null;
+    }
 
-        // Transform the data to match the Artist interface
-        return {
-          id: artist.artist_id,
-          email: artist.email,
-          full_name: artist.full_name,
-          photo: artist.photo,
-          avatar: artist.avatar,
-          booking_link: artist.booking_link,
-          studio_name: artist.studio_name,
-          social_handler: artist.social_handler,
-          subscription_active: artist.subscription_active,
-          subscription_type: artist.subscription_type,
-          subscription: artist.subscription || undefined,
-          app: artist.app || undefined,
-          rule: artist.rule || undefined,
-          flow: artist.flow || undefined,
-          template: artist.template || undefined,
-          locations: artist.locations || undefined
-        };
-      },
-      { maxRetries: 3, baseDelay: 1000 },
-      { timeoutMs: 20000, timeoutMessage: 'Profile fetch timeout' }
-    ),
-    null,
-    (error) => console.error('Failed to get artist profile after retries:', error)
-  );
+    throw new Error(`Failed to get artist profile: ${artistError.message}`);
+  }
+
+  if (!artistData || artistData.length === 0) {
+    return null;
+  }
+
+  const artist = artistData[0];
+
+  // Transform the data to match the Artist interface
+  return {
+    id: artist.artist_id,
+    email: artist.email,
+    full_name: artist.full_name,
+    photo: artist.photo,
+    avatar: artist.avatar,
+    booking_link: artist.booking_link,
+    studio_name: artist.studio_name,
+    social_handler: artist.social_handler,
+    subscription_active: artist.subscription_active,
+    subscription_type: artist.subscription_type,
+    subscription: artist.subscription || undefined,
+    app: artist.app || undefined,
+    rule: artist.rule || undefined,
+    flow: artist.flow || undefined,
+    template: artist.template || undefined,
+    locations: artist.locations || undefined
+  };
 };
 
 // Get artist subscription details
@@ -240,10 +229,10 @@ export const signOutArtist = async (): Promise<{ error: any }> => {
 export const getCurrentArtist = async () => {
   try {
     const { data, error } = await supabase.auth.getSession();
-    return { 
-      user: data?.session?.user || null, 
-      session: data?.session || null, 
-      error 
+    return {
+      user: data?.session?.user || null,
+      session: data?.session || null,
+      error
     };
   } catch (error) {
     console.error('Get current artist error:', error);
@@ -254,7 +243,7 @@ export const getCurrentArtist = async () => {
 // Check if artist's subscription is still valid (not expired)
 export const checkSubscriptionExpiry = async (artistId: string): Promise<boolean> => {
   try {
-    
+
     const { data, error } = await supabase
       .from('subscriptions')
       .select('expiry_date, is_active')
@@ -263,7 +252,7 @@ export const checkSubscriptionExpiry = async (artistId: string): Promise<boolean
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    
+
 
     if (error) {
       console.error('Error checking subscription expiry:', error);
@@ -278,7 +267,7 @@ export const checkSubscriptionExpiry = async (artistId: string): Promise<boolean
     const expiryDate = new Date(data.expiry_date);
     const now = new Date();
     const isValid = now <= expiryDate && data.is_active;
-    
+
 
     if (!isValid) {
       // Subscription expired, update artist's subscription status
@@ -295,7 +284,7 @@ export const checkSubscriptionExpiry = async (artistId: string): Promise<boolean
 // Create artist profile from Supabase Auth user data
 export const createArtistProfileFromAuth = async (authUser: any): Promise<Artist | null> => {
   try {
-    
+
     const profileData = {
       id: authUser.id,
       email: authUser.email,
@@ -356,7 +345,7 @@ export const saveSubscriptionData = async (
     // Calculate expiry date based on subscription type
     const purchaseDate = new Date(subscriptionData.transactionDate);
     const expiryDate = new Date(purchaseDate);
-    
+
     if (subscriptionData.subscriptionType === 'monthly') {
       expiryDate.setMonth(expiryDate.getMonth() + 1);
     } else {
@@ -390,9 +379,9 @@ export const saveSubscriptionData = async (
     return { success: true };
   } catch (error) {
     console.error('Error saving subscription data:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 };
@@ -415,7 +404,7 @@ export const updateSubscriptionData = async (
     // Calculate expiry date based on subscription type
     const purchaseDate = new Date(subscriptionData.transactionDate);
     const expiryDate = new Date(purchaseDate);
-    
+
     if (subscriptionData.subscriptionType === 'monthly') {
       expiryDate.setMonth(expiryDate.getMonth() + 1);
     } else {
@@ -485,9 +474,9 @@ export const updateSubscriptionData = async (
     return { success: true };
   } catch (error) {
     console.error('Error updating subscription data:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 };
@@ -508,41 +497,41 @@ export const checkBookingLinkAvailability = async (
 
   try {
     const fullBookingLink = buildBookingLink(BASE_URL, bookingLinkSuffix);
-    
+
     // Build query to exclude current artist if provided
     let query = supabase
       .from('artists')
       .select('id')
       .eq('booking_link', fullBookingLink);
-    
+
     // Exclude current artist from the check
     if (currentArtistId) {
       query = query.neq('id', currentArtistId);
     }
-    
+
     const { data, error } = await query.single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
       console.error('Error checking booking link:', error);
-      return { 
-        isAvailable: false, 
-        error: 'Failed to check booking link availability' 
+      return {
+        isAvailable: false,
+        error: 'Failed to check booking link availability'
       };
     }
 
     if (data) {
-      return { 
-        isAvailable: false, 
-        error: 'This booking link is already in use' 
+      return {
+        isAvailable: false,
+        error: 'This booking link is already in use'
       };
     }
 
     return { isAvailable: true };
   } catch (error) {
     console.error('Unexpected error checking booking link:', error);
-    return { 
-      isAvailable: false, 
-      error: 'An unexpected error occurred' 
+    return {
+      isAvailable: false,
+      error: 'An unexpected error occurred'
     };
   }
 };

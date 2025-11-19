@@ -4,7 +4,7 @@ import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 
 import Welcome from './steps/Welcome';
 import { DetailsStep } from './steps/DetailsStep';
-// import { BrandingStep } from './steps/BrandingStep';
+import { BrandingStep } from './steps/BrandingStep';
 // import { CalendarStep } from './steps/CalendarStep';
 // import { DepositStep } from './steps/DepositStep';
 // import { BookingRulesStep } from './steps/BookingRulesStep';
@@ -21,7 +21,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const STEP_COMPONENTS = [
   Welcome,
   DetailsStep,
-  // BrandingStep,
+  BrandingStep,
   // CalendarStep,
   // DepositStep,
   // BookingRulesStep,
