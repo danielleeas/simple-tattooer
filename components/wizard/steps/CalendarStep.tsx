@@ -49,9 +49,21 @@ export function CalendarStep() {
   };
 
   const addConsultStart = (time: Date) => {
-    // Add new time to the array
+    // Add +1 hour relative to the latest existing start time, or use provided time if none exist
     const currentStartTimes = calendar.consultation.startTimes;
-    const newStartTimes = [...currentStartTimes, time];
+
+    let nextTime: Date;
+    if (currentStartTimes.length > 0) {
+      const latest = new Date(
+        Math.max(...currentStartTimes.map(t => new Date(t as unknown as Date).getTime()))
+      );
+      nextTime = new Date(latest);
+      nextTime.setHours(latest.getHours() + 1);
+    } else {
+      nextTime = new Date(time);
+    }
+
+    const newStartTimes = [...currentStartTimes, nextTime];
     updateCalendar({ consultation: { ...calendar.consultation, startTimes: newStartTimes } });
   };
 
@@ -84,7 +96,17 @@ export function CalendarStep() {
   const addConsultStartForDay = (day: string, time: Date) => {
     if (calendar.consultation.isDifferentStartTimes) {
       const currentTimes = getConsultStartTimesForDay(day);
-      const newTimes = [...currentTimes, time];
+
+      let nextTime: Date;
+      if (currentTimes.length > 0) {
+        const latest = new Date(Math.max(...currentTimes.map(t => new Date(t).getTime())));
+        nextTime = new Date(latest);
+        nextTime.setHours(latest.getHours() + 1);
+      } else {
+        nextTime = new Date(time);
+      }
+
+      const newTimes = [...currentTimes, nextTime];
       updateConsultationDailyStartTimes(day, newTimes);
     } else {
       addConsultStart(time);

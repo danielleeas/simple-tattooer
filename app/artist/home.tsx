@@ -1,9 +1,14 @@
+import { router } from 'expo-router';
+
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { router } from 'expo-router';
+import { LoadingOverlay } from '@/components/lib/loading-overlay';
+import { useState, useEffect } from 'react';
 
 export default function ArtistHome() {
+
+    const [progress, setProgress] = useState(0);
 
     const handleMenu = () => {
         console.log('Menu');
