@@ -115,10 +115,7 @@ export function DetailsStep() {
           />
           <Text variant="h6" className="text-center uppercase">Your</Text>
           <Text variant="h6" className="text-center uppercase mb-2">Details</Text>
-          <View className='flex-row items-end justify-center gap-1'>
-            <Text className="text-center text-text-secondary leading-none">Tell us about yourself</Text>
-            <Text className="text-center text-text-secondary text-xs leading-none">&</Text>
-          </View>
+          <Text className="text-center text-text-secondary leading-none">Tell us about yourself &</Text>
           <Text className="text-center text-text-secondary">where to find you.</Text>
         </View>
         <View className="gap-6">
@@ -138,11 +135,11 @@ export function DetailsStep() {
           </View>
           <View className="gap-1">
             <View className='flex-row gap-2 items-center'>
-              <Text variant="h5">Edit/Copy Personal Booking Link</Text>
+              <Text variant="h5" style={{ width: 290 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Edit/Copy Personal Booking Link</Text>
               <View className="relative">
                 <TouchableOpacity
                   onPress={() => copyBookingLink(details.bookingLinkSuffix)}
-                  className="p-1 rounded"
+                  className="p-1 pb-0 rounded"
                 >
                   <Image
                     source={require('@/assets/images/icons/copy.png')}
@@ -180,7 +177,7 @@ export function DetailsStep() {
           <View className="gap-2">
             <Text variant="h5">Location (Type address or studio name)</Text>
             <View className='items-center w-full'>
-              <Text className='text-center text-text-secondary w-full leading-none'>Add your main studio address. You can set up guest spots and travel dates in your calendar</Text>
+              <Text className='text-center text-text-secondary w-full leading-none' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Add your main studio address.</Text>
             </View>
 
             {/* Location Display */}
@@ -216,6 +213,7 @@ export function DetailsStep() {
             ) : (
               <Pressable className="p-3 bg-background border border-border-white rounded-sm h-10" onPress={() => setIsLocationModalVisible(true)} />
             )}
+            <Text className='text-text-secondary w-full leading-none' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>You can set up guest spots and travel dates in your calendar</Text>
           </View>
           <View className="gap-2">
             <Text variant="h5">Social Media Handle</Text>

@@ -73,7 +73,6 @@ export function LocationModal({
 
   const searchLocations = async (query: string) => {
     setIsSearching(true);
-    console.log('GOOGLE_PLACES_API_KEY', GOOGLE_PLACES_API_KEY);
     try {
       // Using Google Places API
       const response = await fetch(
@@ -94,7 +93,6 @@ export function LocationModal({
       }
 
       const data = await response.json();
-      console.log('places', data.places);
       setSearchResults(data.places || []);
     } catch (error) {
       console.error('Location search error:', error);
