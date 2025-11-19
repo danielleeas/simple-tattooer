@@ -7,7 +7,8 @@ import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useToast } from '@/lib/contexts/toast-context';
 import { useAppDispatch } from '@/lib/redux/hooks';
-import { uploadFileToStorage } from "@/lib/services/storage-service";
+import { saveSetupWizard } from '@/lib/services/setup-wizard-service';
+import { LoadingOverlay } from '@/components/lib/loading-overlay';
 
 interface WizardNavigationProps {
   currentStep: number;
@@ -33,6 +34,8 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
   const { artist } = useAuth();
   const { toast } = useToast();
   const dispatch = useAppDispatch();
+  const [saveProgress, setSaveProgress] = useState<number>(0);
+  const [saveMessage, setSaveMessage] = useState<string>('Starting...');
 
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps;
@@ -61,28 +64,46 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
     }
 
     setIsSaving(true);
+    setSaveProgress(0);
+    setSaveMessage('Starting...');
 
     try {
+      await saveSetupWizard(
+        artist.id,
+        {
+          details,
+          branding,
+          calendar,
+          deposit,
+          bookingRules,
+          drawingRules,
+          cancellationList,
+          paymentMethod,
+          waiverUpload,
+        },
+        (p, label) => {
+          if (typeof p === 'number') setSaveProgress(p);
+          if (label) setSaveMessage(label);
+        }
+      );
 
-      toast
-        ({
-          title: 'Welcome aboard!',
-          description: 'You are now ready to explore the app and connect with clients.',
-          variant: 'success',
-          duration: 3000,
-        });
+      toast({
+        title: 'Welcome aboard!',
+        description: 'You are now ready to explore the app and connect with clients.',
+        variant: 'success',
+        duration: 3000,
+      });
 
       router.push('/');
     } catch (error) {
       console.error('Error completing setup:', error);
 
-      toast
-        ({
-          title: 'Error',
-          description: 'Failed to complete setup. Please try again.',
-          variant: 'error',
-          duration: 2000,
-        });
+      toast({
+        title: 'Error',
+        description: 'Failed to complete setup. Please try again.',
+        variant: 'error',
+        duration: 2000,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -90,6 +111,12 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
 
   return (
     <View className="px-4 py-4 bg-background">
+      <LoadingOverlay
+        visible={isSaving}
+        title="Setting up your profile"
+        subtitle={saveMessage}
+        progress={saveProgress}
+      />
       {/* Navigation Buttons */}
       <View className="flex-row gap-4">
         {/* Previous Button */}

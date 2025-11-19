@@ -9,6 +9,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const buildBookingLink = (base: string, suffix: string): string => {
+  const normalizedBase = base.replace(/\/+$/, '');
+  const normalizedSuffix = suffix.replace(/^\/+/, '');
+  return `${normalizedBase}/${normalizedSuffix}`;
+}
+
 export const sortWeekdays = (days: string[]): string[] => {
   const weekdayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   // Do not mutate the input array; return a sorted copy instead

@@ -43,7 +43,7 @@ export function PaymentMethodStep() {
                         </View>
                         {paymentMethod.paypal.isPayPal && (
                             <View className="flex flex-row items-center gap-3">
-                                <Input placeholder="Add email or link" value={paymentMethod.paypal.email} onChangeText={(text) => updatePaymentMethod({ paypal: { isPayPal: paymentMethod.paypal.isPayPal, email: text } })} />
+                                <Input keyboardType="email-address" placeholder="Add email or link" value={paymentMethod.paypal.email} onChangeText={(text) => updatePaymentMethod({ paypal: { isPayPal: paymentMethod.paypal.isPayPal, email: text } })} />
                             </View>
                         )}
                     </View>

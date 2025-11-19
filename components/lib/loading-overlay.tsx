@@ -8,6 +8,7 @@ interface LoadingOverlayProps {
   message?: string;
   title?: string;
   subtitle?: string;
+  progress?: number;
   className?: string;
 }
 
@@ -16,6 +17,7 @@ export function LoadingOverlay({
   message = 'Loading...', 
   title,
   subtitle,
+  progress,
   className
 }: LoadingOverlayProps) {
   if (!visible) return null;
@@ -34,6 +36,19 @@ export function LoadingOverlay({
             color="#fff" 
             className="mb-4"
           />
+          {typeof progress === 'number' && progress >= 0 && progress <= 1 && (
+            <View className="w-full mb-4">
+              <View className="h-2 w-full bg-background rounded-full overflow-hidden">
+                <View
+                  className="h-2 bg-foreground"
+                  style={{ width: `${Math.max(2, Math.min(100, Math.round(progress * 100)))}%` }}
+                />
+              </View>
+              <Text className="text-text-secondary text-xs mt-2 text-center">
+                {Math.max(1, Math.min(100, Math.round(progress * 100)))}%
+              </Text>
+            </View>
+          )}
           {title && (
             <Text variant="h3" className="text-foreground mb-2 text-center">
               {title}
@@ -42,6 +57,11 @@ export function LoadingOverlay({
           {subtitle && (
             <Text className="text-text-secondary text-center">
               {subtitle}
+            </Text>
+          )}
+          {!subtitle && message && (
+            <Text className="text-text-secondary text-center">
+              {message}
             </Text>
           )}
         </View>
