@@ -26,43 +26,43 @@ export function CalendarStep() {
   // Stable default time to avoid passing new Date() in render
   const defaultConsultInitialTime = useMemo(() => new Date(2024, 0, 1, 9, 0), []);
 
-  const handleToggleDay = (day: string) => {
+  const toggleWorkDay = (day: string) => {
     const newWorkDays = calendar.workDays.includes(day)
       ? calendar.workDays.filter(d => d !== day)
       : [...calendar.workDays, day];
     updateCalendar({ workDays: sortWeekdays(newWorkDays) });
   };
 
-  const handleToggleWorkDay = (day: string) => {
+  const toggleConsultDay = (day: string) => {
     const newWorkDays = calendar.consultation.workDays.includes(day)
       ? calendar.consultation.workDays.filter(d => d !== day)
       : [...calendar.consultation.workDays, day];
     updateCalendar({ consultation: { ...calendar.consultation, workDays: sortWeekdays(newWorkDays) } });
   };
 
-  const handleStartTimeChange = (time: Date) => {
+  const setWorkStart = (time: Date) => {
     updateCalendar({ startTime: time });
   };
 
-  const handleEndTimeChange = (time: Date) => {
+  const setWorkEnd = (time: Date) => {
     updateCalendar({ endTime: time });
   };
 
-  const handleConsultStartTimeChange = (time: Date) => {
+  const addConsultStart = (time: Date) => {
     // Add new time to the array
     const currentStartTimes = calendar.consultation.startTimes;
     const newStartTimes = [...currentStartTimes, time];
     updateCalendar({ consultation: { ...calendar.consultation, startTimes: newStartTimes } });
   };
 
-  const handleUpdateConsultStartTime = (index: number, time: Date) => {
+  const updateConsultStart = (index: number, time: Date) => {
     // Update existing time at specific index
     const newStartTimes = [...calendar.consultation.startTimes];
     newStartTimes[index] = time;
     updateCalendar({ consultation: { ...calendar.consultation, startTimes: newStartTimes } });
   };
 
-  const handleRemoveConsultStartTime = (index: number) => {
+  const removeConsultStart = (index: number) => {
     // Prevent removal if it's the last start time
     if (calendar.consultation.startTimes.length <= 1) {
       return;
@@ -81,30 +81,30 @@ export function CalendarStep() {
   };
 
   // Helper function to handle consultation start time change for a specific day
-  const handleConsultStartTimeChangeForDay = (day: string, time: Date) => {
+  const addConsultStartForDay = (day: string, time: Date) => {
     if (calendar.consultation.isDifferentStartTimes) {
       const currentTimes = getConsultStartTimesForDay(day);
       const newTimes = [...currentTimes, time];
       updateConsultationDailyStartTimes(day, newTimes);
     } else {
-      handleConsultStartTimeChange(time);
+      addConsultStart(time);
     }
   };
 
   // Helper function to update consultation start time for a specific day
-  const handleUpdateConsultStartTimeForDay = (day: string, index: number, time: Date) => {
+  const updateConsultStartForDay = (day: string, index: number, time: Date) => {
     if (calendar.consultation.isDifferentStartTimes) {
       const currentTimes = getConsultStartTimesForDay(day);
       const newTimes = [...currentTimes];
       newTimes[index] = time;
       updateConsultationDailyStartTimes(day, newTimes);
     } else {
-      handleUpdateConsultStartTime(index, time);
+      updateConsultStart(index, time);
     }
   };
 
   // Helper function to remove consultation start time for a specific day
-  const handleRemoveConsultStartTimeForDay = (day: string, index: number) => {
+  const removeConsultStartForDay = (day: string, index: number) => {
     if (calendar.consultation.isDifferentStartTimes) {
       const currentTimes = getConsultStartTimesForDay(day);
       // Prevent removal if it's the last start time for this day
@@ -114,17 +114,17 @@ export function CalendarStep() {
       const newTimes = currentTimes.filter((_, i) => i !== index);
       updateConsultationDailyStartTimes(day, newTimes);
     } else {
-      handleRemoveConsultStartTime(index);
+      removeConsultStart(index);
     }
   };
 
-  const isBothConsults = calendar.consultation.isOnline && calendar.consultation.isInPerson;
+  const bothConsultTypes = calendar.consultation.isOnline && calendar.consultation.isInPerson;
 
-  const handleBothConsultsChange = (checked: boolean) => {
+  const setBothConsultTypes = (checked: boolean) => {
     updateCalendar({ consultation: { ...calendar.consultation, isOnline: checked, isInPerson: checked } });
   };
 
-  const handleToggleDifferentStartTimes = (checked: boolean) => {
+  const setConsultPerDayStartTimesEnabled = (checked: boolean) => {
     if (checked) {
       // When enabling different start times, initialize daily start times for each work day
       const dailyStartTimes: Record<string, Date[]> = {};
@@ -159,7 +159,7 @@ export function CalendarStep() {
   };
 
   // Helper function to get start time for a specific day
-  const getStartTimeForDay = (day: string): Date => {
+  const getWorkStartForDay = (day: string): Date => {
     if (calendar.isDifferentHours && calendar.dailyStartTimes[day]) {
       return calendar.dailyStartTimes[day];
     }
@@ -167,7 +167,7 @@ export function CalendarStep() {
   };
 
   // Helper function to get end time for a specific day
-  const getEndTimeForDay = (day: string): Date => {
+  const getWorkEndForDay = (day: string): Date => {
     if (calendar.isDifferentHours && calendar.dailyEndTimes[day]) {
       return calendar.dailyEndTimes[day];
     }
@@ -175,7 +175,7 @@ export function CalendarStep() {
   };
 
   // Helper function to handle start time change for a specific day
-  const handleStartTimeChangeForDay = (day: string, time: Date) => {
+  const setWorkStartForDay = (day: string, time: Date) => {
     if (calendar.isDifferentHours) {
       updateDailyStartTime(day, time);
     } else {
@@ -184,7 +184,7 @@ export function CalendarStep() {
   };
 
   // Helper function to handle end time change for a specific day
-  const handleEndTimeChangeForDay = (day: string, time: Date) => {
+  const setWorkEndForDay = (day: string, time: Date) => {
     if (calendar.isDifferentHours) {
       updateDailyEndTime(day, time);
     } else {
@@ -192,7 +192,7 @@ export function CalendarStep() {
     }
   };
 
-  const [dateTimeToggles, setDateTimeToggles] = useState<Record<string, {
+  const [dayPickerState, setDayPickerState] = useState<Record<string, {
     startTimeOpen: boolean;
     endTimeOpen: boolean;
     startTime: Date | null;
@@ -200,9 +200,9 @@ export function CalendarStep() {
   }>>({});
   const getWeekdayKey = (weekday: string) => weekday;
 
-  const getDateTimeState = (weekday: string) => {
+  const getDayState = (weekday: string) => {
     const key = getWeekdayKey(weekday);
-    return dateTimeToggles[key] || {
+    return dayPickerState[key] || {
       startTimeOpen: false,
       endTimeOpen: false,
       startTime: null,
@@ -210,17 +210,17 @@ export function CalendarStep() {
     };
   };
 
-  const updateDateTimeState = (weekday: string, updates: Partial<{
+  const updateDayState = (weekday: string, updates: Partial<{
     startTimeOpen: boolean;
     endTimeOpen: boolean;
     startTime: Date | null;
     endTime: Date | null;
   }>) => {
     const key = getWeekdayKey(weekday);
-    setDateTimeToggles(prev => ({
+    setDayPickerState(prev => ({
       ...prev,
       [key]: {
-        ...getDateTimeState(weekday),
+        ...getDayState(weekday),
         ...updates
       }
     }));
@@ -247,7 +247,7 @@ export function CalendarStep() {
             <Text className="text-text-secondary">Nothing is set in stone. Make changes anytime in Settings.</Text>
             <WeekdayToggle
               selectedDays={calendar.workDays}
-              onToggleDay={handleToggleDay}
+              onToggleDay={toggleWorkDay}
             />
           </View>
         </View>
@@ -271,7 +271,7 @@ export function CalendarStep() {
                 <Text variant="h5">Start Time</Text>
                 <TimePicker
                   selectedTime={calendar.startTime}
-                  onTimeSelect={handleStartTimeChange}
+                  onTimeSelect={setWorkStart}
                   minuteInterval={15}
                   placeholder="Select appointment time"
                   modalTitle="Choose Time"
@@ -281,7 +281,7 @@ export function CalendarStep() {
                 <Text variant="h5">End Time</Text>
                 <TimePicker
                   selectedTime={calendar.endTime}
-                  onTimeSelect={handleEndTimeChange}
+                  onTimeSelect={setWorkEnd}
                   minuteInterval={15}
                   placeholder="Select appointment time"
                   modalTitle="Choose Time"
@@ -292,7 +292,7 @@ export function CalendarStep() {
             // Show per-day time pickers when different hours is enabled
             <View className="gap-4">
               {sortedWorkDays.map((day) => {
-                const dateState = getDateTimeState(day);
+                const dateState = getDayState(day);
                 return (
                   <View key={day} className="gap-4 flex-row items-start justify-between">
                     <View className="w-[80px]">
@@ -302,7 +302,7 @@ export function CalendarStep() {
                       <View className="items-start gap-2 flex-1">
                         <Pressable
                           className="w-full flex-row items-center justify-between"
-                          onPress={() => updateDateTimeState(day, { startTimeOpen: !dateState.startTimeOpen })}
+                          onPress={() => updateDayState(day, { startTimeOpen: !dateState.startTimeOpen })}
                         >
                           <Text>Start Time</Text>
                           <Icon as={dateState.startTimeOpen ? ChevronUp : ChevronDown} size={20} />
@@ -310,8 +310,8 @@ export function CalendarStep() {
                         <View className="w-full">
                           {dateState.startTimeOpen && (
                             <TimePicker
-                              selectedTime={getStartTimeForDay(day)}
-                              onTimeSelect={(time) => handleStartTimeChangeForDay(day, time)}
+                              selectedTime={getWorkStartForDay(day)}
+                              onTimeSelect={(time) => setWorkStartForDay(day, time)}
                               minuteInterval={15}
                               placeholder="Select start time"
                               modalTitle={`Choose ${day} Start Time`}
@@ -322,7 +322,7 @@ export function CalendarStep() {
                       <View className="items-start gap-2 flex-1">
                         <Pressable
                           className="w-full flex-row items-center justify-between"
-                          onPress={() => updateDateTimeState(day, { endTimeOpen: !dateState.endTimeOpen })}
+                          onPress={() => updateDayState(day, { endTimeOpen: !dateState.endTimeOpen })}
                         >
                           <Text>End Time</Text>
                           <Icon as={dateState.endTimeOpen ? ChevronUp : ChevronDown} size={20} />
@@ -330,8 +330,8 @@ export function CalendarStep() {
                         <View className="w-full">
                           {dateState.endTimeOpen && (
                             <TimePicker
-                              selectedTime={getEndTimeForDay(day)}
-                              onTimeSelect={(time) => handleEndTimeChangeForDay(day, time)}
+                              selectedTime={getWorkEndForDay(day)}
+                              onTimeSelect={(time) => setWorkEndForDay(day, time)}
                               minuteInterval={15}
                               placeholder="Select end time"
                               modalTitle={`Choose ${day} End Time`}
@@ -404,14 +404,14 @@ export function CalendarStep() {
             </View>
 
             <View className="flex-row items-start gap-2">
-              <Pressable className="flex-1 gap-2" onPress={() => handleBothConsultsChange(!isBothConsults)}>
+              <Pressable className="flex-1 gap-2" onPress={() => setBothConsultTypes(!bothConsultTypes)}>
                 <Text className="text-xl leading-none">
                   I offer both
                 </Text>
               </Pressable>
               <Switch
-                checked={isBothConsults}
-                onCheckedChange={(checked) => handleBothConsultsChange(checked)}
+                checked={bothConsultTypes}
+                onCheckedChange={(checked) => setBothConsultTypes(checked)}
               />
             </View>
 
@@ -422,7 +422,7 @@ export function CalendarStep() {
                 onDurationSelect={(duration) => updateCalendar({ consultation: { ...calendar.consultation, duration: duration } })}
                 minuteInterval={15}
                 minDuration={15}
-                maxDuration={240} // 4 hours max
+                maxDuration={525} // 4 hours max
                 modalTitle="Select Session Duration"
               />
             </View>
@@ -431,19 +431,19 @@ export function CalendarStep() {
               <Text variant="h5">Days of the week</Text>
               <WeekdayToggle
                 selectedDays={calendar.consultation.workDays}
-                onToggleDay={handleToggleWorkDay}
+                onToggleDay={toggleConsultDay}
               />
             </View>
 
             <View className="flex-row items-start gap-2">
-              <Pressable className="flex-1 gap-2" onPress={() => handleToggleDifferentStartTimes(!calendar.consultation.isDifferentStartTimes)}>
+              <Pressable className="flex-1 gap-2" onPress={() => setConsultPerDayStartTimesEnabled(!calendar.consultation.isDifferentStartTimes)}>
                 <Text className="text-xl leading-1">
                   Do these days have different start times?
                 </Text>
               </Pressable>
               <Switch
                 checked={calendar.consultation.isDifferentStartTimes}
-                onCheckedChange={handleToggleDifferentStartTimes}
+                onCheckedChange={setConsultPerDayStartTimesEnabled}
               />
             </View>
 
@@ -457,14 +457,14 @@ export function CalendarStep() {
                       <View className="flex-1">
                         <TimePicker
                           selectedTime={startTime}
-                          onTimeSelect={(time) => handleUpdateConsultStartTime(index, time)}
+                          onTimeSelect={(time) => updateConsultStart(index, time)}
                           minuteInterval={15}
                           placeholder="Select appointment time"
                           modalTitle="Choose Time"
                         />
                       </View>
                       {calendar.consultation.startTimes.length > 1 && index > 0 && (
-                        <Button variant="outline" className='h-10 w-10' onPress={() => handleRemoveConsultStartTime(index)}>
+                        <Button variant="outline" className='h-10 w-10' onPress={() => removeConsultStart(index)}>
                           <Icon as={Trash} size={20} />
                         </Button>
                       )}
@@ -473,12 +473,12 @@ export function CalendarStep() {
                   {calendar.consultation.startTimes.length == 0 && (
                     <TimePicker
                       initialTime={defaultConsultInitialTime}
-                      onTimeSelect={handleConsultStartTimeChange}
+                      onTimeSelect={addConsultStart}
                       minuteInterval={15}
                       placeholder="Select appointment time"
                       modalTitle="Choose Time"
                     />)}
-                  <Button variant="outline" onPress={() => handleConsultStartTimeChange(new Date())}>
+                  <Button variant="outline" onPress={() => addConsultStart(new Date())}>
                     <Text>Add Another Start Time</Text>
                     <Icon as={PlusIcon} size={20} />
                   </Button>
@@ -500,14 +500,14 @@ export function CalendarStep() {
                               <View className="flex-1">
                                 <TimePicker
                                   selectedTime={startTime}
-                                  onTimeSelect={(time) => handleUpdateConsultStartTimeForDay(day, index, time)}
+                                  onTimeSelect={(time) => updateConsultStartForDay(day, index, time)}
                                   minuteInterval={15}
                                   placeholder="Select appointment time"
                                   modalTitle={`Choose ${day} Time`}
                                 />
                               </View>
                               {dayStartTimes.length > 1 && index > 0 && (
-                                <Button variant="outline" className='h-10 w-10' onPress={() => handleRemoveConsultStartTimeForDay(day, index)}>
+                                <Button variant="outline" className='h-10 w-10' onPress={() => removeConsultStartForDay(day, index)}>
                                   <Icon as={Trash} size={20} />
                                 </Button>
                               )}
@@ -516,12 +516,12 @@ export function CalendarStep() {
                           {dayStartTimes.length == 0 && (
                             <TimePicker
                               initialTime={defaultConsultInitialTime}
-                              onTimeSelect={(time) => handleConsultStartTimeChangeForDay(day, time)}
+                              onTimeSelect={(time) => addConsultStartForDay(day, time)}
                               minuteInterval={15}
                               placeholder="Select appointment time"
                               modalTitle={`Choose ${day} Time`}
                             />)}
-                          <Button variant="outline" onPress={() => handleConsultStartTimeChangeForDay(day, new Date())}>
+                          <Button variant="outline" onPress={() => addConsultStartForDay(day, new Date())}>
                             <Text>Add Another Start Time</Text>
                             <Icon as={PlusIcon} size={20} />
                           </Button>
