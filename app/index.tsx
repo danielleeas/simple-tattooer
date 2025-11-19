@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/contexts';
 
 import PreviewHome from '@/app/preview/home';
 import ClientHome from '@/app/client/home';
+import ArtistHome from './artist/home';
 
 export default function Screen() {
   const { isAuthenticated, mode, isLoading } = useAuth();
@@ -43,7 +44,7 @@ export default function Screen() {
     <>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
       <SafeAreaView className='flex-1 bg-background'>
-        <ClientHome />
+        <ArtistHome />
       </SafeAreaView>
     </>
   );

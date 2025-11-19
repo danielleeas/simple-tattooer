@@ -83,6 +83,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // First try to initialize auth from stored session
           const { user, session, error } = await initializeAuth();
 
+          console.log("user", user)
+
           if (user && session && !error) {
             // Artist has valid session, get profile and set state
             const artistProfile = await getArtistProfile(user.id);

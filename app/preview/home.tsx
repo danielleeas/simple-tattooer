@@ -1,12 +1,10 @@
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hooks';
 import { Pressable, View, Image, type ImageStyle } from 'react-native';
-import { Settings2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 import { RootState } from '@/lib/redux/store';
 import { setShowPurchase } from '@/lib/redux/slices/ui-slice';
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
-import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import Splash from '@/components/lib/Splash';

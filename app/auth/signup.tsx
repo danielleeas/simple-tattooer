@@ -304,8 +304,7 @@ export default function SignupPage() {
         {/* Loading Overlay */}
         <LoadingOverlay
           visible={signupLoading}
-          title="Creating Account"
-          subtitle="Please wait while we set up your account..."
+          className='bg-transparent'
         />
       </SafeAreaView>
     </>

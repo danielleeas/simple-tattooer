@@ -208,8 +208,7 @@ export default function SigninPage() {
         {/* Loading Overlay */}
         <LoadingOverlay
           visible={signinLoading}
-          title="Signing In"
-          subtitle="Please wait while we sign you in..."
+          className='bg-transparent'
         />
       </SafeAreaView>
     </>

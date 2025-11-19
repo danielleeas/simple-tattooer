@@ -31,7 +31,7 @@ export default function SubscribeModal() {
     }
 
     const handleSigninPage = () => {
-        // router.push('/auth/signin');
+        router.push('/auth/signin');
         dispatch(setShowPurchase(false))
     }
 
