@@ -9,13 +9,22 @@ import { Icon } from '@/components/ui/icon';
 import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { Input } from '@/components/ui/input';
 import { WeekdayToggle } from '@/components/lib/weekday-toggle';
-import { TimePicker } from '@/components/lib/old-time-picker';
+import { TimePicker } from '@/components/lib/time-picker';
 import { Switch } from '@/components/ui/switch';
 import { TimeDurationPicker } from '@/components/lib/time-duration-picker';
 import { capitalizeFirstLetter, sortWeekdays } from '@/lib/utils';
 
 export function CalendarStep() {
   const { calendar, updateCalendar, updateDailyStartTime, updateDailyEndTime, updateConsultationDailyStartTimes } = useSetupWizard();
+
+  // Memoized sorted weekdays to avoid calling hooks conditionally in JSX
+  const sortedWorkDays = useMemo(() => sortWeekdays(calendar.workDays), [calendar.workDays]);
+  const sortedConsultWorkDays = useMemo(
+    () => sortWeekdays(calendar.consultation.workDays),
+    [calendar.consultation.workDays]
+  );
+  // Stable default time to avoid passing new Date() in render
+  const defaultConsultInitialTime = useMemo(() => new Date(2024, 0, 1, 9, 0), []);
 
   const handleToggleDay = (day: string) => {
     const newWorkDays = calendar.workDays.includes(day)
@@ -263,7 +272,6 @@ export function CalendarStep() {
                 <TimePicker
                   selectedTime={calendar.startTime}
                   onTimeSelect={handleStartTimeChange}
-                  format="12h"
                   minuteInterval={15}
                   placeholder="Select appointment time"
                   modalTitle="Choose Time"
@@ -274,7 +282,6 @@ export function CalendarStep() {
                 <TimePicker
                   selectedTime={calendar.endTime}
                   onTimeSelect={handleEndTimeChange}
-                  format="12h"
                   minuteInterval={15}
                   placeholder="Select appointment time"
                   modalTitle="Choose Time"
@@ -284,7 +291,7 @@ export function CalendarStep() {
           ) : (
             // Show per-day time pickers when different hours is enabled
             <View className="gap-4">
-              {useMemo(() => sortWeekdays(calendar.workDays), [calendar.workDays]).map((day) => {
+              {sortedWorkDays.map((day) => {
                 const dateState = getDateTimeState(day);
                 return (
                   <View key={day} className="gap-4 flex-row items-start justify-between">
@@ -305,7 +312,6 @@ export function CalendarStep() {
                             <TimePicker
                               selectedTime={getStartTimeForDay(day)}
                               onTimeSelect={(time) => handleStartTimeChangeForDay(day, time)}
-                              format="12h"
                               minuteInterval={15}
                               placeholder="Select start time"
                               modalTitle={`Choose ${day} Start Time`}
@@ -326,7 +332,6 @@ export function CalendarStep() {
                             <TimePicker
                               selectedTime={getEndTimeForDay(day)}
                               onTimeSelect={(time) => handleEndTimeChangeForDay(day, time)}
-                              format="12h"
                               minuteInterval={15}
                               placeholder="Select end time"
                               modalTitle={`Choose ${day} End Time`}
@@ -453,7 +458,6 @@ export function CalendarStep() {
                         <TimePicker
                           selectedTime={startTime}
                           onTimeSelect={(time) => handleUpdateConsultStartTime(index, time)}
-                          format="12h"
                           minuteInterval={15}
                           placeholder="Select appointment time"
                           modalTitle="Choose Time"
@@ -468,9 +472,8 @@ export function CalendarStep() {
                   ))}
                   {calendar.consultation.startTimes.length == 0 && (
                     <TimePicker
-                      selectedTime={new Date()}
+                      initialTime={defaultConsultInitialTime}
                       onTimeSelect={handleConsultStartTimeChange}
-                      format="12h"
                       minuteInterval={15}
                       placeholder="Select appointment time"
                       modalTitle="Choose Time"
@@ -483,7 +486,7 @@ export function CalendarStep() {
               ) : (
                 // Show per-day start times when different start times is enabled
                 <View className="gap-4">
-                  {useMemo(() => sortWeekdays(calendar.consultation.workDays), [calendar.consultation.workDays]).map((day) => {
+                  {sortedConsultWorkDays.map((day) => {
                     const dayStartTimes = getConsultStartTimesForDay(day);
                     return (
                       <View key={day} className="gap-4 flex-row items-start justify-between">
@@ -498,7 +501,6 @@ export function CalendarStep() {
                                 <TimePicker
                                   selectedTime={startTime}
                                   onTimeSelect={(time) => handleUpdateConsultStartTimeForDay(day, index, time)}
-                                  format="12h"
                                   minuteInterval={15}
                                   placeholder="Select appointment time"
                                   modalTitle={`Choose ${day} Time`}
@@ -513,9 +515,8 @@ export function CalendarStep() {
                           ))}
                           {dayStartTimes.length == 0 && (
                             <TimePicker
-                              selectedTime={new Date()}
+                              initialTime={defaultConsultInitialTime}
                               onTimeSelect={(time) => handleConsultStartTimeChangeForDay(day, time)}
-                              format="12h"
                               minuteInterval={15}
                               placeholder="Select appointment time"
                               modalTitle={`Choose ${day} Time`}

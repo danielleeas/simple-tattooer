@@ -5,7 +5,7 @@ import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import Welcome from './steps/Welcome';
 import { DetailsStep } from './steps/DetailsStep';
 import { BrandingStep } from './steps/BrandingStep';
-// import { CalendarStep } from './steps/CalendarStep';
+import { CalendarStep } from './steps/CalendarStep';
 // import { DepositStep } from './steps/DepositStep';
 // import { BookingRulesStep } from './steps/BookingRulesStep';
 // import { DrawingRulesStep } from './steps/DrawingRulesStep';
@@ -22,7 +22,7 @@ const STEP_COMPONENTS = [
   Welcome,
   DetailsStep,
   BrandingStep,
-  // CalendarStep,
+  CalendarStep,
   // DepositStep,
   // BookingRulesStep,
   // DrawingRulesStep,

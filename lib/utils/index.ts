@@ -11,7 +11,8 @@ export function cn(...inputs: ClassValue[]) {
 
 export const sortWeekdays = (days: string[]): string[] => {
   const weekdayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  return days.sort((a, b) => {
+  // Do not mutate the input array; return a sorted copy instead
+  return [...days].sort((a, b) => {
     const indexA = weekdayOrder.indexOf(a);
     const indexB = weekdayOrder.indexOf(b);
     return indexA - indexB;
@@ -83,4 +84,8 @@ export const compressImage = async (uri: string, quality: number = 0.3): Promise
     // If compression fails, return the original image
     return uri;
   }
+};
+
+export const capitalizeFirstLetter = (str: string) => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
 };
