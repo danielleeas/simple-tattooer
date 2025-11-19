@@ -13,11 +13,13 @@ import { Note } from '@/components/ui/note';
 export function BookingRulesStep() {
 
     const { bookingRules, updateBookingRules } = useSetupWizard();
-    const [sessionColOpened, setSessionColOpened] = useState(true);
     const [sessionDurationColOpened, setSessionDurationColOpened] = useState(true);
+    const [bufferSessionText, setBufferSessionText] = useState(bookingRules.bufferSession.toString());
+    const [sessionCountText, setSessionCountText] = useState(bookingRules.moreThanOne.sessionCount.toString());
+    const [maxSessionsText, setMaxSessionsText] = useState(bookingRules.backToBack.maxSessions.toString());
 
     return (
-        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled'>
             <View className="gap-6 pb-4">
                 <View className="items-center justify-center pb-2">
                     <Image
@@ -52,17 +54,21 @@ export function BookingRulesStep() {
                                 </View>
                                 <View className='w-20'>
                                     <Input
-                                        value={bookingRules.moreThanOne.sessionCount.toString()}
+                                        value={sessionCountText}
+                                        keyboardType="number-pad"
+                                        inputMode="numeric"
+                                        onFocus={() => {
+                                            if (sessionCountText === '0') setSessionCountText('');
+                                        }}
                                         onChangeText={(text) => {
-                                            const num = parseInt(text);
-                                            if (text === '' || isNaN(num)) {
-                                                // Don't update if empty or invalid
-                                                if (text === '') {
-                                                    updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, sessionCount: 0 } });
-                                                }
-                                                return;
-                                            }
-                                            updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, sessionCount: num } });
+                                            const cleaned = text.replace(/[^0-9]/g, '');
+                                            setSessionCountText(cleaned);
+                                        }}
+                                        onBlur={() => {
+                                            const num = parseInt(sessionCountText, 10);
+                                            const next = isNaN(num) ? 0 : num;
+                                            updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, sessionCount: next } });
+                                            setSessionCountText(next.toString());
                                         }}
                                     />
                                 </View>
@@ -80,7 +86,7 @@ export function BookingRulesStep() {
                                             onDurationSelect={(duration) => updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, sessionDuration: duration } })}
                                             minuteInterval={15}
                                             minDuration={15}
-                                            maxDuration={240} // 4 hours max
+                                            maxDuration={525} // 4 hours max
                                             modalTitle="Select Session Duration"
                                         />
                                     </View>
@@ -98,7 +104,7 @@ export function BookingRulesStep() {
                                         onDurationSelect={(duration) => updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, breakTime: duration } })}
                                         minuteInterval={15}
                                         minDuration={15}
-                                        maxDuration={240} // 4 hours max
+                                        maxDuration={525} // 4 hours max
                                         modalTitle="Select Break Duration"
                                     />
                                 </View>
@@ -125,17 +131,21 @@ export function BookingRulesStep() {
                             </View>
                             <View className='w-20'>
                                 <Input
-                                    value={bookingRules.backToBack.maxSessions.toString()}
+                                    value={maxSessionsText}
+                                    keyboardType="number-pad"
+                                    inputMode="numeric"
+                                    onFocus={() => {
+                                        if (maxSessionsText === '0') setMaxSessionsText('');
+                                    }}
                                     onChangeText={(text) => {
-                                        const num = parseInt(text);
-                                        if (text === '' || isNaN(num)) {
-                                            // Don't update if empty or invalid
-                                            if (text === '') {
-                                                updateBookingRules({ backToBack: { ...bookingRules.backToBack, maxSessions: 0 } });
-                                            }
-                                            return;
-                                        }
-                                        updateBookingRules({ backToBack: { ...bookingRules.backToBack, maxSessions: num } });
+                                        const cleaned = text.replace(/[^0-9]/g, '');
+                                        setMaxSessionsText(cleaned);
+                                    }}
+                                    onBlur={() => {
+                                        const num = parseInt(maxSessionsText, 10);
+                                        const next = isNaN(num) ? 0 : num;
+                                        updateBookingRules({ backToBack: { ...bookingRules.backToBack, maxSessions: next } });
+                                        setMaxSessionsText(next.toString());
                                     }}
                                 />
                             </View>
@@ -149,17 +159,21 @@ export function BookingRulesStep() {
                         </View>
                         <View className='w-20'>
                             <Input
-                                value={bookingRules.bufferSession.toString()}
+                                value={bufferSessionText}
+                                keyboardType="number-pad"
+                                inputMode="numeric"
+                                onFocus={() => {
+                                    if (bufferSessionText === '0') setBufferSessionText('');
+                                }}
                                 onChangeText={(text) => {
-                                    const num = parseInt(text);
-                                    if (text === '' || isNaN(num)) {
-                                        // Don't update if empty or invalid
-                                        if (text === '') {
-                                            updateBookingRules({ bufferSession: 0 });
-                                        }
-                                        return;
-                                    }
-                                    updateBookingRules({ bufferSession: num });
+                                    const cleaned = text.replace(/[^0-9]/g, '');
+                                    setBufferSessionText(cleaned);
+                                }}
+                                onBlur={() => {
+                                    const num = parseInt(bufferSessionText, 10);
+                                    const next = isNaN(num) ? 0 : num;
+                                    updateBookingRules({ bufferSession: next });
+                                    setBufferSessionText(next.toString());
                                 }}
                             />
                         </View>
