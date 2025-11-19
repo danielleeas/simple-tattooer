@@ -14,7 +14,6 @@ import { PaymentMethodStep } from './steps/PaymentMethodStep';
 import { WaiverUploadStep } from './steps/WaiverUploadStep';
 import { WizardNavigation } from '@/components/wizard/WizardNavigation';
 import { WizardProgress } from '@/components/wizard/WizardProgress';
-import { LoadingOverlay } from '@/components/lib/loading-overlay';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -70,12 +69,6 @@ export function AnimatedWizard() {
           ))}
         </Animated.View>
       </View>
-
-      {/* Loading Overlay */}
-      <LoadingOverlay 
-        visible={isSaving}
-        className='bg-transparent'
-      />
 
       {/* Navigation Controls */}
       <WizardNavigation 
