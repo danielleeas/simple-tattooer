@@ -1,14 +1,15 @@
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hooks';
 import { Pressable, View, Image, type ImageStyle } from 'react-native';
 import { Settings2 } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 import { RootState } from '@/lib/redux/store';
 import { setShowPurchase } from '@/lib/redux/slices/ui-slice';
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
-import Splash from '@/components/lib/splash';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import Splash from '@/components/lib/Splash';
 
 import MENU from '@/assets/images/icons/menu.png';
 import LOVE from '@/assets/images/icons/love.png';
@@ -32,11 +33,11 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
     const dispatch = useAppDispatch();
 
     const handleMenu = () => {
-        // router.push('/preview/menu');
+        router.push('/preview/menu');
     }
 
     const handleClients = () => {
-        // router.push('/preview/clients/search');
+        router.push('/preview/clients');
     };
 
     const handleToday = () => {
