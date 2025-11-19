@@ -12,13 +12,11 @@ import ALERT from '@/assets/images/icons/alert.png';
 import GEAR from '@/assets/images/icons/gear.png';
 import CALENDAR from '@/assets/images/icons/calendar.png';
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
-import ExtendSubscription from '@/components/lib/extend-modal';
 import { useAppSelector } from '@/lib/redux/hooks';
 import { RootState } from '@/lib/redux/store';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { LoadingOverlay } from '@/components/lib/loading-overlay';
 
 const ICON_STYLE: ImageStyle = {
     height: 56,
@@ -30,7 +28,7 @@ export default function ProductionHome() {
     const { artist, mode } = useAuth();
 
     const welcomeEnabled = useMemo(() => {
-        return artist?.settings?.welcome_screen_enabled || false;
+        return artist?.app?.welcome_screen_enabled || false;
     }, [artist]);
 
 
@@ -73,8 +71,6 @@ export default function ProductionHome() {
                 {showSplash && <Splash isAuthenticated={true} welcome_enabled={welcomeEnabled} mode={mode} />}
 
                 {welcomeEnabled && showWelcome && <Welcome />}
-
-                {mode === 'preview' && <ExtendSubscription />}
 
                 <View className="flex-1 items-center justify-center gap-11 p-4 pb-6 bg-background">
                     <View className="gap-4 flex-1 w-full min-h-32 max-h-44 items-center justify-center flex-row">

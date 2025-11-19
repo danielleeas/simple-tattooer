@@ -14,21 +14,21 @@ export default function Welcome() {
     const [imageError, setImageError] = useState(false);
     const imageOpacity = useSharedValue<number>(0);
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            // Start fade out animation
-            opacity.value = withTiming(0, { duration: 500 });
+    // useEffect(() => {
+    //     const timer = setTimeout(() => {
+    //         // Start fade out animation
+    //         opacity.value = withTiming(0, { duration: 500 });
             
-            // Hide welcome screen after fade out completes
-            setTimeout(() => {
-                dispatch(setShowWelcome(false));
-            }, 500);
-        }, 3000);
+    //         // Hide welcome screen after fade out completes
+    //         setTimeout(() => {
+    //             dispatch(setShowWelcome(false));
+    //         }, 500);
+    //     }, 3000);
         
-        return () => {
-            clearTimeout(timer);
-        };
-    }, []);
+    //     return () => {
+    //         clearTimeout(timer);
+    //     };
+    // }, []);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {
@@ -63,7 +63,7 @@ export default function Welcome() {
                 <Text variant="h2" className="text-center">{artist?.full_name}</Text>
                 <Text variant="h5">{artist?.social_handler ? `${artist?.social_handler}` : '@artist.instagram'}</Text>
             </View>
-            <View className="flex-1 relative">
+            <View className="flex-1 relative bg-red-500">
                 {/* Loading placeholder */}
                 {imageLoading && artist?.photo && (
                     <View className="absolute inset-0 bg-background-secondary items-center justify-center">
