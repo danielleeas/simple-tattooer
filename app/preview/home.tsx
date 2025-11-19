@@ -58,7 +58,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
     };
 
     const handleSettings = () => {
-        // router.push('/preview/settings');
+        router.push('/preview/settings');
     };
 
     return (
