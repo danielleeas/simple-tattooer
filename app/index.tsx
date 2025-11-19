@@ -11,8 +11,6 @@ import ClientHome from '@/app/client/home';
 export default function Screen() {
   const { isAuthenticated, mode, isLoading } = useAuth();
 
-  console.log('isAuthenticated', isAuthenticated);
-
   if (isLoading) {
     return (
       <>

@@ -40,6 +40,10 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
         router.push('/preview/clients');
     };
 
+    const handleDrawings = () => {
+        router.push('/preview/drawings');
+    };
+
     const handleToday = () => {
         // router.push('/preview/today');
         dispatch(setShowPurchase(true));
@@ -47,10 +51,6 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
 
     const handleAlert = () => {
         // router.push('/preview/alert');
-    };
-
-    const handleDrawings = () => {
-        // router.push('/preview/drawings');
     };
 
     const handleCalendar = () => {
