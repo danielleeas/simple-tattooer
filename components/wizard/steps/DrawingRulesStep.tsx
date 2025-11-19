@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Icon } from '@/components/ui/icon';
 import { ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Note } from '@/components/ui/note';
+import { Collapse } from '@/components/lib/collapse';
 
 export function DrawingRulesStep() {
 
@@ -111,14 +112,9 @@ export function DrawingRulesStep() {
                         </>
                     )}
 
-                    <View className="items-start gap-2">
-                        <Pressable className="w-full flex-row items-center justify-between" onPress={() => setRemindTimeColOpened(!remindTimeColOpened)}>
-                            <Text variant="h5">Final Appointment Reminder</Text>
-                            <Icon as={remindTimeColOpened ? ChevronUp : ChevronDown} size={20} />
-                        </Pressable>
-                        <Text className="text-text-secondary">For artists who DONT send drawings in advance</Text>
-                        {remindTimeColOpened && (
-                            <View className="flex-1 gap-2 w-full">
+                    {!drawingRules.isDrawingAdvance && (
+                        <View className="items-start gap-2">
+                            <Collapse title="Final Appointment Reminder" textClassName='text-xl' description="For artists who DONT send drawings in advance">
                                 <RadioGroup value={drawingRules.finalAppointmentRemindTime} onValueChange={(value) => updateDrawingRules({ finalAppointmentRemindTime: value })}>
                                     {timesChunks.map((times) => (
                                         <View key={times.map((time) => time.value).join(',')} className='flex-row items-center gap-3'>
@@ -131,9 +127,9 @@ export function DrawingRulesStep() {
                                         </View>
                                     ))}
                                 </RadioGroup>
-                            </View>
-                        )}
-                    </View>
+                            </Collapse>
+                        </View>
+                    )}
 
                 </View>
             </View>

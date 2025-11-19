@@ -8,7 +8,7 @@ import { BrandingStep } from './steps/BrandingStep';
 import { CalendarStep } from './steps/CalendarStep';
 import { DepositStep } from './steps/DepositStep';
 import { BookingRulesStep } from './steps/BookingRulesStep';
-// import { DrawingRulesStep } from './steps/DrawingRulesStep';
+import { DrawingRulesStep } from './steps/DrawingRulesStep';
 // import { CancellationListStep } from './steps/CancellationListStep';
 // import { PaymentMethodStep } from './steps/PaymentMethodStep';
 // import { WaiverUploadStep } from './steps/WaiverUploadStep';
@@ -25,7 +25,7 @@ const STEP_COMPONENTS = [
   CalendarStep,
   DepositStep,
   BookingRulesStep,
-  // DrawingRulesStep,
+  DrawingRulesStep,
   // CancellationListStep,
   // PaymentMethodStep,
   // WaiverUploadStep,
