@@ -20,6 +20,7 @@ interface CollapseProps {
 	chevronSize?: number;
 	textClassName?: string;
 	description?: string;
+	descriptionClassName?: string;
 }
 
 function Collapse({
@@ -36,6 +37,7 @@ function Collapse({
 	chevronSize = 20,
 	textClassName,
 	description,
+	descriptionClassName
 }: CollapseProps) {
 	const isControlled = typeof open === 'boolean';
 	const [uncontrolledOpen, setUncontrolledOpen] = useState<boolean>(!!defaultOpen);
@@ -54,11 +56,11 @@ function Collapse({
 		>
 			<View className={cn('items-start gap-2', className)}>
 				<CollapsibleTrigger>
-					<View className={cn('w-full flex-row items-start justify-between', triggerClassName)}>
+					<View className={cn('w-full flex-row items-center justify-between', triggerClassName)}>
 						{typeof title === 'string' ? <Text className={cn('flex-1', textClassName)}>{title}</Text> : title}
 						{right ?? (chevron ? <Icon as={isOpen ? ChevronUp : ChevronDown} size={chevronSize} /> : null)}
 					</View>
-					{description && <Text className="text-text-secondary leading-5">{description}</Text>}
+					{description && <Text className={cn("text-text-secondary leading-5", descriptionClassName)}>{description}</Text>}
 				</CollapsibleTrigger>
 				<CollapsibleContent className={cn('w-full', contentClassName)}>
 					{children}

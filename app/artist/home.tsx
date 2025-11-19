@@ -57,8 +57,7 @@ export default function ProductionHome() {
     };
 
     const handleSettings = () => {
-        router.push('/artist/wizard');
-        // router.push('/production/setting');
+        router.push('/artist/settings');
     };
 
     return (

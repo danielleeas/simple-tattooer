@@ -320,14 +320,18 @@ BEGIN
     to_jsonb(r.*) as rule,
     to_jsonb(f.*) as flow,
     to_jsonb(t.*) as template,
-    to_jsonb(l.*) as locations
+    COALESCE(
+      (SELECT jsonb_agg(to_jsonb(l.*)) 
+       FROM locations l 
+       WHERE l.artist_id = a.id), 
+      '[]'::jsonb
+    ) as locations
   FROM artists a
   LEFT JOIN subscriptions s ON s.artist_id = a.id AND s.is_active = true AND s.expiry_date > NOW()
   LEFT JOIN apps p ON p.artist_id = a.id
   LEFT JOIN rules r ON r.artist_id = a.id
   LEFT JOIN flows f ON f.artist_id = a.id
   LEFT JOIN templates t ON t.artist_id = a.id
-  LEFT JOIN locations l ON l.artist_id = a.id
   WHERE a.id = artist_uuid;
 END;
 $$ LANGUAGE plpgsql;

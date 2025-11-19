@@ -3,9 +3,10 @@ import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
 import { setArtist, setSession, clearArtist, setMode, setAuthLoading } from '@/lib/redux/slices/auth-slice';
 import { onAuthStateChange, getArtistProfile, getArtistAppMode } from '@/lib/services/auth-service';
 import { saveSessionToStorage, clearStoredAuthData, initializeAuth } from '@/lib/services/session-service';
+import { Artist } from '@/lib/redux/types';
 
 interface AuthContextType {
-  artist: any;
+  artist: Artist | null;
   session: any;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to determine app mode based on artist and subscription status
-  const determineAppMode = useCallback(async (artist: any): Promise<'preview' | 'production'> => {
+  const determineAppMode = useCallback(async (artist: Artist): Promise<'preview' | 'production'> => {
     if (!artist) {
       return 'preview';
     }
@@ -87,7 +88,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           if (user && session && !error) {
             // Artist has valid session, get profile and set state
-            const artistProfile = await getArtistProfile(user.id);
+            const artistProfile: Artist | null = await getArtistProfile(user.id);
             if (artistProfile) {
               // Profile exists, set artist and session
               dispatch(setArtist(artistProfile));

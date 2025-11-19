@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Image, StyleSheet, Pressable, Platform, type ImageStyle, Modal, Dimensions } from 'react-native';
+import { View, Image, StyleSheet, Pressable, Platform, type ImageStyle, Modal, Dimensions, ActivityIndicator } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import * as ExpoImagePicker from 'expo-image-picker';
@@ -493,6 +493,7 @@ interface CropperContentProps {
 
 function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDone, isCircle = false }: CropperContentProps) {
     const { toast } = useToast();
+    const [isCropping, setIsCropping] = useState(false);
     const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
     const [optimalViewSize, setOptimalViewSize] = useState<{ width: number; height: number } | null>(null);
     const displayRef = useRef({ dx: 0, dy: 0, dispW: 0, dispH: 0, scale: 1 });
@@ -721,30 +722,33 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
     };
 
     const doCrop = async () => {
-        const hasPermission = await requestPermissions();
-        if (!hasPermission) {
-            return;
-        }
-        if (!frameSize || !originalSize) return;
-        const { dx, dy, dispW, dispH, scale } = displayRef.current;
-        const rx = rectX.value, ry = rectY.value, rw = rectW.value, rh = rectH.value;
-        // Intersect rect with displayed image area
-        const ix = Math.max(rx, dx);
-        const iy = Math.max(ry, dy);
-        const ix2 = Math.min(rx + rw, dx + dispW);
-        const iy2 = Math.min(ry + rh, dy + dispH);
-        const iW = Math.max(0, ix2 - ix);
-        const iH = Math.max(0, iy2 - iy);
-        if (iW < 1 || iH < 1) { onCancel(); return; }
-        let originX = (ix - dx) / scale;
-        let originY = (iy - dy) / scale;
-        let cropW = iW / scale;
-        let cropH = iH / scale;
-        originX = Math.max(0, Math.min(originX, originalSize.width - 1));
-        originY = Math.max(0, Math.min(originY, originalSize.height - 1));
-        cropW = Math.min(cropW, originalSize.width - originX);
-        cropH = Math.min(cropH, originalSize.height - originY);
+        if (isCropping) return;
+        setIsCropping(true);
         try {
+            const hasPermission = await requestPermissions();
+            if (!hasPermission) {
+                return;
+            }
+            if (!frameSize || !originalSize) return;
+            const { dx, dy, dispW, dispH, scale } = displayRef.current;
+            const rx = rectX.value, ry = rectY.value, rw = rectW.value, rh = rectH.value;
+            // Intersect rect with displayed image area
+            const ix = Math.max(rx, dx);
+            const iy = Math.max(ry, dy);
+            const ix2 = Math.min(rx + rw, dx + dispW);
+            const iy2 = Math.min(ry + rh, dy + dispH);
+            const iW = Math.max(0, ix2 - ix);
+            const iH = Math.max(0, iy2 - iy);
+            if (iW < 1 || iH < 1) { onCancel(); return; }
+            let originX = (ix - dx) / scale;
+            let originY = (iy - dy) / scale;
+            let cropW = iW / scale;
+            let cropH = iH / scale;
+            originX = Math.max(0, Math.min(originX, originalSize.width - 1));
+            originY = Math.max(0, Math.min(originY, originalSize.height - 1));
+            cropW = Math.min(cropW, originalSize.width - originX);
+            cropH = Math.min(cropH, originalSize.height - originY);
+
             const inputUri = await ensureLocalFileUri(uri);
 
             console.log("Croping URL", inputUri)
@@ -757,6 +761,10 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
         } catch (err) {
             console.error('Crop failed', err);
             onCancel();
+        } finally {
+            setTimeout(() => {
+                setIsCropping(false);
+            }, 2000);
         }
     };
 
@@ -847,8 +855,8 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
                     <Button variant="outline" className='w-20' onPress={onCancel}>
                         <Text>Cancel</Text>
                     </Button>
-                    <Button className='w-20' onPress={doCrop}>
-                        <Text>Crop</Text>
+                    <Button className='w-20' onPress={doCrop} disabled={isCropping}>
+                        {isCropping ? <ActivityIndicator size="small" /> : <Text>Crop</Text>}
                     </Button>
                 </View>
             </View>

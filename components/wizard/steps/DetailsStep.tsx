@@ -135,7 +135,7 @@ export function DetailsStep() {
           </View>
           <View className="gap-1">
             <View className='flex-row gap-2 items-center'>
-              <Text variant="h5" style={{ width: 290 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Edit/Copy Personal Booking Link</Text>
+              <Text variant="h5" className='flex-1' style={{ maxWidth: 290 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Edit/Copy Personal Booking Link</Text>
               <View className="relative">
                 <TouchableOpacity
                   onPress={() => copyBookingLink(details.bookingLinkSuffix)}
@@ -213,7 +213,7 @@ export function DetailsStep() {
             ) : (
               <Pressable className="p-3 bg-background border border-border-white rounded-sm h-10" onPress={() => setIsLocationModalVisible(true)} />
             )}
-            <Text className='text-text-secondary w-full leading-none' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>You can set up guest spots and travel dates in your calendar</Text>
+            <Text className='text-text-secondary w-full leading-none'>You can set up guest spots and travel dates in your calendar</Text>
           </View>
           <View className="gap-2">
             <Text variant="h5">Social Media Handle</Text>

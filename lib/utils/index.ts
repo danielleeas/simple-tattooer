@@ -95,3 +95,19 @@ export const compressImage = async (uri: string, quality: number = 0.3): Promise
 export const capitalizeFirstLetter = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
+
+export const uuidv4 = (): string => {
+  // Use native implementation if available
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maybeCrypto = (global as any)?.crypto;
+  if (maybeCrypto && typeof maybeCrypto.randomUUID === 'function') {
+      return maybeCrypto.randomUUID();
+  }
+
+  // Fallback generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+  });
+};
