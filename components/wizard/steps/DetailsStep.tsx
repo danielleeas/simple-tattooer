@@ -3,20 +3,15 @@ import { View, Image, Pressable, TouchableOpacity } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
 import { ChevronDown, PlusIcon } from 'lucide-react-native';
-import { Icon } from '@/components/ui/icon';
-import { THEME } from '@/lib/theme';
 import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Input } from '@/components/ui/input';
 import { LocationModal, LocationData } from '@/components/lib/location-modal';
 import { checkBookingLinkAvailability } from '@/lib/services/auth-service';
+import { BASE_URL } from '@/lib/constants';
 
 import DeleteIcon from '@/assets/images/icons/delete.png';
-import { TextInput } from 'react-native-gesture-handler';
-
-const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || 'https://simpletattooer.com';
 
 export function DetailsStep() {
   const { details, updateDetails, bookingLinkError, setBookingLinkError } = useSetupWizard();

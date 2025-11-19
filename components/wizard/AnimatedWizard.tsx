@@ -3,7 +3,7 @@ import { View, Animated, Dimensions } from 'react-native';
 import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 
 import Welcome from './steps/Welcome';
-// import { DetailsStep } from './steps/DetailsStep';
+import { DetailsStep } from './steps/DetailsStep';
 // import { BrandingStep } from './steps/BrandingStep';
 // import { CalendarStep } from './steps/CalendarStep';
 // import { DepositStep } from './steps/DepositStep';
@@ -20,7 +20,7 @@ const { width: screenWidth } = Dimensions.get('window');
 
 const STEP_COMPONENTS = [
   Welcome,
-  // DetailsStep,
+  DetailsStep,
   // BrandingStep,
   // CalendarStep,
   // DepositStep,
