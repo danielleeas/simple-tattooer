@@ -9,7 +9,7 @@ import { CalendarStep } from './steps/CalendarStep';
 import { DepositStep } from './steps/DepositStep';
 import { BookingRulesStep } from './steps/BookingRulesStep';
 import { DrawingRulesStep } from './steps/DrawingRulesStep';
-// import { CancellationListStep } from './steps/CancellationListStep';
+import { CancellationListStep } from './steps/CancellationListStep';
 // import { PaymentMethodStep } from './steps/PaymentMethodStep';
 // import { WaiverUploadStep } from './steps/WaiverUploadStep';
 import { WizardNavigation } from '@/components/wizard/WizardNavigation';
@@ -26,7 +26,7 @@ const STEP_COMPONENTS = [
   DepositStep,
   BookingRulesStep,
   DrawingRulesStep,
-  // CancellationListStep,
+  CancellationListStep,
   // PaymentMethodStep,
   // WaiverUploadStep,
   // Add more steps here as needed

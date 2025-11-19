@@ -5,15 +5,13 @@ import { Text } from '@/components/ui/text';
 import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Icon } from '@/components/ui/icon';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { TimeDurationPicker } from '@/components/lib/time-duration-picker';
 import { Note } from '@/components/ui/note';
+import { Collapse } from '@/components/lib/collapse';
 
 export function BookingRulesStep() {
 
     const { bookingRules, updateBookingRules } = useSetupWizard();
-    const [sessionDurationColOpened, setSessionDurationColOpened] = useState(true);
     const [bufferSessionText, setBufferSessionText] = useState(bookingRules.bufferSession.toString());
     const [sessionCountText, setSessionCountText] = useState(bookingRules.moreThanOne.sessionCount.toString());
     const [maxSessionsText, setMaxSessionsText] = useState(bookingRules.backToBack.maxSessions.toString());
@@ -29,16 +27,16 @@ export function BookingRulesStep() {
                     />
                     <Text variant="h6" className="text-center uppercase">SET BOOKING</Text>
                     <Text variant="h6" className="text-center uppercase leading-none">RULES</Text>
-                    <Text className="text-center mt-2 text-text-secondary">Set how your days are structured. You can</Text>
-                    <Text className="text-center text-text-secondary">update this later anytime in settings. </Text>
+                    <Text className="text-center mt-2 text-text-secondary leading-none" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Set how your days are structured. You can</Text>
+                    <Text className="text-center text-text-secondary" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>update this later anytime in settings. </Text>
                 </View>
                 <View className="gap-6">
                     <View className="flex-row items-start gap-2">
-                        <Pressable className="flex-1 gap-2" onPress={() => updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, isMoreOne: !bookingRules.moreThanOne.isMoreOne } })}>
+                        <Pressable className="flex-1 gap-1" onPress={() => updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, isMoreOne: !bookingRules.moreThanOne.isMoreOne } })}>
                             <Text className="text-xl leading-6">
                                 Do you tattoo more than one session per day?
                             </Text>
-                            <Text className="text-text-secondary leading-5">If  yes, you'll be able to set up your days here</Text>
+                            <Text className="text-text-secondary leading-none" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>If  yes, you'll be able to set up your days here</Text>
                         </Pressable>
                         <Switch
                             checked={bookingRules.moreThanOne.isMoreOne}
@@ -50,7 +48,7 @@ export function BookingRulesStep() {
                         <>
                             <View className="flex-row w-full gap-4 items-center">
                                 <View className='flex-1 gap-2'>
-                                    <Text variant="h5">How many sessions per day?</Text>
+                                    <Text variant="h5" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>How many sessions per day?</Text>
                                 </View>
                                 <View className='w-20'>
                                     <Input
@@ -75,28 +73,22 @@ export function BookingRulesStep() {
                             </View>
 
                             <View className="items-start gap-2">
-                                <Pressable className="w-full flex-row items-center justify-between" onPress={() => setSessionDurationColOpened(!sessionDurationColOpened)}>
-                                    <Text variant="h5">How long is each session?</Text>
-                                    <Icon as={sessionDurationColOpened ? ChevronUp : ChevronDown} size={20} />
-                                </Pressable>
-                                {sessionDurationColOpened && (
-                                    <View className="gap-2 w-full">
-                                        <TimeDurationPicker
-                                            selectedDuration={bookingRules.moreThanOne.sessionDuration}
-                                            onDurationSelect={(duration) => updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, sessionDuration: duration } })}
-                                            minuteInterval={15}
-                                            minDuration={15}
-                                            maxDuration={525} // 4 hours max
-                                            modalTitle="Select Session Duration"
-                                        />
-                                    </View>
-                                )}
+                                <Collapse title="How long is each session?" textClassName='text-xl'>
+                                    <TimeDurationPicker
+                                        selectedDuration={bookingRules.moreThanOne.sessionDuration}
+                                        onDurationSelect={(duration) => updateBookingRules({ moreThanOne: { ...bookingRules.moreThanOne, sessionDuration: duration } })}
+                                        minuteInterval={15}
+                                        minDuration={15}
+                                        maxDuration={525} // 4 hours max
+                                        modalTitle="Select Session Duration"
+                                    />
+                                </Collapse>
                             </View>
 
                             <View className="gap-4">
                                 <View className='flex-1 gap-1'>
                                     <Text variant="h5">Break time between sessions</Text>
-                                    <Text className="text-text-secondary leading-none">Use this to space out your bookings during the day.</Text>
+                                    <Text className="text-text-secondary leading-none" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Use this to space out your bookings during the day.</Text>
                                 </View>
                                 <View className='flex-1 w-full'>
                                     <TimeDurationPicker
@@ -125,9 +117,9 @@ export function BookingRulesStep() {
                     </View>
 
                     {bookingRules.backToBack.isBackToBack && (
-                        <View className="flex-row w-full gap-4">
-                            <View className='flex-1'>
-                                <Text variant="h5">Max sessions back-to-back</Text>
+                        <View className="flex-row w-full gap-4 items-center">
+                            <View className='flex-1 gap-1'>
+                                <Text variant="h5" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Max sessions back-to-back</Text>
                             </View>
                             <View className='w-20'>
                                 <Input
@@ -152,10 +144,10 @@ export function BookingRulesStep() {
                         </View>
                     )}
 
-                    <View className="flex-row w-full gap-4">
-                        <View className='flex-1'>
+                    <View className="flex-row w-full gap-4 items-start">
+                        <View className='flex-1 gap-1'>
                             <Text variant="h5">Buffer between sessions</Text>
-                            <Text className="text-text-secondary">How many days in between sessions or back to back sets?</Text>
+                            <Text className="text-text-secondary leading-none">How many days in between sessions or back to back sets?</Text>
                         </View>
                         <View className='w-20'>
                             <Input

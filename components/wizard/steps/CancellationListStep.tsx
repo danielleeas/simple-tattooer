@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 export function CancellationListStep() {
 
     const { cancellationList, updateCancellationList } = useSetupWizard();
-    const [remindTimeColOpened, setRemindTimeColOpened] = useState(false);
+    const [maxReschedulesAllowedText, setMaxReschedulesAllowedText] = useState(cancellationList.maxReschedulesAllowed);
 
     const dayChunks = [
         [{ value: '14', label: '14 Days' }, { value: '30', label: '30 Days' }],
@@ -61,14 +61,32 @@ export function CancellationListStep() {
                             <Text variant="h5">Maximum Reschedules  Allowed</Text>
                         </View>
                         <View className='w-20'>
-                            <Input className="h-8" value={cancellationList.maxReschedulesAllowed} onChangeText={(text) => updateCancellationList({ maxReschedulesAllowed: text })} />
+                            <Input
+                                className="h-8"
+                                value={maxReschedulesAllowedText}
+                                keyboardType="number-pad"
+                                inputMode="numeric"
+                                onFocus={() => {
+                                    if (maxReschedulesAllowedText === '0') setMaxReschedulesAllowedText('');
+                                }}
+                                onChangeText={(text) => {
+                                    const cleaned = text.replace(/[^0-9]/g, '');
+                                    setMaxReschedulesAllowedText(cleaned);
+                                }}
+                                onBlur={() => {
+                                    const num = parseInt(maxReschedulesAllowedText, 10);
+                                    const next = isNaN(num) ? '0' : String(num);
+                                    updateCancellationList({ maxReschedulesAllowed: next });
+                                    setMaxReschedulesAllowedText(next);
+                                }}
+                            />
                         </View>
                     </View>
 
                     <View className="items-start gap-2">
-                        <Pressable className="w-full flex-row items-center justify-between" onPress={() => setRemindTimeColOpened(!remindTimeColOpened)}>
+                        <View className="w-full flex-row items-center justify-between" >
                             <Text variant="h5">Reschedule Booking Window</Text>
-                        </Pressable>
+                        </View>
                         <Text className="text-text-secondary">How far from their rescheduled appointment (or your next availability) can clients book</Text>
                         <View className="flex-1 gap-2 w-full">
                             <RadioGroup value={cancellationList.rescheduleTime} onValueChange={(value) => updateCancellationList({ rescheduleTime: value })}>

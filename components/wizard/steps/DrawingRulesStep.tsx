@@ -12,7 +12,6 @@ import { Collapse } from '@/components/lib/collapse';
 export function DrawingRulesStep() {
 
     const { drawingRules, updateDrawingRules } = useSetupWizard();
-    const [remindTimeColOpened, setRemindTimeColOpened] = useState(false);
 
     const timesChunks = [
         [{ value: '2', label: 'Morning of' }, { value: '4', label: '4 Hours' }],
