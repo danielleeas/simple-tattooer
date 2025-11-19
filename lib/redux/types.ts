@@ -15,11 +15,11 @@ export interface Artist {
     social_handler: string;
     subscription_active: boolean;
     subscription_type?: string;
-    created_at: string;
     subscription?: Subscriptions;
     app?: Apps;
     rule?: Rules;
     flow?: Flows;
+    template?: Templates;
     locations?: Locations[];
 }
 

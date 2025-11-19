@@ -3,6 +3,13 @@ import { SignupData, Artist, Subscriptions } from '@/lib/redux/types';
 import { withRetryAndTimeout, safeAsync } from '@/lib/utils';
 import { BASE_URL } from '@/lib/constants';
 
+// Safely build a URL by removing duplicate slashes at the boundary
+const buildBookingLink = (base: string, suffix: string): string => {
+  const normalizedBase = base.replace(/\/+$/, '');
+  const normalizedSuffix = suffix.replace(/^\/+/, '');
+  return `${normalizedBase}/${normalizedSuffix}`;
+}
+
 // Sign up user with Supabase Auth
 export const signUpUser = async (signupData: SignupData): Promise<{ user: any; session: any; error: any }> => {
   try {
@@ -11,7 +18,7 @@ export const signUpUser = async (signupData: SignupData): Promise<{ user: any; s
       password: signupData.password,
       options: {
         data: {
-          name: signupData.name,
+          full_name: signupData.name,
         }
       }
     });
@@ -47,7 +54,7 @@ export const generateBookingLink = async (fullName: string) => {
     const { data, error } = await supabase
       .from('artists')
       .select('booking_link')
-      .eq('booking_link', `${BASE_URL}/${bookingLink}`)
+      .eq('booking_link', buildBookingLink(BASE_URL, bookingLink))
       .single();
     
     if (error && error.code === 'PGRST116') {
@@ -70,7 +77,7 @@ export const generateBookingLink = async (fullName: string) => {
 export const createArtistProfile = async (userId: string, artistData: { full_name: string; email: string }): Promise<Artist | null> => {
   try {
     const bookingLinkString = await generateBookingLink(artistData.full_name);
-    const booking_link = `${BASE_URL}/${bookingLinkString}`;
+    const booking_link = buildBookingLink(BASE_URL, bookingLinkString);
 
     const artistProfileData = {
       id: userId,
@@ -167,26 +174,6 @@ export const getArtistProfile = async (artistId: string): Promise<Artist | null>
 
         const artist = artistData[0];
 
-        // Get active subscription data using the optimized function (non-blocking)
-        const subscriptionPromise = (async () => {
-          try {
-            const { data: subscriptionData, error: subscriptionError } = await supabase
-              .rpc('get_active_subscription', { artist_uuid: artistId });
-            
-            if (subscriptionError) {
-              console.warn('Error fetching subscription data:', subscriptionError);
-              return null;
-            }
-            return subscriptionData && subscriptionData.length > 0 ? subscriptionData[0] : null;
-          } catch (error) {
-            console.warn('Error fetching subscription data:', error);
-            return null;
-          }
-        })();
-
-        // Don't wait for subscription data - return artist profile immediately
-        const subscription = await subscriptionPromise;
-
         // Transform the data to match the Artist interface
         return {
           id: artist.artist_id,
@@ -199,12 +186,11 @@ export const getArtistProfile = async (artistId: string): Promise<Artist | null>
           social_handler: artist.social_handler,
           subscription_active: artist.subscription_active,
           subscription_type: artist.subscription_type,
-          created_at: artist.settings?.created_at || new Date().toISOString(),
-          subscription: subscription || undefined,
-          // Include all the additional data from the database function
+          subscription: artist.subscription || undefined,
           app: artist.app || undefined,
           rule: artist.rule || undefined,
           flow: artist.flow || undefined,
+          template: artist.template || undefined,
           locations: artist.locations || undefined
         };
       },
@@ -521,7 +507,7 @@ export const checkBookingLinkAvailability = async (
   }
 
   try {
-    const fullBookingLink = `${BASE_URL}/${bookingLinkSuffix}`;
+    const fullBookingLink = buildBookingLink(BASE_URL, bookingLinkSuffix);
     
     // Build query to exclude current artist if provided
     let query = supabase

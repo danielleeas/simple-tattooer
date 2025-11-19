@@ -26,7 +26,7 @@ export default function SubscribeModal() {
     }
 
     const handleSubscribePage = () => {
-        // router.push('/preview/subscribe?type=first');
+        router.push('/preview/subscribe?type=first');
         dispatch(setShowPurchase(false))
     }
 

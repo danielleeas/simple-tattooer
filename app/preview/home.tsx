@@ -70,11 +70,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
             >
                 <View className='flex-1 relative overflow-hidden'>
                     {showSplash && <Splash isAuthenticated={false} welcome_enabled={false} mode={mode} />}
-                    <View className='z-10 absolute top-4 right-4 h-10 w-10 items-center justify-center'>
-                        <Pressable onPress={() => dispatch(setShowPurchase(true))}>
-                            <Icon as={Settings2} size={24} />
-                        </Pressable>
-                    </View>
+
                     <View className="flex-1 items-center justify-center gap-11 p-4 pb-6 bg-background">
                         <View className="gap-4 flex-1 w-full min-h-32 max-h-44 items-center justify-center flex-row">
                             <View className='flex-1 h-full items-center justify-end'>
@@ -103,7 +99,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
                                 <Text variant="h5" >Chase Your Dreams</Text>
                                 <Button onPress={handleToday} size='sm' className='items-center justify-center py-2 h-8 px-3 gap-2 mt-3 border border-border rounded-lg bg-background-secondary'>
                                     <Image source={require('@/assets/images/icons/info_circle.png')} style={{ width: 16, height: 16 }} resizeMode="contain" />
-                                    <Text className='text-xs text-text-secondary'>Subscribe to unlock full features</Text>
+                                    <Text className='text-xs text-text-secondary'>Tap “Today” to subscribe</Text>
                                 </Button>
                             </Pressable>
                         </View>
