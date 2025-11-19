@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import Splash from '@/components/lib/Splash';
+import SubscribeModal from '@/components/lib/subscribe-modal';
 
 import MENU from '@/assets/images/icons/menu.png';
 import LOVE from '@/assets/images/icons/love.png';
@@ -45,12 +46,11 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
     };
 
     const handleToday = () => {
-        // router.push('/preview/today');
         dispatch(setShowPurchase(true));
     };
 
     const handleAlert = () => {
-        // router.push('/preview/alert');
+        router.push('/preview/alert');
     };
 
     const handleCalendar = () => {
@@ -131,6 +131,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
                     </View>
                 </View>
             </StableGestureWrapper>
+            <SubscribeModal />
         </>
     );
 }

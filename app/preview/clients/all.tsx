@@ -74,8 +74,6 @@ export default function AllClients() {
         setShowResults(false);
     };
 
-    console.log('showResults', showResults);
-
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
