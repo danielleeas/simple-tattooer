@@ -21,6 +21,8 @@ interface CollapseProps {
 	textClassName?: string;
 	description?: string;
 	descriptionClassName?: string;
+	comment?: string;
+	commentClassName?: string;
 }
 
 function Collapse({
@@ -37,7 +39,9 @@ function Collapse({
 	chevronSize = 20,
 	textClassName,
 	description,
-	descriptionClassName
+	descriptionClassName,
+	comment,
+	commentClassName
 }: CollapseProps) {
 	const isControlled = typeof open === 'boolean';
 	const [uncontrolledOpen, setUncontrolledOpen] = useState<boolean>(!!defaultOpen);
@@ -61,6 +65,7 @@ function Collapse({
 						{right ?? (chevron ? <Icon as={isOpen ? ChevronUp : ChevronDown} size={chevronSize} /> : null)}
 					</View>
 					{description && <Text className={cn("text-text-secondary leading-5", descriptionClassName)}>{description}</Text>}
+					{comment && <Text className={cn("text-text-secondary leading-5", commentClassName)}>{comment}</Text>}
 				</CollapsibleTrigger>
 				<CollapsibleContent className={cn('w-full', contentClassName)}>
 					{children}

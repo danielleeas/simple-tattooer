@@ -77,14 +77,16 @@ const generateNumberOptions = (max: number, interval: number = 1): DurationItem[
 const formatDuration = (duration: number): string => {
     const hours = Math.floor(duration / 60);
     const minutes = duration % 60;
-    
-    if (hours > 0 && minutes > 0) {
-        return `${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-        return `${hours}h`;
-    } else {
-        return `${minutes}m`;
+
+    const parts: string[] = [];
+    if (hours > 0) {
+        parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
     }
+    // Show minutes if there are any, or if duration is zero to avoid empty string
+    if (minutes > 0 || parts.length === 0) {
+        parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+    }
+    return parts.join(' ');
 };
 
 // Individual scroll picker component for numbers

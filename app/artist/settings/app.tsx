@@ -1,38 +1,23 @@
-import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
-import { Text } from "@/components/ui/text";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, Stack } from "expo-router";
-import Header from "@/components/lib/Header";
-
-import { View, Image, Pressable, Modal, TouchableOpacity, ActivityIndicator, Keyboard, Animated } from "react-native";
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, X } from "lucide-react-native";
+import { Eye, EyeOff } from "lucide-react-native";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { View, Image, ActivityIndicator, Keyboard, Animated } from "react-native";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+
+import Header from "@/components/lib/Header";
+import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
+import { Input } from "@/components/ui/input";
 import { THEME } from "@/lib/theme";
-import * as ExpoImagePicker from 'expo-image-picker';
-import { AvatarPicker } from "@/components/lib/avatar-picker";
-import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { useToast, useAuth } from "@/lib/contexts";
-import { LocationModal, LocationData } from '@/components/lib/location-modal';
-import { compressImage } from "@/lib/utils";
-import { checkBookingLinkAvailability } from "@/lib/services/auth-service";
-import { BASE_URL } from "@/lib/constants";
-import * as Clipboard from 'expo-clipboard';
-import { uploadFileToStorage } from "@/lib/services/storage-service";
-// import { deleteAccount, updateArtistInfo, updateArtistLocations, updateGeneralSettings, updatePassword } from '@/lib/services/settings-service';
-import { fetchUpdatedArtistProfile, setArtist } from "@/lib/redux/slices/auth-slice";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 import { useAppDispatch } from "@/lib/redux/hooks";
-import { Locations } from "@/lib/redux/types";
 import CustomModal from "@/components/lib/custom-modal";
-import { ensureCalendarPermissions } from "@/lib/services/device-calendar";
 import { LoadingOverlay } from "@/components/lib/loading-overlay";
-
+import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
 import { Collapse } from "@/components/lib/collapse";
-
 import { Details } from "@/components/pages/your-app/details";
 import { Control } from "@/components/pages/your-app/control";
 import { BrandingDataProps, ControlDataProps } from "@/components/pages/your-app/type";
@@ -96,7 +81,6 @@ export default function YourApp() {
         confirmPassword: '',
     });
     const [saving, setSaving] = useState(false);
-    const [saveProgress, setSaveProgress] = useState<number>(0);
     const [saveMessage, setSaveMessage] = useState<string>('Starting...');
     const saveBarAnim = useRef(new Animated.Value(0)).current;
 
@@ -337,7 +321,6 @@ export default function YourApp() {
         if (!artist?.id || !initialBrandingData || !initialControlData) return;
         try {
             setSaving(true);
-            setSaveProgress(0);
             setSaveMessage('Starting...');
 
             const result = await saveArtistSettings(
@@ -345,7 +328,6 @@ export default function YourApp() {
                 { branding: brandingData, control: controlData },
                 { branding: initialBrandingData, control: initialControlData },
                 (p, label) => {
-                    if (typeof p === 'number') setSaveProgress(Math.max(0, Math.min(1, p)));
                     if (label) setSaveMessage(label);
                 }
             );

@@ -101,13 +101,28 @@ export const uuidv4 = (): string => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maybeCrypto = (global as any)?.crypto;
   if (maybeCrypto && typeof maybeCrypto.randomUUID === 'function') {
-      return maybeCrypto.randomUUID();
+    return maybeCrypto.randomUUID();
   }
 
   // Fallback generator
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
   });
+};
+
+export const convertTimeToISOString = (time: string) => {
+  // time is in format "HH:MM" (e.g., "07:50")
+  const [hours, minutes] = time.split(':');
+  const date = new Date();
+  date.setHours(parseInt(hours, 10));
+  date.setMinutes(parseInt(minutes, 10));
+  date.setSeconds(0);
+  date.setMilliseconds(0);
+  return date;
+};
+
+export const convertTimeToHHMMString = (time: Date) => {
+  return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
 };

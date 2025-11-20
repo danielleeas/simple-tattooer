@@ -26,7 +26,7 @@ export default function MakeItYours() {
     };
 
     const handlleYourFlow = () => {
-        // router.push('/production/setting/your-flow');
+        router.push('/artist/settings/flow');
     }
 
     const handleYourApp = () => {
