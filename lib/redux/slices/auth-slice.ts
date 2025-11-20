@@ -64,7 +64,7 @@ export const signupWithSubscription = createAsyncThunk(
       // Step 4: Save session and artist data to storage for persistence
       await saveSessionToStorage(session);
       if (artistProfile) {
-        await saveArtistToStorage(artistProfile);
+        await saveArtistToStorage(artistProfile as any);
       }
 
       return { artist: artistProfile, session };
@@ -133,7 +133,7 @@ export const signinWithAuth = createAsyncThunk(
 
       // Step 3: Save session and artist data to storage for persistence
       await saveSessionToStorage(session);
-      await saveArtistToStorage(artistProfile);
+      await saveArtistToStorage(artistProfile as any);
 
       return { artist: artistProfile, session };
     } catch (error: any) {
@@ -177,6 +177,17 @@ export const authSlice = createSlice({
           ...state.artist,
           rule: {
             ...state.artist.rule,
+            ...action.payload
+          }
+        };
+      }
+    },
+    updateArtistTemplates: (state, action: PayloadAction<any>) => {
+      if (state.artist) {
+        state.artist = {
+          ...state.artist,
+          template: {
+            ...state.artist.template,
             ...action.payload
           }
         };
@@ -315,6 +326,7 @@ export const {
   setArtist,
   setSession,
   updateArtistRules,
+  updateArtistTemplates,
   updateArtistFlows,
   clearArtist,
   setAuthLoading,

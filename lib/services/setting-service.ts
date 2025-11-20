@@ -1,6 +1,8 @@
 import { supabase } from '../supabase';
 import type { BrandingDataProps, ControlDataProps } from '@/components/pages/your-app/type';
 import type { WorkDayDataProps, BookingDataProps, DrawingDataProps } from '@/components/pages/your-flow/type';
+import type { DepositDataProps, PolicyDataProps, TemplateDataProps } from '@/components/pages/your-rule/type';
+import { uploadFileToStorage, detectMimeTypeFromUri, extractNameFromUri } from './storage-service';
 
 export const updateBookingQuestions = async (
     artistId: string,
@@ -122,15 +124,72 @@ export const saveArtistSettings = async (
             artistUpdates.social_handler = current.branding.socialMediaHandle;
         }
         if (current.branding.profilePhoto !== initial.branding.profilePhoto) {
-            artistUpdates.photo = current.branding.profilePhoto;
+            if (current.branding.profilePhoto) {
+                progress(0.05, 'Uploading profile photo');
+                const uri = current.branding.profilePhoto;
+                const result = await uploadFileToStorage(
+                    {
+                        uri,
+                        name: extractNameFromUri(uri, 'profile.jpg'),
+                        type: detectMimeTypeFromUri(uri),
+                        size: 0,
+                    },
+                    'artist-photos',
+                    `${artistId}/profile`
+                );
+                if (!result.success || !result.url) {
+                    throw new Error(result.error || 'Failed to upload profile photo');
+                }
+                artistUpdates.photo = result.url;
+            } else {
+                artistUpdates.photo = null;
+            }
         }
         if (current.branding.avatar !== initial.branding.avatar) {
-            artistUpdates.avatar = current.branding.avatar;
+            if (current.branding.avatar) {
+                progress(0.08, 'Uploading avatar');
+                const uri = current.branding.avatar;
+                const result = await uploadFileToStorage(
+                    {
+                        uri,
+                        name: extractNameFromUri(uri, 'avatar.jpg'),
+                        type: detectMimeTypeFromUri(uri),
+                        size: 0,
+                    },
+                    'artist-photos',
+                    `${artistId}/avatar`
+                );
+                if (!result.success || !result.url) {
+                    throw new Error(result.error || 'Failed to upload avatar');
+                }
+                artistUpdates.avatar = result.url;
+            } else {
+                artistUpdates.avatar = null;
+            }
         }
 
         const appUpdates: Record<string, any> = {};
         if (current.branding.watermarkImage !== initial.branding.watermarkImage) {
-            appUpdates.watermark_image = current.branding.watermarkImage || null;
+            if (current.branding.watermarkImage) {
+                progress(0.1, 'Uploading watermark image');
+                const uri = current.branding.watermarkImage;
+                const result = await uploadFileToStorage(
+                    {
+                        uri,
+                        name: extractNameFromUri(uri, 'watermark.jpg'),
+                        type: detectMimeTypeFromUri(uri),
+                        size: 0,
+                    },
+                    'artist-photos',
+                    `${artistId}/watermark`
+                );
+                if (!result.success || !result.url) {
+                    throw new Error(result.error || 'Failed to upload watermark image');
+                }
+                appUpdates.watermark_image = result.url;
+            } else {
+                appUpdates.watermark_image = null;
+            }
         }
         if (current.branding.watermarkText !== initial.branding.watermarkText) {
             appUpdates.watermark_text = current.branding.watermarkText || null;
@@ -402,6 +461,279 @@ export const saveFlowSettings = async (
         return { success: true };
     } catch (error) {
         console.error('Error saving flow settings:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+        };
+    }
+};
+
+export const saveRuleSettings = async (
+    artistId: string,
+    current: { deposit: DepositDataProps; policy: PolicyDataProps; template: TemplateDataProps },
+    initial: { deposit: DepositDataProps; policy: PolicyDataProps; template: TemplateDataProps },
+    onProgress?: ProgressFn
+): Promise<{ success: boolean; error?: string; ruleUrls?: { waiver_text?: string; privacy_policy?: string; terms_of_condition?: string } }> => {
+    try {
+        const progress = (p: number, label?: string) => {
+            if (onProgress) onProgress(p, label);
+        };
+
+        // Compute diffs for rules table
+        const ruleUpdates: Record<string, any> = {};
+        // Deposit
+        if (current.deposit.depositAmount !== initial.deposit.depositAmount) {
+            ruleUpdates.deposit_amount = Number(current.deposit.depositAmount ?? 0);
+        }
+        if (current.deposit.depositHoldTime !== initial.deposit.depositHoldTime) {
+            ruleUpdates.deposit_hold_time = Number(current.deposit.depositHoldTime ?? 0);
+        }
+        if (current.deposit.depositRemindTime !== initial.deposit.depositRemindTime) {
+            ruleUpdates.deposit_remind_time = Number(current.deposit.depositRemindTime ?? 0);
+        }
+        if (current.deposit.paypalEnabled !== initial.deposit.paypalEnabled) {
+            ruleUpdates.paypal_enabled = !!current.deposit.paypalEnabled;
+        }
+        if (current.deposit.paypalMethod !== initial.deposit.paypalMethod) {
+            ruleUpdates.paypal_method = current.deposit.paypalMethod || '';
+        }
+        if (current.deposit.etransferEnabled !== initial.deposit.etransferEnabled) {
+            ruleUpdates.etransfer_enabled = !!current.deposit.etransferEnabled;
+        }
+        if (current.deposit.etransferMethod !== initial.deposit.etransferMethod) {
+            ruleUpdates.etransfer_method = current.deposit.etransferMethod || '';
+        }
+        if (current.deposit.creditcardEnabled !== initial.deposit.creditcardEnabled) {
+            ruleUpdates.creditcard_enabled = !!current.deposit.creditcardEnabled;
+        }
+        if (current.deposit.creditcardMethod !== initial.deposit.creditcardMethod) {
+            ruleUpdates.creditcard_method = current.deposit.creditcardMethod || '';
+        }
+        if (current.deposit.venmoEnabled !== initial.deposit.venmoEnabled) {
+            ruleUpdates.venmo_enabled = !!current.deposit.venmoEnabled;
+        }
+        if (current.deposit.venmoMethod !== initial.deposit.venmoMethod) {
+            ruleUpdates.venmo_method = current.deposit.venmoMethod || '';
+        }
+        // Policy
+        if (current.policy.depositPolicy !== initial.policy.depositPolicy) {
+            ruleUpdates.deposit_policy = current.policy.depositPolicy || '';
+        }
+        if (current.policy.cancellationPolicy !== initial.policy.cancellationPolicy) {
+            ruleUpdates.cancellation_policy = current.policy.cancellationPolicy || '';
+        }
+        if (current.policy.reschedulePolicy !== initial.policy.reschedulePolicy) {
+            ruleUpdates.reschedule_policy = current.policy.reschedulePolicy || '';
+        }
+        if (current.policy.questionOne !== initial.policy.questionOne) {
+            ruleUpdates.question_one = current.policy.questionOne || '';
+        }
+        if (current.policy.questionTwo !== initial.policy.questionTwo) {
+            ruleUpdates.question_two = current.policy.questionTwo || '';
+        }
+
+        const uploadedUrls: { waiver_text?: string; privacy_policy?: string; terms_of_condition?: string } = {};
+
+        // Upload Waiver file
+        if (current.policy.waiverText !== initial.policy.waiverText) {
+            if (current.policy.waiverText) {
+                progress?.(0.1, 'Uploading waiver');
+                const waiverUri = current.policy.waiverText;
+                const result = await uploadFileToStorage(
+                    {
+                        uri: waiverUri,
+                        name: extractNameFromUri(waiverUri, 'waiver.pdf'),
+                        type: detectMimeTypeFromUri(waiverUri),
+                        size: 0,
+                    },
+                    'artist-waivers',
+                    artistId
+                );
+                if (!result.success || !result.url) {
+                    throw new Error(result.error || 'Failed to upload waiver');
+                }
+                uploadedUrls.waiver_text = result.url;
+                ruleUpdates.waiver_text = result.url;
+            } else {
+                ruleUpdates.waiver_text = '';
+            }
+        }
+
+        // Upload Privacy Policy file
+        if (current.policy.privacyPolicy !== initial.policy.privacyPolicy) {
+            if (current.policy.privacyPolicy) {
+                progress?.(0.15, 'Uploading privacy policy');
+                const privacyUri = current.policy.privacyPolicy;
+                const result = await uploadFileToStorage(
+                    {
+                        uri: privacyUri,
+                        name: extractNameFromUri(privacyUri, 'privacy.pdf'),
+                        type: detectMimeTypeFromUri(privacyUri),
+                        size: 0,
+                    },
+                    'artist-policies',
+                    artistId
+                );
+                if (!result.success || !result.url) {
+                    throw new Error(result.error || 'Failed to upload privacy policy');
+                }
+                uploadedUrls.privacy_policy = result.url;
+                ruleUpdates.privacy_policy = result.url;
+            } else {
+                ruleUpdates.privacy_policy = '';
+            }
+        }
+
+        // Upload Terms & Conditions file
+        if (current.policy.termsOfCondition !== initial.policy.termsOfCondition) {
+            if (current.policy.termsOfCondition) {
+                progress?.(0.2, 'Uploading artist policies');
+                const termsUri = current.policy.termsOfCondition;
+                const result = await uploadFileToStorage(
+                    {
+                        uri: termsUri,
+                        name: extractNameFromUri(termsUri, 'terms.pdf'),
+                        type: detectMimeTypeFromUri(termsUri),
+                        size: 0,
+                    },
+                    'artist-terms',
+                    artistId
+                );
+                if (!result.success || !result.url) {
+                    throw new Error(result.error || 'Failed to upload artist policies');
+                }
+                uploadedUrls.terms_of_condition = result.url;
+                ruleUpdates.terms_of_condition = result.url;
+            } else {
+                ruleUpdates.terms_of_condition = '';
+            }
+        }
+
+        // Compute diffs for templates table
+        const templateUpdates: Record<string, any> = {};
+        const mapTemplate = (key: keyof TemplateDataProps, column: string) => {
+            if (current.template[key] !== initial.template[key]) {
+                templateUpdates[column] = current.template[key] || '';
+            }
+        };
+        mapTemplate('newBookingRequestReceivedSubject', 'new_booking_request_received_subject');
+        mapTemplate('newBookingRequestReceivedBody', 'new_booking_request_received_body');
+        mapTemplate('bookingRequestApprovedAutoSubject', 'booking_request_approved_auto_subject');
+        mapTemplate('bookingRequestApprovedAutoBody', 'booking_request_approved_auto_body');
+        mapTemplate('bookingRequestApprovedManualSubject', 'booking_request_approved_manual_subject');
+        mapTemplate('bookingRequestApprovedManualBody', 'booking_request_approved_manual_body');
+        mapTemplate('declinedBookingRequestSubject', 'declined_booking_request_subject');
+        mapTemplate('declinedBookingRequestBody', 'declined_booking_request_body');
+        mapTemplate('depositPaymentReminderSubject', 'deposit_payment_reminder_subject');
+        mapTemplate('depositPaymentReminderBody', 'deposit_payment_reminder_body');
+        mapTemplate('depositForfeitSubject', 'deposit_forfeit_subject');
+        mapTemplate('depositForfeitBody', 'deposit_forfeit_body');
+        mapTemplate('depositKeepSubject', 'deposit_keep_subject');
+        mapTemplate('depositKeepBody', 'deposit_keep_body');
+        mapTemplate('consultConfirmationSubject', 'consult_confirmation_subject');
+        mapTemplate('consultConfirmationBody', 'consult_confirmation_body');
+        mapTemplate('consultReminderSubject', 'consult_reminder_subject');
+        mapTemplate('consultReminderBody', 'consult_reminder_body');
+        mapTemplate('consultDeclinedSubject', 'consult_declined_subject');
+        mapTemplate('consultDeclinedBody', 'consult_declined_body');
+        mapTemplate('appointmentConfirmationNoProfileSubject', 'appointment_confirmation_no_profile_subject');
+        mapTemplate('appointmentConfirmationNoProfileBody', 'appointment_confirmation_no_profile_body');
+        mapTemplate('appointmentConfirmationWithProfileSubject', 'appointment_confirmation_with_profile_subject');
+        mapTemplate('appointmentConfirmationWithProfileBody', 'appointment_confirmation_with_profile_body');
+        mapTemplate('appointmentFinalConfirmationSubject', 'appointment_final_confirmation_subject');
+        mapTemplate('appointmentFinalConfirmationBody', 'appointment_final_confirmation_body');
+        mapTemplate('waiverReminderSubject', 'waiver_reminder_subject');
+        mapTemplate('waiverReminderBody', 'waiver_reminder_body');
+        mapTemplate('healingCheckInSubject', 'healing_check_in_subject');
+        mapTemplate('healingCheckInBody', 'healing_check_in_body');
+        mapTemplate('cancellationNotificationSubject', 'cancellation_notification_subject');
+        mapTemplate('cancellationNotificationBody', 'cancellation_notification_body');
+
+        let plannedSteps = 0;
+        if (Object.keys(ruleUpdates).length > 0) plannedSteps += 1;
+        if (Object.keys(templateUpdates).length > 0) plannedSteps += 1;
+        if (plannedSteps === 0) {
+            progress(1, 'Nothing to save');
+            return { success: true };
+        }
+
+        let completed = 0;
+        const stepDone = (label?: string) => {
+            completed += 1;
+            const frac = completed / plannedSteps;
+            progress(frac, label);
+        };
+
+        // 1) Upsert rules
+        if (Object.keys(ruleUpdates).length > 0) {
+            progress(completed / Math.max(plannedSteps, 1), 'Saving rules');
+            const { data: existingRule, error: ruleFetchErr } = await supabase
+                .from('rules')
+                .select('id')
+                .eq('artist_id', artistId)
+                .maybeSingle();
+
+            if (ruleFetchErr) {
+                throw new Error(ruleFetchErr.message || 'Failed to fetch rules');
+            }
+
+            const payload = { ...ruleUpdates, updated_at: new Date().toISOString() };
+            if (existingRule?.id) {
+                const { error: ruleUpdateErr } = await supabase
+                    .from('rules')
+                    .update(payload)
+                    .eq('id', existingRule.id);
+                if (ruleUpdateErr) {
+                    throw new Error(ruleUpdateErr.message || 'Failed to update rules');
+                }
+            } else {
+                const { error: ruleInsertErr } = await supabase
+                    .from('rules')
+                    .insert([{ artist_id: artistId, ...payload, created_at: new Date().toISOString() }]);
+                if (ruleInsertErr) {
+                    throw new Error(ruleInsertErr.message || 'Failed to create rules');
+                }
+            }
+            stepDone('Rules saved');
+        }
+
+        // 2) Upsert templates
+        if (Object.keys(templateUpdates).length > 0) {
+            progress(completed / Math.max(plannedSteps, 1), 'Saving templates');
+            const { data: existingTemplate, error: templateFetchErr } = await supabase
+                .from('templates')
+                .select('id')
+                .eq('artist_id', artistId)
+                .maybeSingle();
+
+            if (templateFetchErr) {
+                throw new Error(templateFetchErr.message || 'Failed to fetch templates');
+            }
+
+            const payload = { ...templateUpdates, updated_at: new Date().toISOString() };
+            if (existingTemplate?.id) {
+                const { error: templateUpdateErr } = await supabase
+                    .from('templates')
+                    .update(payload)
+                    .eq('id', existingTemplate.id);
+                if (templateUpdateErr) {
+                    throw new Error(templateUpdateErr.message || 'Failed to update templates');
+                }
+            } else {
+                const { error: templateInsertErr } = await supabase
+                    .from('templates')
+                    .insert([{ artist_id: artistId, ...payload, created_at: new Date().toISOString() }]);
+                if (templateInsertErr) {
+                    throw new Error(templateInsertErr.message || 'Failed to create templates');
+                }
+            }
+            stepDone('Templates saved');
+        }
+
+        progress(1, 'All changes saved');
+        return { success: true, ruleUrls: uploadedUrls };
+    } catch (error) {
+        console.error('Error saving rule settings:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error occurred',

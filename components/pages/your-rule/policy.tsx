@@ -74,19 +74,47 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
 
             <View className="gap-2">
                 <Collapse title="Deposit policy text for emails" textClassName="text-xl">
-                    <Textarea className='min-h-28' value={policyData.questionOne || ''} onChangeText={(text) => updatePolicyData({ questionOne: text })} />
+                    <Textarea
+                        spellCheck={false}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        autoComplete="off"
+                        autoFocus={false}
+                        className='min-h-28'
+                        value={policyData.depositPolicy || ''}
+                        onChangeText={(text) => updatePolicyData({ depositPolicy: text })}
+                        placeholder="Type your message here."
+                    />
                 </Collapse>
             </View>
 
             <View className="gap-2">
                 <Collapse title="Cancellation policy text for emails" textClassName="text-xl">
-                    <Textarea className='min-h-28' value={policyData.questionTwo || ''} onChangeText={(text) => updatePolicyData({ questionTwo: text })} />
+                    <Textarea
+                        spellCheck={false}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        autoComplete="off"
+                        autoFocus={false}
+                        className='min-h-28'
+                        value={policyData.cancellationPolicy || ''}
+                        onChangeText={(text) => updatePolicyData({ cancellationPolicy: text })}
+                    />
                 </Collapse>
             </View>
 
             <View className="gap-2">
                 <Collapse title="Reschedule policy text for emails" textClassName="text-xl">
-                    <Textarea className='min-h-28' value={policyData.reschedulePolicy || ''} onChangeText={(text) => updatePolicyData({ reschedulePolicy: text })} />
+                    <Textarea
+                        spellCheck={false}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        autoComplete="off"
+                        autoFocus={false}
+                        className='min-h-28'
+                        value={policyData.reschedulePolicy || ''}
+                        onChangeText={(text) => updatePolicyData({ reschedulePolicy: text })}
+                    />
                 </Collapse>
             </View>
 

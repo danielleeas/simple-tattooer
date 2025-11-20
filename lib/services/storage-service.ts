@@ -13,6 +13,36 @@ export interface FileUpload {
   size: number;
 }
 
+// Shared helpers
+export const detectMimeTypeFromUri = (uri: string): string => {
+  try {
+    const match = uri.match(/\.([a-z0-9]+)(?:\?|$)/i);
+    if (!match) return 'application/octet-stream';
+    const ext = match[1].toLowerCase();
+    const map: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      pdf: 'application/pdf',
+    };
+    return map[ext] || 'application/octet-stream';
+  } catch {
+    return 'application/octet-stream';
+  }
+};
+
+export const extractNameFromUri = (uri: string, fallback: string): string => {
+  try {
+    const last = uri.split('/').pop() || fallback;
+    return last.split('?')[0] || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 // Upload file to Supabase storage
 export const uploadFileToStorage = async (
   file: FileUpload,
@@ -21,8 +51,10 @@ export const uploadFileToStorage = async (
 ): Promise<UploadResult> => {
   try {
     // Create a unique filename to avoid conflicts
-    const timestamp = new Date().getTime();
-    const fileName = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const timestamp = Date.now();
+    const rand = Math.random().toString(36).slice(2, 10);
+    const sanitizedName = (file.name || 'file').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const fileName = `${timestamp}_${rand}_${sanitizedName}`;
     const filePath = path ? `${path}/${fileName}` : fileName;
 
     console.log('Uploading file:', {

@@ -84,7 +84,16 @@ export const Deposit = ({ depositData, updateDepositData }: DepositProps) => {
                 </View>
                 {depositData.paypalEnabled && (
                     <View className="flex-row items-center justify-between">
-                        <Input placeholder="Add email or link" value={depositData.paypalMethod || ''} onChangeText={(text) => updateDepositData({ paypalMethod: text })} />
+                        <Input
+                            placeholder="Add email or link"
+                            value={depositData.paypalMethod || ''}
+                            onChangeText={(text) => updateDepositData({ paypalMethod: text })}
+                            spellCheck={false}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            autoComplete="off"
+                            autoFocus={false}
+                        />
                     </View>
                 )}
             </View>
@@ -102,7 +111,16 @@ export const Deposit = ({ depositData, updateDepositData }: DepositProps) => {
                 <Text variant="small" className="text-text-secondary leading-none">Canada Only</Text>
                 {depositData.etransferEnabled && (
                     <View className="flex-row items-center justify-between">
-                        <Input placeholder="Add email or link" value={depositData.etransferMethod || ''} onChangeText={(text) => updateDepositData({ etransferMethod: text })} />
+                        <Input
+                            placeholder="Add email or link"
+                            value={depositData.etransferMethod || ''}
+                            onChangeText={(text) => updateDepositData({ etransferMethod: text })}
+                            spellCheck={false}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            autoComplete="off"
+                            autoFocus={false}
+                        />
                     </View>
                 )}
             </View>
@@ -119,7 +137,16 @@ export const Deposit = ({ depositData, updateDepositData }: DepositProps) => {
                 </View>
                 {depositData.creditcardEnabled && (
                     <View className="flex-row items-center justify-between">
-                        <Input placeholder="Add email or link" value={depositData.creditcardMethod || ''} onChangeText={(text) => updateDepositData({ creditcardMethod: text })} />
+                        <Input
+                            placeholder="Add email or link"
+                            value={depositData.creditcardMethod || ''}
+                            onChangeText={(text) => updateDepositData({ creditcardMethod: text })}
+                            spellCheck={false}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            autoComplete="off"
+                            autoFocus={false}
+                        />
                     </View>
                 )}
             </View>
@@ -137,7 +164,16 @@ export const Deposit = ({ depositData, updateDepositData }: DepositProps) => {
                 <Text variant="small" className="text-text-secondary leading-none">US Only</Text>
                 {depositData.venmoEnabled && (
                     <View className="flex-row items-center justify-between">
-                        <Input placeholder="Add email or link" value={depositData.venmoMethod || ''} onChangeText={(text) => updateDepositData({ venmoMethod: text })} />
+                        <Input
+                            placeholder="Add email or link"
+                            value={depositData.venmoMethod || ''}
+                            onChangeText={(text) => updateDepositData({ venmoMethod: text })}
+                            spellCheck={false}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            autoComplete="off"
+                            autoFocus={false}
+                        />
                     </View>
                 )}
             </View>

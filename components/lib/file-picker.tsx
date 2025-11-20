@@ -33,7 +33,7 @@ export function FilePicker({
     onFileRemoved,
     initialFile = null,
     aspect = [4, 3],
-    quality = 0.8,
+    quality = 0.5,
     allowsEditing = true,
     placeholder = "Select a file",
     helperText,
