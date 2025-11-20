@@ -420,11 +420,6 @@ export default function YourApp() {
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
             <SafeAreaView className='flex-1 bg-background'>
-                <LoadingOverlay
-                    visible={saving}
-                    title="Saving changes"
-                    subtitle={saveMessage}
-                />
                 <Header
                     leftButtonImage={HOME_IMAGE}
                     leftButtonTitle="Today"
@@ -652,6 +647,12 @@ export default function YourApp() {
                         </View>
                     </View>
                 </CustomModal>
+
+                <LoadingOverlay
+                    visible={saving}
+                    title="Saving changes"
+                    subtitle={saveMessage}
+                />
             </SafeAreaView >
         </>
     );

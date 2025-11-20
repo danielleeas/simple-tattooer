@@ -25,6 +25,9 @@ import { WorkDay } from "@/components/pages/your-flow/work-day";
 import { Booking } from "@/components/pages/your-flow/booking";
 import { Drawing } from "@/components/pages/your-flow/drawing";
 import { WorkDayDataProps, BookingDataProps, DrawingDataProps } from "@/components/pages/your-flow/type";
+import { saveFlowSettings } from "@/lib/services/setting-service";
+import { updateArtistFlows } from "@/lib/redux/slices/auth-slice";
+import { LoadingOverlay } from "@/components/lib/loading-overlay";
 
 const defaultWorkDayData: WorkDayDataProps = {
     workDays: [],
@@ -67,6 +70,7 @@ export default function YourFlow() {
     const dispatch = useAppDispatch();
     const { toast } = useToast();
     const [saving, setSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<string>('Starting...');
     const [workDayData, setWorkDayData] = useState<WorkDayDataProps>(defaultWorkDayData);
     const [bookingData, setBookingData] = useState<BookingDataProps>(defaultBookingData);
     const [drawingData, setDrawingData] = useState<DrawingDataProps>(defaultDrawingData);
@@ -188,10 +192,82 @@ export default function YourFlow() {
 
     const handleSave = async () => {
         if (!artist?.id) return;
-        // setSaving(true);
+        try {
+            setSaving(true);
+            setSaveMessage('Starting...');
+            const result = await saveFlowSettings(
+                artist.id,
+                { workDay: workDayData, booking: bookingData, drawing: drawingData },
+                {
+                    workDay: initialWorkDayData || defaultWorkDayData,
+                    booking: initialBookingData || defaultBookingData,
+                    drawing: initialDrawingData || defaultDrawingData,
+                },
+                (p, label) => {
+                    if (label) setSaveMessage(label);
+                }
+            );
 
-        // setSaving(true)
+            if (result.success) {
+                setInitialWorkDayData(workDayData);
+                setInitialBookingData(bookingData);
+                setInitialDrawingData(drawingData);
 
+                const flowUpdates = {
+                    work_days: workDayData.workDays,
+                    diff_time_enabled: !!workDayData.diffTimeEnabled,
+                    start_times: workDayData.startTimes,
+                    end_times: workDayData.endTimes,
+                    consult_enabled: !!workDayData.consultEnabled,
+                    consult_in_person: !!workDayData.consultInPerson,
+                    consult_online: !!workDayData.consultOnline,
+                    consult_duration: Number(workDayData.consultDuration || 0),
+                    consult_work_days: workDayData.consultWorkDays,
+                    diff_consult_time_enabled: !!workDayData.diffConsultTimeEnabled,
+                    consult_start_times: workDayData.consultStartTimes,
+                    consult_meeting_url: workDayData.consultMeetingLink || '',
+
+                    multiple_sessions_enabled: !!bookingData.multipleSessionsEnabled,
+                    sessions_per_day: Number(bookingData.sessionsPerDay || 0),
+                    session_duration: Number(bookingData.sessionDuration || 0),
+                    break_time: Number(bookingData.breakTime || 0),
+                    back_to_back_enabled: !!bookingData.backToBackEnabled,
+                    max_back_to_back: Number(bookingData.maxBackToBack || 0),
+                    buffer_between_sessions: Number(bookingData.bufferBetweenSessions || 0),
+
+                    send_drawings_in_advance: !!drawingData.sendDrawingsInAdvance,
+                    receive_drawing_time: Number(drawingData.receiveDrawingTime || 0),
+                    change_policy_time: Number(drawingData.changePolicyTime || 0),
+                    final_appointment_remind_time: Number(drawingData.finalAppointmentRemindTime || 0),
+                    auto_email: !!drawingData.autoEmail,
+                    auto_fill_drawing_enabled: !!drawingData.autoFillDrawing,
+                    max_reschedules: Number(drawingData.maxReschedulesAllowed || 0),
+                    reschedule_booking_days: Number(drawingData.rescheduleBookingDays || 0),
+                };
+                dispatch(updateArtistFlows(flowUpdates as any));
+
+                toast({
+                    variant: 'success',
+                    title: 'Changes saved successfully',
+                    duration: 2500,
+                });
+            } else {
+                toast({
+                    variant: 'error',
+                    title: result.error || 'Failed to save changes',
+                    duration: 3000,
+                });
+            }
+        } catch (error) {
+            console.error('Error saving flow changes:', error);
+            toast({
+                variant: 'error',
+                title: 'An unexpected error occurred',
+                duration: 3000,
+            });
+        } finally {
+            setSaving(false);
+        }
     }
 
     return (
@@ -293,6 +369,12 @@ export default function YourFlow() {
                         </Animated.View>
                     </View>
                 </StableGestureWrapper>
+
+                <LoadingOverlay
+                    visible={saving}
+                    title="Saving changes"
+                    subtitle={saveMessage}
+                />
             </SafeAreaView>
         </>
     );

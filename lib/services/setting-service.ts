@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import type { BrandingDataProps, ControlDataProps } from '@/components/pages/your-app/type';
+import type { WorkDayDataProps, BookingDataProps, DrawingDataProps } from '@/components/pages/your-flow/type';
 
 export const updatePassword = async (
     oldPassword: string,
@@ -256,6 +257,103 @@ export const saveArtistSettings = async (
         return { success: true };
     } catch (error) {
         console.error('Error saving artist settings:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+        };
+    }
+};
+
+export const saveFlowSettings = async (
+    artistId: string,
+    current: { workDay: WorkDayDataProps; booking: BookingDataProps; drawing: DrawingDataProps },
+    initial: { workDay: WorkDayDataProps; booking: BookingDataProps; drawing: DrawingDataProps },
+    onProgress?: ProgressFn
+): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const progress = (p: number, label?: string) => {
+            if (onProgress) onProgress(p, label);
+        };
+
+        if (
+            JSON.stringify(current.workDay) === JSON.stringify(initial.workDay) &&
+            JSON.stringify(current.booking) === JSON.stringify(initial.booking) &&
+            JSON.stringify(current.drawing) === JSON.stringify(initial.drawing)
+        ) {
+            progress(1, 'Nothing to save');
+            return { success: true };
+        }
+
+        progress(0.1, 'Preparing flow settings');
+
+        const flowsPayload = {
+            artist_id: artistId,
+            work_days: current.workDay.workDays,
+            diff_time_enabled: !!current.workDay.diffTimeEnabled,
+            start_times: current.workDay.startTimes,
+            end_times: current.workDay.endTimes,
+            consult_enabled: !!current.workDay.consultEnabled,
+            consult_in_person: !!current.workDay.consultInPerson,
+            consult_online: !!current.workDay.consultOnline,
+            consult_duration: Number(current.workDay.consultDuration || 0),
+            consult_work_days: current.workDay.consultWorkDays,
+            diff_consult_time_enabled: !!current.workDay.diffConsultTimeEnabled,
+            consult_start_times: current.workDay.consultStartTimes,
+            consult_meeting_url: current.workDay.consultMeetingLink || '',
+
+            multiple_sessions_enabled: !!current.booking.multipleSessionsEnabled,
+            sessions_per_day: Number(current.booking.sessionsPerDay || 0),
+            session_duration: Number(current.booking.sessionDuration || 0),
+            break_time: Number(current.booking.breakTime || 0),
+            back_to_back_enabled: !!current.booking.backToBackEnabled,
+            max_back_to_back: Number(current.booking.maxBackToBack || 0),
+            buffer_between_sessions: Number(current.booking.bufferBetweenSessions || 0),
+
+            send_drawings_in_advance: !!current.drawing.sendDrawingsInAdvance,
+            receive_drawing_time: Number(current.drawing.receiveDrawingTime || 0),
+            change_policy_time: Number(current.drawing.changePolicyTime || 0),
+            final_appointment_remind_time: Number(current.drawing.finalAppointmentRemindTime || 0),
+            auto_email: !!current.drawing.autoEmail,
+            auto_fill_drawing_enabled: !!current.drawing.autoFillDrawing,
+            max_reschedules: Number(current.drawing.maxReschedulesAllowed || 0),
+            reschedule_booking_days: Number(current.drawing.rescheduleBookingDays || 0),
+
+            updated_at: new Date().toISOString(),
+        };
+
+        progress(0.3, 'Saving flow settings');
+
+        const { data: existingFlow, error: flowFetchErr } = await supabase
+            .from('flows')
+            .select('id')
+            .eq('artist_id', artistId)
+            .maybeSingle();
+
+        if (flowFetchErr) {
+            throw new Error(flowFetchErr.message || 'Failed to fetch flows');
+        }
+
+        if (existingFlow?.id) {
+            const { error: flowUpdateErr } = await supabase
+                .from('flows')
+                .update(flowsPayload)
+                .eq('id', existingFlow.id);
+            if (flowUpdateErr) {
+                throw new Error(flowUpdateErr.message || 'Failed to update flows');
+            }
+        } else {
+            const { error: flowInsertErr } = await supabase
+                .from('flows')
+                .insert([{ ...flowsPayload, created_at: new Date().toISOString() }]);
+            if (flowInsertErr) {
+                throw new Error(flowInsertErr.message || 'Failed to create flows');
+            }
+        }
+
+        progress(1, 'Flow settings saved');
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving flow settings:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error occurred',
