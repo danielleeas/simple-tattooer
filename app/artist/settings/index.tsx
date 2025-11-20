@@ -10,7 +10,7 @@ import MENU_IMAGE from "@/assets/images/icons/menu.png";
 
 export default function MakeItYours() {
     const handleBack = () => {
-        router.dismissAll();
+        router.back();
     };
 
     const handleHome = () => {

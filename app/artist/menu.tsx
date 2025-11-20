@@ -98,63 +98,73 @@ export default function Menu() {
                                 <View className="gap-6 pb-6">
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleNewAppointment} className='items-center justify-center'>
+                                            <Pressable onPress={handleNewAppointment} className='items-center justify-center gap-1'>
                                                 <Image source={PLUS_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>new</Text>
-                                                <Text variant="h6" className='uppercase leading-none'>appointment</Text>
+                                                <View className="items-center">
+                                                    <Text variant="h6" className='uppercase'>new</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>appointment</Text>
+                                                </View>
                                             </Pressable>
                                         </View>
                                         <View className="flex-1">
-                                            <Pressable onPress={handleManualAppointment} className='items-center justify-center'>
+                                            <Pressable onPress={handleManualAppointment} className='items-center justify-center gap-1'>
                                                 <Image source={PLUS_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>Manual</Text>
-                                                <Text variant="h6" className='uppercase leading-none'>appointment</Text>
+                                                <View className="items-center">
+                                                    <Text variant="h6" className='uppercase'>Manual</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>appointment</Text>
+                                                </View>
                                             </Pressable>
                                         </View>
                                     </View>
 
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleMakeItYours} className='items-center justify-center'>
+                                            <Pressable onPress={handleMakeItYours} className='items-center justify-center gap-1'>
                                                 <Image source={GEAR_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>settings</Text>
+                                                <Text variant="h6" className='uppercase leading-none'>settings</Text>
                                             </Pressable>
                                         </View>
                                         <View className="flex-1">
-                                            <Pressable onPress={handleCalendar} className='items-center justify-center'>
+                                            <Pressable onPress={handleCalendar} className='items-center justify-center gap-1'>
                                                 <Image source={CALENDAR_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>calendar</Text>
+                                                <Text variant="h6" className='uppercase leading-none'>calendar</Text>
                                             </Pressable>
                                         </View>
                                     </View>
 
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleFAQ} className='items-center justify-center'>
+                                            <Pressable onPress={handleFAQ} className='items-center justify-center gap-1'>
                                                 <Image source={QUESTION_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>FAQS/</Text>
-                                                <Text variant="h6" className='uppercase leading-none'>Aftercare</Text>
+                                                <View className="items-center">
+                                                    <Text variant="h6" className='uppercase'>FAQS/</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>Aftercare</Text>
+                                                </View>
                                             </Pressable>
                                         </View>
                                         <View className="flex-1">
-                                            <Pressable onPress={handlePortfolios} className='items-center justify-center'>
+                                            <Pressable onPress={handlePortfolios} className='items-center justify-center gap-1'>
                                                 <Image source={FLASH_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>portfolio &</Text>
-                                                <Text variant="h6" className='uppercase leading-none'>flash upload</Text>
+                                                <View className="items-center">
+                                                    <Text variant="h6" className='uppercase'>portfolio &</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>flash upload</Text>
+                                                </View>
                                             </Pressable>
                                         </View>
                                     </View>
 
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleEvent} className='items-center justify-center'>
+                                            <Pressable onPress={handleEvent} className='items-center justify-center gap-1'>
                                                 <Image source={RULE_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>cancellation</Text>
-                                                <Text variant="h6" className='uppercase leading-none'>list</Text>
+                                                <View className="items-center">
+                                                    <Text variant="h6" className='uppercase'>cancellation</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>list</Text>
+                                                </View>
                                             </Pressable>
                                         </View>
                                         <View className="flex-1">
-                                            <Pressable onPress={handleDrawings} className='items-center justify-center'>
+                                            <Pressable onPress={handleDrawings} className='items-center justify-center gap-1'>
                                                 <Image source={DRAWINGS_IMAGE} style={ICON_STYLE} />
                                                 <Text variant="h6" className='uppercase'>drawings</Text>
                                             </Pressable>
@@ -163,15 +173,15 @@ export default function Menu() {
 
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleClientView} className='items-center justify-center'>
+                                            <Pressable onPress={handleClientView} className='items-center justify-center gap-1'>
                                                 <Image source={SMILE_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>client view</Text>
+                                                <Text variant="h6" className='uppercase leading-none'>client view</Text>
                                             </Pressable>
                                         </View>
                                         <View className="flex-1">
-                                            <Pressable onPress={handleImportClients} className='items-center justify-center'>
+                                            <Pressable onPress={handleImportClients} className='items-center justify-center gap-1'>
                                                 <Image source={IMPORT_CLIENT_IMAGE} style={ICON_STYLE} />
-                                                <Text variant="h6" className='uppercase'>import clients</Text>
+                                                <Text variant="h6" className='uppercase leading-none'>import clients</Text>
                                             </Pressable>
                                         </View>
                                     </View>
