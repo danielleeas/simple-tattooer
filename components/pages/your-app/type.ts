@@ -25,6 +25,14 @@ export interface BrandingDataProps {
     welcomeScreenEnabled: boolean;
 }
 
+export interface ControlDataProps {
+    pushNotifications: boolean;
+    calendarSync: boolean;
+    swipeNavigation: boolean;
+    passwordModalOpen: boolean;
+    deleteAccountModalOpen: boolean;
+}
+
 export const placementOptions = [
     { value: 'center', label: 'Center' },
     { value: 'top-left', label: 'Top Left' },

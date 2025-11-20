@@ -13,13 +13,12 @@ import { AvatarPicker } from "@/components/lib/avatar-picker";
 import { Collapse } from "@/components/lib/collapse";
 import { BASE_URL } from "@/lib/constants";
 import { LocationModal, LocationData } from '@/components/lib/location-modal';
-import { BrandingDataProps, opacityOptions, placementOptions } from "./type";
+import { BrandingDataProps, opacityOptions, placementOptions } from "@/components/pages/your-app/type";
 import { compressImage, uuidv4 } from "@/lib/utils";
 import { checkBookingLinkAvailability } from "@/lib/services/auth-service";
 import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/lib/contexts";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
-import CustomModal from "@/components/lib/custom-modal";
 
 interface DetailsProps {
     brandingData: BrandingDataProps;
@@ -400,10 +399,12 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                 <Text variant="h5">Your Name</Text>
                 <Input value={brandingData.fullName} onChangeText={(text) => { updateBrandingData({ fullName: text }) }} />
             </View>
+
             <View className="gap-2">
                 <Text variant="h5">Studio Name</Text>
                 <Input value={brandingData.studioName} onChangeText={(text) => { updateBrandingData({ studioName: text }) }} />
             </View>
+            
             <View className="gap-1">
                 <View className='flex-row gap-2 items-center'>
                     <Text variant="h5" className='flex-1' style={{ maxWidth: 290 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Edit/Copy Personal Booking Link</Text>

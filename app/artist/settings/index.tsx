@@ -30,7 +30,7 @@ export default function MakeItYours() {
     }
 
     const handleYourApp = () => {
-        router.push('/artist/settings/your-app');
+        router.push('/artist/settings/app');
     }
 
     return (
