@@ -264,6 +264,55 @@ CREATE INDEX IF NOT EXISTS idx_templates_cancellation_notification_subject ON te
 CREATE INDEX IF NOT EXISTS idx_templates_created_at ON templates(created_at);
 CREATE INDEX IF NOT EXISTS idx_templates_updated_at ON templates(updated_at);
 
+-- faq Categories table for storing faq categories
+CREATE TABLE IF NOT EXISTS faq_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  category_name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for faq categories
+CREATE INDEX IF NOT EXISTS idx_faq_categories_artist_id ON faq_categories(artist_id);
+CREATE INDEX IF NOT EXISTS idx_faq_categories_category_name ON faq_categories(category_name);
+CREATE INDEX IF NOT EXISTS idx_faq_categories_created_at ON faq_categories(created_at);
+CREATE INDEX IF NOT EXISTS idx_faq_categories_updated_at ON faq_categories(updated_at);
+
+-- faq Categories table for storing faq categories
+CREATE TABLE IF NOT EXISTS faq_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id UUID NOT NULL REFERENCES faq_categories(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for faq items
+CREATE INDEX IF NOT EXISTS idx_faq_items_category_id ON faq_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_faq_items_question ON faq_items(question);
+CREATE INDEX IF NOT EXISTS idx_faq_items_answer ON faq_items(answer);
+CREATE INDEX IF NOT EXISTS idx_faq_items_created_at ON faq_items(created_at);
+CREATE INDEX IF NOT EXISTS idx_faq_items_updated_at ON faq_items(updated_at);
+
+-- aftercare tips table for storing aftercare tips
+CREATE TABLE IF NOT EXISTS aftercare_tips (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  instructions TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for aftercare tips
+CREATE INDEX IF NOT EXISTS idx_aftercare_tips_artist_id ON aftercare_tips(artist_id);
+CREATE INDEX IF NOT EXISTS idx_aftercare_tips_title ON aftercare_tips(title);
+CREATE INDEX IF NOT EXISTS idx_aftercare_tips_instructions ON aftercare_tips(instructions);
+CREATE INDEX IF NOT EXISTS idx_aftercare_tips_created_at ON aftercare_tips(created_at);
+CREATE INDEX IF NOT EXISTS idx_aftercare_tips_updated_at ON aftercare_tips(updated_at);
+
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
