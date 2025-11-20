@@ -152,7 +152,6 @@ export default function YourFlow() {
             JSON.stringify(drawingData) !== JSON.stringify(initialDrawingData);
     }, [workDayData, bookingData, drawingData, initialWorkDayData, initialBookingData, initialDrawingData]);
 
-    console.log(hasChanges)
     useEffect(() => {
         Animated.timing(saveBarAnim, {
             toValue: hasChanges ? 1 : 0,
