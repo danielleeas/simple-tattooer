@@ -22,7 +22,7 @@ export default function MakeItYours() {
     };
 
     const handleYourRules = () => {
-        // router.push('/production/setting/your-rules');
+        router.push('/artist/settings/rule');
     };
 
     const handlleYourFlow = () => {

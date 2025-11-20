@@ -2,6 +2,54 @@ import { supabase } from '../supabase';
 import type { BrandingDataProps, ControlDataProps } from '@/components/pages/your-app/type';
 import type { WorkDayDataProps, BookingDataProps, DrawingDataProps } from '@/components/pages/your-flow/type';
 
+export const updateBookingQuestions = async (
+    artistId: string,
+    questions: { questionOne: string; questionTwo: string }
+): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const { data: existingRule, error: ruleFetchErr } = await supabase
+            .from('rules')
+            .select('id')
+            .eq('artist_id', artistId)
+            .maybeSingle();
+
+        if (ruleFetchErr) {
+            throw new Error(ruleFetchErr.message || 'Failed to fetch rules');
+        }
+
+        const payload = {
+            question_one: questions.questionOne || '',
+            question_two: questions.questionTwo || '',
+            updated_at: new Date().toISOString(),
+        };
+
+        if (existingRule?.id) {
+            const { error: updateErr } = await supabase
+                .from('rules')
+                .update(payload)
+                .eq('id', existingRule.id);
+            if (updateErr) {
+                throw new Error(updateErr.message || 'Failed to update questions');
+            }
+        } else {
+            const { error: insertErr } = await supabase
+                .from('rules')
+                .insert([{ artist_id: artistId, ...payload, created_at: new Date().toISOString() }]);
+            if (insertErr) {
+                throw new Error(insertErr.message || 'Failed to create rules with questions');
+            }
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating booking questions:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+        };
+    }
+};
+
 export const updatePassword = async (
     oldPassword: string,
     newPassword: string
