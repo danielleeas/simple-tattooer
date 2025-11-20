@@ -142,7 +142,7 @@ export default function YourApp() {
             setControlData(defaultControlData);
             setInitialControlData(null);
         }
-    }, [artist, mainLocation, createBrandingDataFromArtist]);
+    }, [artist, mainLocation, createBrandingDataFromArtist, createControlDataFromArtist]);
 
     const hasChanges = useMemo(() => {
         if (!artist || !initialBrandingData || !initialControlData) return false;
