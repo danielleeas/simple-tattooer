@@ -24,18 +24,19 @@ import { BASE_URL } from "@/lib/constants";
 import * as Clipboard from 'expo-clipboard';
 import { uploadFileToStorage } from "@/lib/services/storage-service";
 // import { deleteAccount, updateArtistInfo, updateArtistLocations, updateGeneralSettings, updatePassword } from '@/lib/services/settings-service';
-import { fetchUpdatedArtistProfile } from "@/lib/redux/slices/auth-slice";
+import { fetchUpdatedArtistProfile, setArtist } from "@/lib/redux/slices/auth-slice";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { Locations } from "@/lib/redux/types";
 import CustomModal from "@/components/lib/custom-modal";
 import { ensureCalendarPermissions } from "@/lib/services/device-calendar";
+import { LoadingOverlay } from "@/components/lib/loading-overlay";
 
 import { Collapse } from "@/components/lib/collapse";
 
 import { Details } from "@/components/pages/your-app/details";
 import { Control } from "@/components/pages/your-app/control";
 import { BrandingDataProps, ControlDataProps } from "@/components/pages/your-app/type";
-import { updatePassword, deleteAccount } from "@/lib/services/setting-service";
+import { updatePassword, deleteAccount, saveArtistSettings } from "@/lib/services/setting-service";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -95,6 +96,8 @@ export default function YourApp() {
         confirmPassword: '',
     });
     const [saving, setSaving] = useState(false);
+    const [saveProgress, setSaveProgress] = useState<number>(0);
+    const [saveMessage, setSaveMessage] = useState<string>('Starting...');
     const saveBarAnim = useRef(new Animated.Value(0)).current;
 
     const mainLocation = useMemo(() => {
@@ -331,22 +334,115 @@ export default function YourApp() {
     };
 
     const handleSave = async () => {
-        // try {
-        //     const result = await updateArtistInfo(artist.id, brandingData);
-        // } catch (error) {
-        //     console.error('Error saving changes:', error);
-        //     toast({
-        //         variant: 'error',
-        //         title: 'An unexpected error occurred',
-        //         duration: 3000,
-        //     });
-        // }
+        if (!artist?.id || !initialBrandingData || !initialControlData) return;
+        try {
+            setSaving(true);
+            setSaveProgress(0);
+            setSaveMessage('Starting...');
+
+            const result = await saveArtistSettings(
+                artist.id,
+                { branding: brandingData, control: controlData },
+                { branding: initialBrandingData, control: initialControlData },
+                (p, label) => {
+                    if (typeof p === 'number') setSaveProgress(Math.max(0, Math.min(1, p)));
+                    if (label) setSaveMessage(label);
+                }
+            );
+
+            if (result.success) {
+                setInitialBrandingData(brandingData);
+                setInitialControlData(controlData);
+
+                // Optimistically update store without fetching
+                if (artist) {
+                    const updatedApp = {
+                        ...(artist.app || {}),
+                        watermark_image: brandingData.watermarkImage,
+                        watermark_text: brandingData.watermarkText,
+                        watermark_position: brandingData.watermarkPosition,
+                        watermark_opacity: brandingData.watermarkOpacity,
+                        watermark_enabled: brandingData.watermarkEnabled,
+                        welcome_screen_enabled: brandingData.welcomeScreenEnabled,
+                        push_notifications: controlData.pushNotifications,
+                        calendar_sync: controlData.calendarSync,
+                        swipe_navigation: controlData.swipeNavigation,
+                    };
+
+                    // Update main location in local store
+                    let updatedLocations = Array.isArray(artist.locations) ? [...artist.locations] : [];
+                    const mainIndex = updatedLocations.findIndex((l: any) => (l.is_main_studio ?? l.isMainStudio) === true);
+
+                    if (brandingData.location) {
+                        const desired = brandingData.location;
+                        const mappedLocation = {
+                            id: desired.id,
+                            address: desired.address,
+                            place_id: desired.placeId,
+                            coordinates: {
+                                latitude: desired.coordinates.latitude,
+                                longitude: desired.coordinates.longitude,
+                            },
+                            is_main_studio: true,
+                        };
+                        if (mainIndex >= 0) {
+                            updatedLocations[mainIndex] = { ...updatedLocations[mainIndex], ...mappedLocation };
+                        } else {
+                            updatedLocations.push(mappedLocation as any);
+                        }
+                    } else {
+                        // Remove main location if present
+                        if (mainIndex >= 0) {
+                            updatedLocations.splice(mainIndex, 1);
+                        }
+                    }
+
+                    dispatch(setArtist({
+                        ...artist,
+                        full_name: brandingData.fullName,
+                        studio_name: brandingData.studioName,
+                        booking_link: brandingData.bookingLink,
+                        social_handler: brandingData.socialMediaHandle,
+                        photo: brandingData.profilePhoto,
+                        avatar: brandingData.avatar,
+                        app: updatedApp as any,
+                        locations: updatedLocations as any,
+                    }));
+                }
+
+                toast({
+                    variant: 'success',
+                    title: 'Changes saved successfully',
+                    duration: 2500,
+                });
+            } else {
+                toast({
+                    variant: 'error',
+                    title: result.error || 'Failed to save changes',
+                    duration: 3000,
+                });
+            }
+        } catch (error) {
+            console.error('Error saving changes:', error);
+            toast({
+                variant: 'error',
+                title: 'An unexpected error occurred',
+                duration: 3000,
+            });
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
             <SafeAreaView className='flex-1 bg-background'>
+                <LoadingOverlay
+                    visible={saving}
+                    title="Saving changes"
+                    subtitle={saveMessage}
+                />
                 <Header
                     leftButtonImage={HOME_IMAGE}
                     leftButtonTitle="Today"
