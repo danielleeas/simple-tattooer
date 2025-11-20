@@ -313,6 +313,46 @@ CREATE INDEX IF NOT EXISTS idx_aftercare_tips_instructions ON aftercare_tips(ins
 CREATE INDEX IF NOT EXISTS idx_aftercare_tips_created_at ON aftercare_tips(created_at);
 CREATE INDEX IF NOT EXISTS idx_aftercare_tips_updated_at ON aftercare_tips(updated_at);
 
+-- artist Flashs table for storing artist flashs
+CREATE TABLE IF NOT EXISTS artist_flashs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  flash_name TEXT,
+  flash_image TEXT,
+  flash_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  repeatable BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for artist flashs
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_artist_id ON artist_flashs(artist_id);
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_flash_name ON artist_flashs(flash_name);
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_flash_image ON artist_flashs(flash_image);
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_flash_price ON artist_flashs(flash_price);
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_repeatable ON artist_flashs(repeatable) WHERE repeatable = true;
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_created_at ON artist_flashs(created_at);
+CREATE INDEX IF NOT EXISTS idx_artist_flashs_updated_at ON artist_flashs(updated_at);
+
+-- artist Portfolios table for storing artist portfolios
+CREATE TABLE IF NOT EXISTS artist_portfolios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  portfolio_name TEXT,
+  portfolio_image TEXT,
+  portfolio_description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for artist portfolios
+CREATE INDEX IF NOT EXISTS idx_artist_portfolios_artist_id ON artist_portfolios(artist_id);
+CREATE INDEX IF NOT EXISTS idx_artist_portfolios_portfolio_name ON artist_portfolios(portfolio_name);
+CREATE INDEX IF NOT EXISTS idx_artist_portfolios_portfolio_image ON artist_portfolios(portfolio_image);
+CREATE INDEX IF NOT EXISTS idx_artist_portfolios_portfolio_description ON artist_portfolios(portfolio_description);
+CREATE INDEX IF NOT EXISTS idx_artist_portfolios_created_at ON artist_portfolios(created_at);
+CREATE INDEX IF NOT EXISTS idx_artist_portfolios_updated_at ON artist_portfolios(updated_at);
+
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

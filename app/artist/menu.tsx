@@ -63,7 +63,7 @@ export default function Menu() {
     };
 
     const handlePortfolios = () => {
-        // router.push('/production/portfolios');
+        router.push('/artist/portfolios');
     };
 
     const handleCancellations = () => {
