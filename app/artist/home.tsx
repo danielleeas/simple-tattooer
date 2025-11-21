@@ -37,7 +37,7 @@ export default function ProductionHome() {
     }
 
     const handleClients = () => {
-        // router.push('/production/clients/search');
+        router.push('/artist/clients/search');
     };
 
     const handleToday = () => {
@@ -49,7 +49,7 @@ export default function ProductionHome() {
     };
 
     const handleDrawings = () => {
-        // router.push('/production/drawings');
+        router.push('/artist/drawings');
     };
 
     const handleCalendar = () => {

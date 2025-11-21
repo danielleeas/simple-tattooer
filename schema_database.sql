@@ -506,6 +506,126 @@ CREATE INDEX IF NOT EXISTS idx_events_source_id ON events(source_id);
 CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 CREATE INDEX IF NOT EXISTS idx_events_updated_at ON events(updated_at);
 
+-- clients table for storing clients
+CREATE TABLE IF NOT EXISTS clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT NOT NULL,
+  location TEXT NOT NULL,
+  project_notes TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for clients
+CREATE INDEX IF NOT EXISTS idx_clients_full_name ON clients(full_name);
+CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
+CREATE INDEX IF NOT EXISTS idx_clients_phone_number ON clients(phone_number);
+CREATE INDEX IF NOT EXISTS idx_clients_location ON clients(location);
+CREATE INDEX IF NOT EXISTS idx_clients_project_notes ON clients(project_notes);
+CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
+CREATE INDEX IF NOT EXISTS idx_clients_created_at ON clients(created_at);
+CREATE INDEX IF NOT EXISTS idx_clients_updated_at ON clients(updated_at);
+
+-- clients table for storing clients
+CREATE TABLE IF NOT EXISTS links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(client_id, artist_id)
+);
+
+-- Optimized indexes for links
+CREATE INDEX IF NOT EXISTS idx_links_client_id ON links(client_id);
+CREATE INDEX IF NOT EXISTS idx_links_artist_id ON links(artist_id);
+CREATE INDEX IF NOT EXISTS idx_links_status ON links(status);
+CREATE INDEX IF NOT EXISTS idx_links_created_at ON links(created_at);
+CREATE INDEX IF NOT EXISTS idx_links_updated_at ON links(updated_at);
+
+-- projects table for storing projects
+CREATE TABLE IF NOT EXISTS projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  deposit_amount INTEGER NOT NULL,
+  deposit_paid BOOLEAN NOT NULL DEFAULT FALSE,
+  deposit_paid_date TEXT NULL,
+  deposit_payment_method TEXT NULL,
+  waiver_signed BOOLEAN NOT NULL DEFAULT FALSE,
+  notes TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for projects
+CREATE INDEX IF NOT EXISTS idx_projects_artist_id ON projects(artist_id);
+CREATE INDEX IF NOT EXISTS idx_projects_client_id ON projects(client_id);
+CREATE INDEX IF NOT EXISTS idx_projects_title ON projects(title);
+CREATE INDEX IF NOT EXISTS idx_projects_deposit_amount ON projects(deposit_amount);
+CREATE INDEX IF NOT EXISTS idx_projects_deposit_paid ON projects(deposit_paid);
+CREATE INDEX IF NOT EXISTS idx_projects_deposit_paid_date ON projects(deposit_paid_date);
+CREATE INDEX IF NOT EXISTS idx_projects_deposit_payment_method ON projects(deposit_payment_method);
+CREATE INDEX IF NOT EXISTS idx_projects_notes ON projects(notes);
+
+-- sessions table for storing sessions
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  duration INTEGER NOT NULL,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  session_rate INTEGER NOT NULL,
+  tip INTEGER NULL,
+  payment_method TEXT NULL,
+  notes TEXT NULL,
+  reschedule_count INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'manual',
+  source_id UUID NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for sessions
+CREATE INDEX IF NOT EXISTS idx_sessions_project_id ON sessions(project_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
+CREATE INDEX IF NOT EXISTS idx_sessions_start_time ON sessions(start_time);
+CREATE INDEX IF NOT EXISTS idx_sessions_duration ON sessions(duration);
+CREATE INDEX IF NOT EXISTS idx_sessions_location_id ON sessions(location_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_session_rate ON sessions(session_rate);
+CREATE INDEX IF NOT EXISTS idx_sessions_tip ON sessions(tip);
+CREATE INDEX IF NOT EXISTS idx_sessions_payment_method ON sessions(payment_method);
+CREATE INDEX IF NOT EXISTS idx_sessions_notes ON sessions(notes);
+
+-- drawings table for storing drawings
+CREATE TABLE IF NOT EXISTS drawings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  artist_notes TEXT NULL,
+  is_approved BOOLEAN NOT NULL DEFAULT FALSE,
+  client_notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(project_id)
+);
+
+-- Optimized indexes for drawings
+CREATE INDEX IF NOT EXISTS idx_drawings_project_id ON drawings(project_id);
+CREATE INDEX IF NOT EXISTS idx_drawings_image_url ON drawings(image_url);
+CREATE INDEX IF NOT EXISTS idx_drawings_artist_notes ON drawings(artist_notes);
+CREATE INDEX IF NOT EXISTS idx_drawings_is_approved ON drawings(is_approved);
+CREATE INDEX IF NOT EXISTS idx_drawings_client_notes ON drawings(client_notes);
+CREATE INDEX IF NOT EXISTS idx_drawings_created_at ON drawings(created_at);
+CREATE INDEX IF NOT EXISTS idx_drawings_updated_at ON drawings(updated_at);
+
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

@@ -201,3 +201,48 @@ export const to12h = (hhmm?: string) => {
 export const formatTime = (hhmm?: string) => {
   return to12h(hhmm || '');
 };
+
+/**
+ * Parse a DB date-like value without invoking timezone conversions.
+ * Supports strings 'YYYY-MM-DD', 'MM-DD-YYYY', 'YYYY/MM/DD', 'MM/DD/YYYY', or a Date instance.
+ */
+export function parseDbDateLike(input?: string | Date | null): { year: number; month: number; day: number } | null {
+  if (!input) return null;
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    return { year: input.getFullYear(), month: input.getMonth() + 1, day: input.getDate() };
+  }
+  const str = String(input).trim();
+  // Replace '/' with '-' for simpler matching
+  const norm = str.replace(/\//g, '-');
+  // YYYY-MM-DD or ISO-like starting with YYYY-MM-DD (e.g., YYYY-MM-DDTHH:mm[:ss][.sss]Z)
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?$/.exec(norm);
+  if (m) {
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (year && month >= 1 && month <= 12 && day >= 1 && day <= 31) return { year, month, day };
+  }
+  // MM-DD-YYYY
+  m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(norm);
+  if (m) {
+    const month = Number(m[1]);
+    const day = Number(m[2]);
+    const year = Number(m[3]);
+    if (year && month >= 1 && month <= 12 && day >= 1 && day <= 31) return { year, month, day };
+  }
+  return null;
+}
+
+type DbDateFormat = 'MMM DD, YYYY' | 'MM-DD-YYYY';
+
+export function formatDbDate(input?: string | Date | null, format: DbDateFormat = 'MMM DD, YYYY'): string {
+  const parts = parseDbDateLike(input);
+  if (!parts) return '';
+  const { year, month, day } = parts;
+  if (format === 'MM-DD-YYYY') {
+    return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}-${String(year)}`;
+  }
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthName = months[Math.max(0, Math.min(11, month - 1))];
+  return `${monthName} ${String(day)/*.no pad per existing style*/}, ${String(year)}`;
+}

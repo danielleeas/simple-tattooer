@@ -47,7 +47,7 @@ export default function Menu() {
     };
 
     const handleManualAppointment = () => {
-        // router.push('/artist/booking/search');
+        router.push('/artist/booking/search');
     };
 
     const handleFAQ = () => {
@@ -55,7 +55,7 @@ export default function Menu() {
     };
 
     const handleCalendar = () => {
-        // router.push('/production/calendar');
+        router.push('/artist/calendar');
     };
 
     const handleDrawings = () => {
@@ -74,7 +74,7 @@ export default function Menu() {
         // router.push('/production/clients/view');
     };
 
-    const handleMakeItYours = () => {
+    const handleSettings = () => {
         router.push('/artist/settings');
     };
 
@@ -119,7 +119,7 @@ export default function Menu() {
 
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleMakeItYours} className='items-center justify-center gap-1'>
+                                            <Pressable onPress={handleSettings} className='items-center justify-center gap-1'>
                                                 <Image source={GEAR_IMAGE} style={ICON_STYLE} />
                                                 <Text variant="h6" className='uppercase leading-none'>settings</Text>
                                             </Pressable>
