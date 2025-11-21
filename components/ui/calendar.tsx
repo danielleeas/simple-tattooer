@@ -104,7 +104,7 @@ export function Calendar({
         } else {
             setInternalViewMode(mode);
         }
-        
+
         if (mode === 'day' && activeSelectedDate) {
             onDateChange(activeSelectedDate);
         }
@@ -351,33 +351,11 @@ export function Calendar({
     const selectedDayMultiDayEvents = activeSelectedDate ? getMultiDayEventsForDate(activeSelectedDate) : [];
 
     return (
-        <View className="w-full gap-4" style={{ height }}>
+        <View className="w-full gap-4 h-full">
             {/* Calendar Header */}
             <View className="flex-row items-center justify-between">
                 <Pressable onPress={handlePreviousMonth}>
                     <Icon as={ChevronLeft} strokeWidth={1} size={24} />
-                </Pressable>
-
-                <Pressable
-                    onPress={() => handleViewModeChange('day')}
-                    style={{ width: 72, height: 28 }}
-                    className={`items-center justify-center rounded-full border ${activeViewMode === 'day'
-                        ? 'bg-foreground border-foreground'
-                        : 'border-border-secondary'
-                        }`}
-                >
-                    <Text className={`text-xs ${activeViewMode === 'day'
-                        ? 'text-background'
-                        : 'text-foreground'
-                        }`}>Day</Text>
-                </Pressable>
-                <Pressable onPress={() => handleViewModeChange('month')}>
-                    <Text className="text-2xl text-foreground" style={{ height: 28, lineHeight: 28 }}>
-                        {activeViewMode === 'week'
-                            ? `${monthNames[weekDays[0].date.getMonth()]} ${weekDays[0].date.getFullYear()}`
-                            : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                        }
-                    </Text>
                 </Pressable>
 
                 <Pressable
@@ -392,6 +370,29 @@ export function Calendar({
                         ? 'text-background'
                         : 'text-foreground'
                         }`}>Week</Text>
+                </Pressable>
+
+                <Pressable onPress={() => handleViewModeChange('month')}>
+                    <Text className="text-2xl text-foreground" style={{ height: 28, lineHeight: 28 }}>
+                        {activeViewMode === 'week'
+                            ? `${monthNames[weekDays[0].date.getMonth()]} ${weekDays[0].date.getFullYear()}`
+                            : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                        }
+                    </Text>
+                </Pressable>
+
+                <Pressable
+                    onPress={() => handleViewModeChange('day')}
+                    style={{ width: 72, height: 28 }}
+                    className={`items-center justify-center rounded-full border ${activeViewMode === 'day'
+                        ? 'bg-foreground border-foreground'
+                        : 'border-border-secondary'
+                        }`}
+                >
+                    <Text className={`text-xs ${activeViewMode === 'day'
+                        ? 'text-background'
+                        : 'text-foreground'
+                        }`}>Day</Text>
                 </Pressable>
 
                 <Pressable onPress={handleNextMonth}>
@@ -433,20 +434,20 @@ export function Calendar({
                                         </View>
                                     </View>
                                 ))}
-                                
+
                                 {/* Events positioned absolutely over the time grid */}
                                 {getDayEventsWithTime(currentDate).map((event, eventIndex) => {
                                     if (!event.startTime) return null;
-                                    
+
                                     const eventStartTime = timeToHour(event.startTime);
                                     const eventEndTime = event.endTime ? timeToHour(event.endTime) : eventStartTime + 1;
                                     const eventDuration = eventEndTime - eventStartTime;
-                                    
+
                                     // Calculate position and height
                                     const topPosition = eventStartTime * 40; // 40px per hour
                                     const eventHeight = eventDuration * 40; // 40px per hour
                                     const leftPosition = (eventIndex + 1) * 45 + 40;
-                                    
+
                                     return (
                                         <View
                                             key={event.id}
@@ -519,24 +520,24 @@ export function Calendar({
                                         ))}
                                     </View>
                                 ))}
-                                
+
                                 {/* Events positioned absolutely over the week time grid */}
                                 {weekDays.map((day, dayIndex) => {
                                     const dayEvents = getDayEventsWithTime(day.date);
                                     return dayEvents.map((event, eventIndex) => {
                                         if (!event.startTime) return null;
-                                        
+
                                         const eventStartTime = timeToHour(event.startTime);
                                         const eventEndTime = event.endTime ? timeToHour(event.endTime) : eventStartTime + 1;
                                         const eventDuration = eventEndTime - eventStartTime;
-                                        
+
                                         // Calculate position and height
-                                        const topPosition = eventStartTime * 40+2; // 40px per hour
-                                        const eventHeight = eventDuration * 40-2; // 40px per hour
-                                        const dayViewWidth = (screenWidth - 72)/7;
-                                        const leftPosition = 40 + (dayIndex * dayViewWidth) + 2*(eventIndex+1); // 10px for time column + day width + margin
-                                        const eventWidth = dayViewWidth-(2*(eventIndex+1)); // Day width minus margins
-                                        
+                                        const topPosition = eventStartTime * 40 + 2; // 40px per hour
+                                        const eventHeight = eventDuration * 40 - 2; // 40px per hour
+                                        const dayViewWidth = (screenWidth - 72) / 7;
+                                        const leftPosition = 40 + (dayIndex * dayViewWidth) + 2 * (eventIndex + 1); // 10px for time column + day width + margin
+                                        const eventWidth = dayViewWidth - (2 * (eventIndex + 1)); // Day width minus margins
+
                                         return (
                                             <View
                                                 key={`${event.id}-${dayIndex}`}

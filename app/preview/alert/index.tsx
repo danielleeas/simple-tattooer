@@ -37,7 +37,7 @@ export default function Alert() {
     }
 
     const handleMessages = () => {
-        // router.push('/preview/messages');
+        router.push('/preview/messages');
     }
 
     const handleCancelReschedule = () => {
