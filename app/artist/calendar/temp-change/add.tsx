@@ -24,6 +24,7 @@ import { Collapse } from "@/components/lib/collapse";
 import type { Locations } from "@/lib/redux/types";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { LocationModal } from "@/components/lib/location-modal";
+import { createTempChange } from "@/lib/services/calendar-service";
 
 interface TempChangeFormData {
     start_date: string | null;
@@ -114,33 +115,30 @@ export default function AddTempChangePage() {
             }
         }
 
-        console.log(formData);
-
-        // try {
-        //     setLoading(true);
-        //     const result = await (calendarService as any).createTempChange({
-        //         artistId: artist.id,
-        //         startDate: formData.start_date,
-        //         endDate: formData.end_date,
-        //         workDays: formData.work_days || [],
-        //         diffTimeEnabled: formData.different_time_enabled || false,
-        //         startTimes: formData.start_times || {},
-        //         endTimes: formData.end_times || {},
-        //         daysOff: formData.days_off || [],
-        //         locationId: formData.location_id,
-        //         notes: formData.notes?.trim() || undefined,
-        //     });
-        //     if (!result.success) {
-        //         toast({ variant: 'error', title: 'Failed to save changes', description: result.error });
-        //         return;
-        //     }
-        //     toast({ variant: 'success', title: 'Work Days Changed!', duration: 3000 });
-        //     router.dismissTo('/artist/calendar');
-        // } catch (error) {
-        //     toast({ variant: 'error', title: 'Failed to save changes', description: error instanceof Error ? error.message : 'Unknown error' });
-        // } finally {
-        //     setLoading(false);
-        // }
+        try {
+            setLoading(true);
+            const result = await createTempChange({
+                artistId: artist.id,
+                startDate: formData.start_date as string,
+                endDate: formData.end_date as string,
+                workDays: formData.work_days || [],
+                diffTimeEnabled: formData.different_time_enabled || false,
+                startTimes: formData.start_times || {},
+                endTimes: formData.end_times || {},
+                location: formData.location as any,
+                notes: formData.notes?.trim() || undefined,
+            });
+            if (!result.success) {
+                toast({ variant: 'error', title: 'Failed to save changes', description: result.error });
+                return;
+            }
+            toast({ variant: 'success', title: 'Work Days Changed!', duration: 3000 });
+            router.dismissTo('/artist/calendar');
+        } catch (error) {
+            toast({ variant: 'error', title: 'Failed to save changes', description: error instanceof Error ? error.message : 'Unknown error' });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleToggleDay = (day: string) => {

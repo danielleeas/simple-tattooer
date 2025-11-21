@@ -34,6 +34,27 @@ export interface CreateSpotConventionResult {
 	error?: string;
 }
 
+export interface CreateTempChangeParams {
+	artistId: string;
+	startDate: string; // "YYYY-MM-DD"
+	endDate: string;   // "YYYY-MM-DD"
+	workDays: string[];
+	diffTimeEnabled: boolean;
+	startTimes: Record<string, string>;
+	endTimes: Record<string, string>;
+	location: Locations | (Partial<Locations> & {
+		placeId?: string;
+		isMainStudio?: boolean;
+	});
+	notes?: string;
+}
+
+export interface CreateTempChangeResult {
+	success: boolean;
+	id?: string;
+	error?: string;
+}
+
 export interface CreateEventParams {
 	artistId: string;
 	title: string;
@@ -282,4 +303,80 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 }
 
 
+
+export async function createTempChange(params: CreateTempChangeParams): Promise<CreateTempChangeResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.startDate || !params.endDate) {
+		 return { success: false, error: 'Start and end dates are required' };
+		}
+		if (params.endDate < params.startDate) {
+			return { success: false, error: 'End date must be after start date' };
+		}
+		if (!Array.isArray(params.workDays) || params.workDays.length === 0) {
+			return { success: false, error: 'At least one work day is required' };
+		}
+		if (!params.location) {
+			return { success: false, error: 'Location is required' };
+		}
+
+		const locationId = await resolveLocationId(params.artistId, params.location);
+
+		// Normalize to requested times: start at 00:00, end at 23:00
+
+		const insertPayload = {
+			artist_id: params.artistId,
+			start_date: params.startDate,
+			end_date: params.endDate,
+			work_days: params.workDays,
+			different_time_enabled: !!params.diffTimeEnabled,
+			start_times: params.startTimes ?? {},
+			end_times: params.endTimes ?? {},
+			location_id: locationId,
+			notes: params.notes?.trim() || null,
+		};
+
+		const { data, error } = await supabase
+			.from('temp_changes')
+			.insert([insertPayload])
+			.select('id')
+			.single();
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to create temp change' };
+		}
+
+		const tempChangeId = data?.id as string | undefined;
+
+		// Create a spanning background event for the range
+		if (tempChangeId) {
+
+			const normalizedStart = `${params.startDate} 00:00`;
+			const normalizedEnd = `${params.endDate} 23:00`;
+			const ev = await createEvent({
+				artistId: params.artistId,
+				title: 'Temporary Change of Work Days',
+				allDay: false,
+				startDate: normalizedStart,
+				endDate: normalizedEnd,
+				color: 'purple',
+				type: 'background',
+				source: 'temp_change',
+				sourceId: tempChangeId,
+			});
+			if (!ev.success) {
+				console.error('Failed to create event for temp change:', ev.error);
+			}
+		}
+
+		return { success: true, id: tempChangeId };
+	} catch (err) {
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : 'Unknown error',
+		};
+	}
+}
 
