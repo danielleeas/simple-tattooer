@@ -454,16 +454,29 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 				const rowsToInsert = sessions
 					.filter((s: any) => !!s?.id && !!s?.date && !existingSet.has(s.id))
 					.map((s: any) => {
-						const hhmm = (s?.start_time || '00:00').padStart(5, '0');
-						const start = new Date(`${s.date}T${hhmm}:00Z`);
-						const end = new Date(start.getTime() + (Number(s?.duration) || 0) * 60_000);
-						const startIso = isNaN(start.getTime()) ? new Date(`${s.date}T00:00:00Z`).toISOString() : start.toISOString();
-						const endIso = isNaN(end.getTime()) ? startIso : end.toISOString();
+						const rawStart = String(s?.start_time ?? '00:00').padStart(5, '0');
+						const startTime = /^\d{2}:\d{2}$/.test(rawStart) ? rawStart : '00:00';
+						const startStr = `${s.date} ${startTime}`; // "YYYY-MM-DD HH:mm"
+
+						let endStr = startStr;
+						const durationMinutes = Number(s?.duration) || 0;
+						if (durationMinutes > 0) {
+							const startLocal = new Date(`${s.date}T${startTime}:00`);
+							if (!isNaN(startLocal.getTime())) {
+								const endLocal = new Date(startLocal.getTime() + durationMinutes * 60_000);
+								const y = endLocal.getFullYear();
+								const m = String(endLocal.getMonth() + 1).padStart(2, '0');
+								const d = String(endLocal.getDate()).padStart(2, '0');
+								const H = String(endLocal.getHours()).padStart(2, '0');
+								const M = String(endLocal.getMinutes()).padStart(2, '0');
+								endStr = `${y}-${m}-${d} ${H}:${M}`;
+							}
+						}
 						return {
 							artist_id: artistId,
 							title: eventTitle,
-							start_date: startIso,
-							end_date: endIso,
+							start_date: startStr,
+							end_date: endStr,
 							color: 'purple',
 							type: 'item', // not background
 							source: 'session',
@@ -606,7 +619,7 @@ export async function getSessionById(sessionId: string): Promise<any | null> {
 			start_time,
 			duration,
 			location_id,
-			location:artist_locations(address),
+			location:locations(address),
 			session_rate,
 			tip,
 			payment_method,

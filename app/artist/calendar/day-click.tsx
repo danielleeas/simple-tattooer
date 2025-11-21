@@ -57,12 +57,12 @@ export default function SingleDate() {
                 params: { id: source_id }
             });
         }
-        // else if (source === 'session') {
-        //     router.push({
-        //         pathname: '/production/clients/detail-session',
-        //         params: { client_id: null, project_id: null, session_id: source_id }
-        //     });
-        // }
+        else if (source === 'session') {
+            router.push({
+                pathname: '/artist/clients/detail-session',
+                params: { client_id: null, project_id: null, session_id: source_id }
+            });
+        }
     }
 
     const [events, setEvents] = useState<CalendarEvent[]>([]);
