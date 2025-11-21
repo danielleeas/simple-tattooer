@@ -174,6 +174,182 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
 	}
 }
 
+export interface CreateOffDaysParams {
+	artistId: string;
+	title: string;
+	startDate: string; // "YYYY-MM-DD"
+	endDate: string;   // "YYYY-MM-DD"
+	isRepeat?: boolean;
+	repeatType?: 'daily' | 'weekly' | 'monthly';
+	repeatDuration?: number;
+	repeatDurationUnit?: 'weeks' | 'months' | 'years';
+	notes?: string;
+}
+
+export interface CreateOffDaysResult {
+	success: boolean;
+	id?: string;
+	error?: string;
+}
+
+export async function createOffDays(params: CreateOffDaysParams): Promise<CreateOffDaysResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.title?.trim()) {
+		 return { success: false, error: 'Title is required' };
+		}
+		if (!params.startDate || !params.endDate) {
+			return { success: false, error: 'Start and end dates are required' };
+		}
+		if (params.endDate < params.startDate) {
+			return { success: false, error: 'End date must be after start date' };
+		}
+
+		// Insert an off_days record to track the pattern
+		const isRepeat = !!params.isRepeat;
+		const resolvedRepeatType = params.repeatType ?? 'daily';
+		const resolvedUnit: 'weeks' | 'months' | 'years' =
+			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
+		const resolvedDuration = params.repeatDuration ?? 1;
+
+		const offDaysPayload = {
+			artist_id: params.artistId,
+			title: params.title.trim(),
+			start_date: params.startDate,
+			end_date: params.endDate,
+			is_repeat: isRepeat,
+			repeat_type: resolvedRepeatType,
+			repeat_duration: resolvedDuration,
+			repeat_duration_unit: resolvedUnit,
+			notes: params.notes?.trim() || null,
+		};
+
+		const { data: offDaysRow, error: offDaysErr } = await supabase
+			.from('off_days')
+			.insert([offDaysPayload])
+			.select('id')
+			.single();
+
+		if (offDaysErr) {
+			return { success: false, error: offDaysErr.message || 'Failed to create off_days record' };
+		}
+
+		// Helpers for date math
+		function parseYmd(ymd: string): Date {
+			// Treat as local date at noon to avoid DST issues, then normalize when formatting
+			return new Date(`${ymd}T12:00:00`);
+		}
+		function addDays(d: Date, days: number): Date {
+			const nd = new Date(d);
+			nd.setDate(nd.getDate() + days);
+			return nd;
+		}
+		function addWeeks(d: Date, weeks: number): Date {
+			return addDays(d, weeks * 7);
+		}
+		function addMonths(d: Date, months: number): Date {
+			const nd = new Date(d);
+			const m = nd.getMonth() + months;
+			nd.setMonth(m);
+			return nd;
+		}
+		function addYears(d: Date, years: number): Date {
+			const nd = new Date(d);
+			nd.setFullYear(nd.getFullYear() + years);
+			return nd;
+		}
+		function formatYmd(d: Date): string {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${y}-${m}-${day}`;
+		}
+
+		// Build occurrences
+		const baseStart = parseYmd(params.startDate);
+		const baseEnd = parseYmd(params.endDate);
+		const spanDays = Math.max(1, Math.round((+baseEnd - +baseStart) / (24 * 60 * 60 * 1000)) + 1);
+
+		// Determine repeat window end (exclusive), ANCHORED TO baseStart.
+		// This ensures "2 weeks" means exactly two weekly occurrences including the current one.
+		let windowEndExclusive: Date | null = null;
+		if (isRepeat) {
+			if (resolvedUnit === 'weeks') {
+				windowEndExclusive = addWeeks(baseStart, resolvedDuration);
+			} else if (resolvedUnit === 'months') {
+				windowEndExclusive = addMonths(baseStart, resolvedDuration);
+			} else {
+				windowEndExclusive = addYears(baseStart, resolvedDuration);
+			}
+		}
+
+		type Occurrence = { start: Date; end: Date };
+		const occurrences: Occurrence[] = [];
+
+		if (!isRepeat) {
+			occurrences.push({ start: baseStart, end: baseEnd });
+		} else {
+			if (resolvedRepeatType === 'daily') {
+				// Create one event per day from baseStart up to windowEndExclusive (exclusive)
+				let cursor = new Date(baseStart);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					const occStart = new Date(cursor);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursor = addDays(cursor, 1);
+				}
+			} else if (resolvedRepeatType === 'weekly') {
+				// Repeat the same span each week
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addWeeks(cursorStart, 1);
+				}
+			} else {
+				// monthly
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addMonths(cursorStart, 1);
+				}
+			}
+		}
+
+		// Create events for each occurrence, with normalized times
+		for (const occ of occurrences) {
+			const startStr = `${formatYmd(occ.start)} 00:00`;
+			const endStr = `${formatYmd(occ.end)} 23:59`;
+			const ev = await createEvent({
+				artistId: params.artistId,
+				title: params.title.trim(),
+				allDay: false,
+				startDate: startStr,
+				endDate: endStr,
+				color: 'blue',
+				type: 'background',
+				source: 'book_off',
+				sourceId: offDaysRow?.id as string,
+			});
+			if (!ev.success) {
+				return { success: false, error: ev.error || 'Failed to create one of the off-days events' };
+			}
+		}
+
+		return { success: true, id: offDaysRow?.id as string | undefined };
+	} catch (err) {
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : 'Unknown error',
+		};
+	}
+}
+
 function toBoolean(value: unknown, defaultValue = false): boolean {
 	if (typeof value === 'boolean') return value;
 	return defaultValue;

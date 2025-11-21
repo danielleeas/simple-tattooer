@@ -94,6 +94,11 @@ export default function CalendarPage() {
         closeActionModal();
     }
 
+    const openOffDaysAdd = () => {
+        router.push('/artist/calendar/off-days/add');
+        closeActionModal();
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -197,7 +202,7 @@ export default function CalendarPage() {
 
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
-                                onPress={closeActionModal}
+                                onPress={openOffDaysAdd}
                                 accessibilityRole="button"
                                 accessibilityLabel="Book Off Multiple Days In A Row"
                             >

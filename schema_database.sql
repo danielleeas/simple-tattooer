@@ -405,6 +405,35 @@ CREATE INDEX IF NOT EXISTS idx_temp_changes_notes ON temp_changes(notes);
 CREATE INDEX IF NOT EXISTS idx_temp_changes_created_at ON temp_changes(created_at);
 CREATE INDEX IF NOT EXISTS idx_temp_changes_updated_at ON temp_changes(updated_at);
 
+-- off days table for storing off days
+CREATE TABLE IF NOT EXISTS off_days (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  is_repeat BOOLEAN NOT NULL DEFAULT FALSE,
+  repeat_type TEXT NOT NULL DEFAULT 'daily',
+  repeat_duration INTEGER NOT NULL DEFAULT 1,
+  repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
+  notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for off days
+CREATE INDEX IF NOT EXISTS idx_off_days_artist_id ON off_days(artist_id);
+CREATE INDEX IF NOT EXISTS idx_off_days_title ON off_days(title);
+CREATE INDEX IF NOT EXISTS idx_off_days_start_date ON off_days(start_date);
+CREATE INDEX IF NOT EXISTS idx_off_days_end_date ON off_days(end_date);
+CREATE INDEX IF NOT EXISTS idx_off_days_is_repeat ON off_days(is_repeat) WHERE is_repeat = true;
+CREATE INDEX IF NOT EXISTS idx_off_days_repeat_type ON off_days(repeat_type);
+CREATE INDEX IF NOT EXISTS idx_off_days_repeat_duration ON off_days(repeat_duration);
+CREATE INDEX IF NOT EXISTS idx_off_days_repeat_duration_unit ON off_days(repeat_duration_unit);
+CREATE INDEX IF NOT EXISTS idx_off_days_notes ON off_days(notes);
+CREATE INDEX IF NOT EXISTS idx_off_days_created_at ON off_days(created_at);
+CREATE INDEX IF NOT EXISTS idx_off_days_updated_at ON off_days(updated_at);
+
 -- events table for storing events
 CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
