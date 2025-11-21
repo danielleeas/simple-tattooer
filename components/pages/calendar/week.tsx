@@ -15,6 +15,7 @@ type WeekViewProps = {
 export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
     const { artist } = useAuth();
     const [eventsByDay, setEventsByDay] = useState<Record<string, CalendarEvent[]>>({});
+    const [weekEvents, setWeekEvents] = useState<CalendarEvent[]>([]);
 
     const weekDays = useMemo(() => {
         const startOfWeek = new Date(currentDate);
@@ -49,6 +50,7 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                 end: weekRange.end,
             });
             const events = res.events || [];
+            setWeekEvents(events);
 
             const visibleStart = new Date(weekDays[0].date.getFullYear(), weekDays[0].date.getMonth(), weekDays[0].date.getDate(), 12);
             const last = weekDays[weekDays.length - 1].date;
@@ -101,6 +103,26 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
         }
         return slots;
     }, [currentDate]);
+
+    // Layout constants and helpers
+    const GRID_ROW_HEIGHT = 40; // 30 minutes
+    const HOUR_HEIGHT = GRID_ROW_HEIGHT * 2;
+    const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
+    const TIME_COL_WIDTH = 56; // w-14
+    const dayContentHeight = useMemo(() => timeSlots.length * GRID_ROW_HEIGHT, [timeSlots.length]);
+
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+    const parsedEvents = useMemo(() => {
+        const parseDateTime = (s: string) => new Date((s || "").replace(" ", "T"));
+        return (weekEvents || []).map((e) => ({
+            ...e,
+            startDate: parseDateTime(e.start_date),
+            endDate: parseDateTime(e.end_date),
+            allDay: !!e.allday,
+        }));
+    }, [weekEvents]);
 
     return (
         <View className="flex-1 border border-border-secondary">
@@ -156,37 +178,114 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
 
             {/* Time grid */}
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {timeSlots.map((slot, rowIdx) => (
-                    <View key={rowIdx} className="flex-row border-b border-border-secondary" style={{ height: 40 }}>
-                        <View className="w-14 justify-center items-center border-r border-border-secondary py-2">
-                            <Text className="text-xs">{slot.timeString}</Text>
-                            <Text className="text-xs leading-none">{slot.amPm}</Text>
+                <View style={{ height: dayContentHeight, position: "relative" }}>
+                    {timeSlots.map((slot, rowIdx) => (
+                        <View key={rowIdx} className="flex-row border-b border-border-secondary" style={{ height: GRID_ROW_HEIGHT }}>
+                            <View className="w-14 justify-center items-center border-r border-border-secondary py-2">
+                                <Text className="text-xs">{slot.timeString}</Text>
+                                <Text className="text-xs leading-none">{slot.amPm}</Text>
+                            </View>
+                            {weekDays.map((d, colIdx) => (
+                                <Pressable
+                                    key={colIdx}
+                                    className="flex-1 justify-center items-center py-2 border-r border-border-secondary"
+                                    style={colIdx === 6 ? { borderRightWidth: 0 } : {}}
+                                    onPress={() => {
+                                        const selectedDateTime = new Date(
+                                            d.date.getFullYear(),
+                                            d.date.getMonth(),
+                                            d.date.getDate(),
+                                            slot.hour,
+                                            slot.minute,
+                                            0,
+                                            0
+                                        );
+                                        const datePart = toLocalDateString(selectedDateTime);
+                                        const hh = String(selectedDateTime.getHours()).padStart(2, "0");
+                                        const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
+                                        const datetimeString = `${datePart} ${hh}:${mm}`;
+                                        onTimeSelect(datetimeString);
+                                    }}
+                                />
+                            ))}
                         </View>
-                        {weekDays.map((d, colIdx) => (
-                            <Pressable
-                                key={colIdx}
-                                className="flex-1 justify-center items-center py-2 border-r border-border-secondary"
-                                style={colIdx === 6 ? { borderRightWidth: 0 } : {}}
-                                onPress={() => {
-                                    const selectedDateTime = new Date(
-                                        d.date.getFullYear(),
-                                        d.date.getMonth(),
-                                        d.date.getDate(),
-                                        slot.hour,
-                                        slot.minute,
-                                        0,
-                                        0
-                                    );
-                                    const datePart = toLocalDateString(selectedDateTime);
-                                    const hh = String(selectedDateTime.getHours()).padStart(2, "0");
-                                    const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
-                                    const datetimeString = `${datePart} ${hh}:${mm}`;
-                                    onTimeSelect(datetimeString);
-                                }}
-                            />
-                        ))}
+                    ))}
+
+                    {/* Timed overlays across the week */}
+                    <View
+                        pointerEvents="none"
+                        style={{
+                            position: "absolute",
+                            left: TIME_COL_WIDTH,
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                        }}
+                    >
+                        <View style={{ flex: 1, flexDirection: "row" }}>
+                            {weekDays.map((wd, di) => {
+                                const dStart = startOfDay(wd.date).getTime();
+                                const dEnd = endOfDay(wd.date).getTime();
+                                const dayTimed = parsedEvents.filter(
+                                    (e: any) => !e.allDay && e.type === "item" && e.endDate.getTime() >= dStart && e.startDate.getTime() <= dEnd
+                                );
+                                const dayBackgrounds = parsedEvents.filter(
+                                    (e: any) => !e.allDay && e.type === "background" && e.endDate.getTime() >= dStart && e.startDate.getTime() <= dEnd
+                                );
+                                return (
+                                    <View key={`wkcol-${di}`} style={{ flex: 1, position: "relative" }}>
+                                        {dayBackgrounds.map((e: any, idx: number) => {
+                                            const s = Math.max(e.startDate.getTime(), dStart);
+                                            const en = Math.min(e.endDate.getTime(), dEnd);
+                                            const minutesFromStart = (s - dStart) / (1000 * 60);
+                                            const minutesDuration = Math.max(15, (en - s) / (1000 * 60));
+                                            return (
+                                                <View
+                                                    key={`wkbg-${di}-${idx}`}
+                                                    style={{
+                                                        position: "absolute",
+                                                        top: minutesFromStart * MINUTE_HEIGHT,
+                                                        left: 0,
+                                                        right: 0,
+                                                        height: minutesDuration * MINUTE_HEIGHT,
+                                                        backgroundColor: "#000",
+                                                        opacity: 0.06,
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                        {dayTimed.map((e: any, idx: number) => {
+                                            const s = Math.max(e.startDate.getTime(), dStart);
+                                            const en = Math.min(e.endDate.getTime(), dEnd);
+                                            const minutesFromStart = (s - dStart) / (1000 * 60);
+                                            const minutesDuration = Math.max(15, (en - s) / (1000 * 60));
+                                            return (
+                                                <View
+                                                    key={`wkitem-${di}-${idx}`}
+                                                    style={{
+                                                        position: "absolute",
+                                                        top: minutesFromStart * MINUTE_HEIGHT,
+                                                        left: 4,
+                                                        right: 4,
+                                                        height: minutesDuration * MINUTE_HEIGHT,
+                                                        borderRadius: 6,
+                                                        paddingHorizontal: 4,
+                                                        justifyContent: "center",
+                                                    }}
+                                                    className={`${getEventColorClass(e.color)}`}
+                                                >
+                                                    <Text className="text-[10px] text-foreground text-center" numberOfLines={2}>
+                                                        {e.title || "Event"}
+                                                    </Text>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                );
+                            })}
+                        </View>
                     </View>
-                ))}
+                </View>
             </ScrollView>
         </View>
     );

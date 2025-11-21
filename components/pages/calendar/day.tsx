@@ -203,10 +203,11 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                                     borderRadius: 2,
                                     paddingHorizontal: 6,
                                     justifyContent: "center",
+                                    alignItems: "center",
                                 }}
                                 className={`${getEventColorClass(e.color)}`}
                             >
-                                <Text className="text-[10px] text-background" numberOfLines={2}>
+                                <Text className="text-md text-foreground" numberOfLines={2}>
                                     {e.title || "Event"}
                                 </Text>
                             </View>
