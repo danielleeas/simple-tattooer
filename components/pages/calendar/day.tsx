@@ -1,13 +1,14 @@
 import { useMemo } from "react";
-import { View, ScrollView } from "react-native";
+import { View, ScrollView, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { dayNames } from "./utils";
+import { dayNames, toLocalDateString } from "./utils";
 
 type DayViewProps = {
     currentDate: Date;
+    onTimeSelect: (datetime: string) => void;
 };
 
-export const DayView = ({ currentDate }: DayViewProps) => {
+export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
     const timeSlots = useMemo(() => {
         const slots: { hour: number; minute: number; timeString: string }[] = [];
         for (let i = 0; i < 48; i++) {
@@ -48,7 +49,25 @@ export const DayView = ({ currentDate }: DayViewProps) => {
                         <View className="w-20 justify-center items-center border-r border-border-secondary py-2">
                             <Text className="text-xs">{slot.timeString}</Text>
                         </View>
-                        <View className="flex-1 justify-center items-center py-2" />
+                        <Pressable
+                            className="flex-1 justify-center items-center py-2"
+                            onPress={() => {
+                                const selectedDateTime = new Date(
+                                    currentDate.getFullYear(),
+                                    currentDate.getMonth(),
+                                    currentDate.getDate(),
+                                    slot.hour,
+                                    slot.minute,
+                                    0,
+                                    0
+                                );
+                                const datePart = toLocalDateString(selectedDateTime);
+                                const hh = String(selectedDateTime.getHours()).padStart(2, "0");
+                                const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
+                                const datetimeString = `${datePart} ${hh}:${mm}`;
+                                onTimeSelect(datetimeString);
+                            }}
+                        />
                     </View>
                 ))}
             </ScrollView>

@@ -1,13 +1,14 @@
 import { useMemo } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView, View, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { dayNames } from "./utils";
+import { dayNames, toLocalDateString } from "./utils";
 
 type WeekViewProps = {
     currentDate: Date;
+    onTimeSelect: (datetime: string) => void;
 };
 
-export const WeekView = ({ currentDate }: WeekViewProps) => {
+export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
     const weekDays = useMemo(() => {
         const startOfWeek = new Date(currentDate);
         const day = startOfWeek.getDay(); // 0 = Sun
@@ -76,11 +77,27 @@ export const WeekView = ({ currentDate }: WeekViewProps) => {
                             <Text className="text-xs">{slot.timeString}</Text>
                             <Text className="text-xs leading-none">{slot.amPm}</Text>
                         </View>
-                        {weekDays.map((_, colIdx) => (
-                            <View
+                        {weekDays.map((d, colIdx) => (
+                            <Pressable
                                 key={colIdx}
                                 className="flex-1 justify-center items-center py-2 border-r border-border-secondary"
                                 style={colIdx === 6 ? { borderRightWidth: 0 } : {}}
+                                onPress={() => {
+                                    const selectedDateTime = new Date(
+                                        d.date.getFullYear(),
+                                        d.date.getMonth(),
+                                        d.date.getDate(),
+                                        slot.hour,
+                                        slot.minute,
+                                        0,
+                                        0
+                                    );
+                                    const datePart = toLocalDateString(selectedDateTime);
+                                    const hh = String(selectedDateTime.getHours()).padStart(2, "0");
+                                    const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
+                                    const datetimeString = `${datePart} ${hh}:${mm}`;
+                                    onTimeSelect(datetimeString);
+                                }}
                             />
                         ))}
                     </View>
