@@ -1,7 +1,10 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { dayNames, toLocalDateString } from "./utils";
+import { dayNames, toLocalDateString, getEventColorClass } from "./utils";
+import { useAuth } from "@/lib/contexts/auth-context";
+import { getEventsInRange, type CalendarEvent } from "@/lib/services/calendar-service";
+import { useFocusEffect } from "@react-navigation/native";
 
 type DayViewProps = {
     currentDate: Date;
@@ -9,6 +12,33 @@ type DayViewProps = {
 };
 
 export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
+    const { artist } = useAuth();
+    const [eventsToday, setEventsToday] = useState<CalendarEvent[]>([]);
+
+    const loadEvents = useCallback(async () => {
+        if (!artist?.id) return;
+        try {
+            const res = await getEventsInRange({
+                artistId: artist.id,
+                start: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0, 0),
+                end: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999),
+            });
+            setEventsToday(res.events || []);
+        } catch {
+            setEventsToday([]);
+        }
+    }, [artist?.id, currentDate]);
+
+    useEffect(() => {
+        loadEvents();
+    }, [loadEvents]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadEvents();
+        }, [loadEvents])
+    );
+
     const timeSlots = useMemo(() => {
         const slots: { hour: number; minute: number; timeString: string }[] = [];
         for (let i = 0; i < 48; i++) {
@@ -49,8 +79,21 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                         All-day
                     </Text>
                 </View>
-                <View className="flex-1 h-full px-2 flex-row flex-wrap items-center">
-                    
+                <View className="flex-1 h-full px-1 py-1 flex-row flex-wrap items-center">
+                    {eventsToday
+                        .filter(ev => ev.type === "background" || ev.allday === true)
+                        .map((ev) => (
+                            <Pressable
+                                key={ev.id}
+                                className={`px-2 h-full items-center ${getEventColorClass(ev.color)}`}
+                                style={{ opacity: 0.8, marginRight: 2, maxWidth: 80 }}
+                                pointerEvents="none"
+                            >
+                                <Text numberOfLines={1} className="text-[14px] text-foreground font-medium leading-none">
+                                    {ev.title || "Event"}
+                                </Text>
+                            </Pressable>
+                        ))}
                 </View>
             </View>
 
