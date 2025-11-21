@@ -60,8 +60,10 @@ export default function CalendarPage() {
     };
 
     const onDatePress = (dateString: string) => {
-        // Example: handle string in local timezone "YYYY-MM-DDTHH:mm:ss±HH:MM"
-        console.log(dateString);
+        router.push({
+            pathname: '/artist/calendar/day-click',
+            params: { date: dateString },
+        });
     };
 
     const onDayTimeSelect = (datetime: string) => {

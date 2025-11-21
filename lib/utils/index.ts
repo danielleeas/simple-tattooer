@@ -165,3 +165,39 @@ export function formatYmd(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+export const isoToLocalHHMM = (value?: string | Date) => {
+  if (!value) return '';
+  const toHHMM = (d: Date) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  if (value instanceof Date) return toHHMM(value);
+  // Preserve separators like space or 'T' between date and time;
+  // trimming avoids accidental regex mismatch that produced Invalid Date -> NaN.
+  const s = (typeof value === 'string' ? value.trim() : String(value));
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?(?:Z|[+-]\d{2}:\d{2})?$/);
+  if (m) {
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const d = parseInt(m[3], 10);
+      const hh = parseInt(m[4] ?? '0', 10);
+      const mm = parseInt(m[5] ?? '0', 10);
+      const ss = parseInt(m[6] ?? '0', 10);
+      const ms = parseInt(m[7] ?? '0', 10);
+      return toHHMM(new Date(y, mo, d, hh, mm, ss, ms));
+  }
+  return toHHMM(new Date(s));
+};
+export const to12h = (hhmm?: string) => {
+  if (!hhmm) return '';
+  const [hStr, mStr] = hhmm.split(':');
+  const h24 = Number(hStr);
+  const m = Number(mStr);
+  const period = h24 < 12 ? 'am' : 'pm';
+  const h12 = ((h24 + 11) % 12) + 1;
+  const minutesPart = String(m).padStart(2, '0');
+  // Use dot as separator and always include minutes, e.g. "10.00am"
+  return `${h12}.${minutesPart}${period}`;
+};
+
+export const formatTime = (hhmm?: string) => {
+  return to12h(hhmm || '');
+};

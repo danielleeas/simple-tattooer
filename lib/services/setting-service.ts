@@ -3,6 +3,7 @@ import type { BrandingDataProps, ControlDataProps } from '@/components/pages/you
 import type { WorkDayDataProps, BookingDataProps, DrawingDataProps } from '@/components/pages/your-flow/type';
 import type { DepositDataProps, PolicyDataProps, TemplateDataProps } from '@/components/pages/your-rule/type';
 import { uploadFileToStorage, detectMimeTypeFromUri, extractNameFromUri } from './storage-service';
+import type { Locations } from '@/lib/redux/types';
 
 export const updateBookingQuestions = async (
     artistId: string,
@@ -95,6 +96,64 @@ export const updatePassword = async (
         };
     }
 };
+
+export async function addTemporaryLocation(
+    artistId: string,
+    location: {
+        address: string;
+        place_id: string;
+        coordinates: { latitude: number; longitude: number };
+        is_main_studio: boolean;
+        is_temporary?: boolean;
+    }
+): Promise<{ success: boolean; location?: Locations; error?: string }> {
+    try {
+        if (!artistId) {
+            return { success: false, error: 'Missing artist id' };
+        }
+        if (!location?.address || !location?.place_id) {
+            return { success: false, error: 'Invalid location' };
+        }
+
+        const payload = {
+            artist_id: artistId,
+            address: location.address,
+            place_id: location.place_id,
+            coordinates: {
+                latitude: location.coordinates?.latitude,
+                longitude: location.coordinates?.longitude,
+            },
+            is_main_studio: !!location.is_main_studio,
+            // If your schema does not include this column, Supabase will error.
+            // Consumers should ignore the flag if unsupported.
+            is_temporary: location.is_temporary ?? true,
+        };
+
+        const { data, error } = await supabase
+            .from('locations')
+            .insert([payload])
+            .select('id, address, place_id, coordinates, is_main_studio')
+            .single();
+
+        if (error) {
+            // Fallback: try to fetch an existing location by address for this artist
+            const { data: existing, error: findErr } = await supabase
+                .from('locations')
+                .select('id, address, place_id, coordinates, is_main_studio')
+                .eq('artist_id', artistId)
+                .eq('address', location.address)
+                .maybeSingle();
+            if (findErr || !existing) {
+                return { success: false, error: error.message || 'Failed to add temporary location' };
+            }
+            return { success: true, location: existing as unknown as Locations };
+        }
+
+        return { success: true, location: data as unknown as Locations };
+    } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
 
 type ProgressFn = (progress: number, label?: string) => void;
 

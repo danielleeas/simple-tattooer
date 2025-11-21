@@ -351,6 +351,232 @@ export async function createOffDays(params: CreateOffDaysParams): Promise<Create
 	}
 }
 
+export type OffDayRecord = {
+	id: string;
+	artist_id: string;
+	title: string;
+	start_date: string; // "YYYY-MM-DD"
+	end_date: string;   // "YYYY-MM-DD"
+	is_repeat: boolean;
+	repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
+	repeat_duration?: number | null;
+	repeat_duration_unit?: 'weeks' | 'months' | 'years' | null;
+	notes?: string | null;
+};
+
+export async function getOffDayById(id: string): Promise<{ success: boolean; data?: OffDayRecord; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		const { data, error } = await supabase
+			.from('off_days')
+			.select('id, artist_id, title, start_date, end_date, is_repeat, repeat_type, repeat_duration, repeat_duration_unit, notes')
+			.eq('id', id)
+			.single();
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load off day' };
+		}
+		return { success: true, data: data as OffDayRecord };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function deleteOffDay(id: string): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		const { error } = await supabase
+			.from('off_days')
+			.delete()
+			.eq('id', id);
+		if (error) {
+			return { success: false, error: error.message || 'Failed to delete off day' };
+		}
+		// Cleanup any events created for this off day
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'book_off')
+			.eq('source_id', id);
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+// Update Off Day and reconcile generated events
+export type UpdateOffDayInput = {
+	title?: string;
+	start_date?: string; // "YYYY-MM-DD"
+	end_date?: string;   // "YYYY-MM-DD"
+	is_repeat?: boolean;
+	repeat_type?: 'daily' | 'weekly' | 'monthly';
+	repeat_duration?: number;
+	repeat_duration_unit?: 'weeks' | 'months' | 'years';
+	notes?: string | null;
+};
+
+export async function updateOffDay(
+	id: string,
+	input: UpdateOffDayInput
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		// If both dates provided, validate ordering
+		if (input.start_date && input.end_date && input.end_date < input.start_date) {
+		 return { success: false, error: 'End date must be after start date' };
+		}
+
+		// Normalize repeat fields
+		const isRepeat = !!input.is_repeat;
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' = input.repeat_type ?? 'daily';
+		const resolvedRepeatUnit: 'weeks' | 'months' | 'years' =
+			input.repeat_duration_unit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
+		const resolvedRepeatDuration: number = input.repeat_duration ?? 1;
+
+		const payload = {
+			title: input.title?.trim(),
+			start_date: input.start_date,
+			end_date: input.end_date,
+			is_repeat: isRepeat,
+			repeat_type: resolvedRepeatType,
+			repeat_duration: resolvedRepeatDuration,
+			repeat_duration_unit: resolvedRepeatUnit,
+			notes: (input.notes === undefined ? undefined : (input.notes ?? null)),
+		};
+
+		const { error: updateError } = await supabase
+			.from('off_days')
+			.update(payload)
+			.eq('id', id);
+
+		if (updateError) {
+			return { success: false, error: updateError.message || 'Failed to update off day' };
+		}
+
+		// Fetch the updated row to derive occurrences and artist
+		const { data: row, error: fetchErr } = await supabase
+			.from('off_days')
+			.select('artist_id, title, start_date, end_date, is_repeat, repeat_type, repeat_duration, repeat_duration_unit')
+			.eq('id', id)
+			.single();
+
+		if (fetchErr || !row) {
+			return { success: false, error: fetchErr?.message || 'Failed to read updated off day' };
+		}
+
+		// Remove prior generated events for this off day
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'book_off')
+			.eq('source_id', id);
+
+		// Helpers for date math
+		function parseYmd(ymd: string): Date {
+			return new Date(`${ymd}T12:00:00`);
+		}
+		function addDays(d: Date, days: number): Date {
+			const nd = new Date(d);
+			nd.setDate(nd.getDate() + days);
+			return nd;
+		}
+		function addWeeks(d: Date, weeks: number): Date {
+			return addDays(d, weeks * 7);
+		}
+		function addMonths(d: Date, months: number): Date {
+			const nd = new Date(d);
+			const m = nd.getMonth() + months;
+			nd.setMonth(m);
+			return nd;
+		}
+		function addYears(d: Date, years: number): Date {
+			const nd = new Date(d);
+			nd.setFullYear(nd.getFullYear() + years);
+			return nd;
+		}
+		function formatYmd(d: Date): string {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+		 return `${y}-${m}-${day}`;
+		}
+
+		// Build occurrences from updated row
+		const baseStart = parseYmd(row.start_date);
+		const baseEnd = parseYmd(row.end_date);
+		const spanDays = Math.max(1, Math.round((+baseEnd - +baseStart) / (24 * 60 * 60 * 1000)) + 1);
+
+		let windowEndExclusive: Date | null = null;
+		if (row.is_repeat) {
+			const unit = (row.repeat_duration_unit ?? (row.repeat_type === 'monthly' ? 'months' : 'weeks')) as 'weeks' | 'months' | 'years';
+			const duration = row.repeat_duration ?? 1;
+			if (unit === 'weeks') windowEndExclusive = addWeeks(baseStart, duration);
+			else if (unit === 'months') windowEndExclusive = addMonths(baseStart, duration);
+			else windowEndExclusive = addYears(baseStart, duration);
+		}
+
+		type Occurrence = { start: Date; end: Date };
+		const occurrences: Occurrence[] = [];
+		if (!row.is_repeat) {
+			occurrences.push({ start: baseStart, end: baseEnd });
+		} else {
+			const rType = (row.repeat_type ?? 'daily') as 'daily' | 'weekly' | 'monthly';
+			if (rType === 'daily') {
+				let cursor = new Date(baseStart);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					const occStart = new Date(cursor);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursor = addDays(cursor, 1);
+				}
+			} else if (rType === 'weekly') {
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addWeeks(cursorStart, 1);
+				}
+			} else {
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addMonths(cursorStart, 1);
+				}
+			}
+		}
+
+		// Recreate events
+		const artistId = (row as { artist_id?: string }).artist_id;
+		const title = (row as { title?: string }).title?.trim() || 'Off Day';
+		for (const occ of occurrences) {
+			const startStr = `${formatYmd(occ.start)} 00:00`;
+			const endStr = `${formatYmd(occ.end)} 23:59`;
+			const ev = await createEvent({
+				artistId: artistId!,
+				title,
+				allDay: false,
+				startDate: startStr,
+				endDate: endStr,
+				color: 'blue',
+				type: 'background',
+				source: 'book_off',
+				sourceId: id,
+			});
+			if (!ev.success) {
+				return { success: false, error: ev.error || 'Failed to (re)create one of the off-days events' };
+			}
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
 function toBoolean(value: unknown, defaultValue = false): boolean {
 	if (typeof value === 'boolean') return value;
 	return defaultValue;
@@ -481,6 +707,187 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 
 
 
+export type SpotConventionRecord = {
+	id: string;
+	artist_id: string;
+	title: string;
+	dates: string[];
+	diff_time_enabled: boolean;
+	start_times: Record<string, string>;
+	end_times: Record<string, string>;
+	location_id: string;
+	notes?: string | null;
+	location?: {
+		id: string;
+		address?: string | null;
+		place_id?: string | null;
+	};
+};
+
+export async function getSpotConventionById(id: string): Promise<{ success: boolean; data?: SpotConventionRecord; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const { data: row, error } = await supabase
+			.from('spot_conventions')
+			.select('id, artist_id, title, dates, diff_time_enabled, start_times, end_times, location_id, notes')
+			.eq('id', id)
+			.single();
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load spot convention' };
+		}
+
+		let location: SpotConventionRecord['location'] | undefined = undefined;
+		const locationId = (row as any)?.location_id as string | undefined;
+		if (locationId) {
+			const { data: locRow } = await supabase
+				.from('locations')
+				.select('id, address, place_id')
+				.eq('id', locationId)
+				.maybeSingle();
+			if (locRow) {
+				location = {
+					id: (locRow as any).id as string,
+					address: (locRow as any).address ?? null,
+					place_id: (locRow as any).place_id ?? null,
+				};
+			}
+		}
+
+		const record: SpotConventionRecord = {
+			id: (row as any).id,
+			artist_id: (row as any).artist_id,
+			title: (row as any).title,
+			dates: ((row as any).dates ?? []) as string[],
+			diff_time_enabled: !!(row as any).diff_time_enabled,
+			start_times: ((row as any).start_times ?? {}) as Record<string, string>,
+			end_times: ((row as any).end_times ?? {}) as Record<string, string>,
+			location_id: (row as any).location_id,
+			notes: (row as any).notes ?? null,
+			location,
+		};
+
+		return { success: true, data: record };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export type UpdateSpotConventionInput = {
+	title?: string;
+	dates?: string[];
+	diffTimeEnabled?: boolean;
+	startTimes?: Record<string, string>;
+	endTimes?: Record<string, string>;
+	locationId?: string;
+	notes?: string;
+};
+
+export async function updateSpotConvention(
+	id: string,
+	input: UpdateSpotConventionInput
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		// Build payload with only provided fields
+		const payload: Record<string, unknown> = {};
+		if (typeof input.title === 'string') payload.title = input.title.trim();
+		if (Array.isArray(input.dates)) payload.dates = input.dates;
+		if (typeof input.diffTimeEnabled === 'boolean') payload.diff_time_enabled = input.diffTimeEnabled;
+		if (input.startTimes) payload.start_times = input.startTimes;
+		if (input.endTimes) payload.end_times = input.endTimes;
+		if (typeof input.locationId === 'string') payload.location_id = input.locationId;
+		if (typeof input.notes !== 'undefined') payload.notes = input.notes?.trim() || null;
+
+		const { error } = await supabase
+			.from('spot_conventions')
+			.update(payload)
+			.eq('id', id);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to update spot convention' };
+		}
+
+		// Recreate background calendar event for this spot convention
+		// 1) Fetch current values needed (artist_id, dates, start_times, end_times, title)
+		const { data: row } = await supabase
+			.from('spot_conventions')
+			.select('artist_id, title, dates, start_times, end_times')
+			.eq('id', id)
+			.single();
+
+		const artistId = (row as any)?.artist_id as string | undefined;
+		const currentTitle: string = (typeof input.title === 'string' ? input.title : ((row as any)?.title ?? '')) || 'Guest Spot/Convention';
+		const currentDates: string[] = Array.isArray(input.dates) ? input.dates : (((row as any)?.dates ?? []) as string[]);
+		const currentStartTimes: Record<string, string> = input.startTimes ?? (((row as any)?.start_times ?? {}) as Record<string, string>);
+		const currentEndTimes: Record<string, string> = input.endTimes ?? (((row as any)?.end_times ?? {}) as Record<string, string>);
+
+		// 2) Remove prior events for this spot convention
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'spot_convention')
+			.eq('source_id', id);
+
+		// 3) Create a new spanning event if we have sufficient data
+		if (artistId && currentDates.length > 0) {
+			const sorted = [...currentDates].sort();
+			const firstDate = sorted[0];
+			const lastDate = sorted[sorted.length - 1];
+			const start = composeDateTime(firstDate, currentStartTimes?.[firstDate], '09:00');
+			const end = composeDateTime(lastDate, currentEndTimes?.[lastDate], '17:00');
+
+			const ev = await createEvent({
+				artistId,
+				title: currentTitle.trim(),
+				allDay: false,
+				startDate: start,
+				endDate: end,
+				color: 'orange',
+				type: 'background',
+				source: 'spot_convention',
+				sourceId: id,
+			});
+
+			if (!ev.success) {
+				return { success: false, error: ev.error || 'Failed to (re)create calendar event for spot convention' };
+			}
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function deleteSpotConvention(id: string): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const { error } = await supabase
+			.from('spot_conventions')
+			.delete()
+			.eq('id', id);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to delete spot convention' };
+		}
+
+		// Best-effort cleanup of calendar events created for this record
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'spot_convention')
+			.eq('source_id', id);
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
 export async function createTempChange(params: CreateTempChangeParams): Promise<CreateTempChangeResult> {
 	try {
 		if (!params.artistId) {
@@ -554,6 +961,184 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			success: false,
 			error: err instanceof Error ? err.message : 'Unknown error',
 		};
+	}
+}
+
+export type TempChangeRecord = {
+	id: string;
+	artist_id: string;
+	start_date: string; // "YYYY-MM-DD"
+	end_date: string;   // "YYYY-MM-DD"
+	work_days: string[];
+	different_time_enabled: boolean;
+	start_times: Record<string, string>;
+	end_times: Record<string, string>;
+	location_id: string;
+	notes?: string | null;
+	location?: {
+		id: string;
+		address?: string | null;
+		place_id?: string | null;
+	};
+};
+
+export async function getTempChangeById(id: string): Promise<{ success: boolean; data?: TempChangeRecord; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const { data: row, error } = await supabase
+			.from('temp_changes')
+			.select('id, artist_id, start_date, end_date, work_days, different_time_enabled, start_times, end_times, location_id, notes')
+			.eq('id', id)
+			.single();
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load temp change' };
+		}
+
+		let location: TempChangeRecord['location'] | undefined = undefined;
+		const locationId = (row as any)?.location_id as string | undefined;
+		if (locationId) {
+			const { data: locRow } = await supabase
+				.from('locations')
+				.select('id, address, place_id')
+				.eq('id', locationId)
+				.maybeSingle();
+			if (locRow) {
+				location = {
+					id: (locRow as any).id as string,
+					address: (locRow as any).address ?? null,
+					place_id: (locRow as any).place_id ?? null,
+				};
+			}
+		}
+
+		const record: TempChangeRecord = {
+			id: (row as any).id,
+			artist_id: (row as any).artist_id,
+			start_date: (row as any).start_date,
+			end_date: (row as any).end_date,
+			work_days: ((row as any).work_days ?? []) as string[],
+			different_time_enabled: !!(row as any).different_time_enabled,
+			start_times: ((row as any).start_times ?? {}) as Record<string, string>,
+			end_times: ((row as any).end_times ?? {}) as Record<string, string>,
+			location_id: (row as any).location_id,
+			notes: (row as any).notes ?? null,
+			location,
+		};
+
+		return { success: true, data: record };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export type UpdateTempChangeInput = {
+	start_date?: string | null;
+	end_date?: string | null;
+	work_days?: string[];
+	different_time_enabled?: boolean;
+	start_times?: Record<string, string>;
+	end_times?: Record<string, string>;
+	location_id?: string;
+	notes?: string | null;
+};
+
+export async function updateTempChange(
+	id: string,
+	input: UpdateTempChangeInput
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const payload: Record<string, unknown> = {};
+		if (typeof input.start_date === 'string' || input.start_date === null) payload.start_date = input.start_date;
+		if (typeof input.end_date === 'string' || input.end_date === null) payload.end_date = input.end_date;
+		if (Array.isArray(input.work_days)) payload.work_days = input.work_days;
+		if (typeof input.different_time_enabled === 'boolean') payload.different_time_enabled = input.different_time_enabled;
+		if (input.start_times) payload.start_times = input.start_times;
+		if (input.end_times) payload.end_times = input.end_times;
+		if (typeof input.location_id === 'string') payload.location_id = input.location_id;
+		if (typeof input.notes !== 'undefined') payload.notes = input.notes ?? null;
+
+		const { error } = await supabase
+			.from('temp_changes')
+			.update(payload)
+			.eq('id', id);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to update temp change' };
+		}
+
+		// Recreate background event for this temp change
+		// 1) Fetch current values needed (artist_id, start_date, end_date)
+		const { data: row } = await supabase
+			.from('temp_changes')
+			.select('artist_id, start_date, end_date')
+			.eq('id', id)
+			.single();
+
+		const artistId = (row as any)?.artist_id as string | undefined;
+		const startDate = (typeof input.start_date === 'string' ? input.start_date : ((row as any)?.start_date as string | undefined));
+		const endDate = (typeof input.end_date === 'string' ? input.end_date : ((row as any)?.end_date as string | undefined));
+
+		// 2) Remove prior events for this temp change
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'temp_change')
+			.eq('source_id', id);
+
+		// 3) Create a new spanning event if we have sufficient data
+		if (artistId && startDate && endDate) {
+			const normalizedStart = `${startDate} 00:00`;
+			const normalizedEnd = `${endDate} 23:00`;
+			const ev = await createEvent({
+				artistId,
+				title: 'Temporary Change of Work Days',
+				allDay: false,
+				startDate: normalizedStart,
+				endDate: normalizedEnd,
+				color: 'purple',
+				type: 'background',
+				source: 'temp_change',
+				sourceId: id,
+			});
+
+			if (!ev.success) {
+				return { success: false, error: ev.error || 'Failed to (re)create calendar event for temp change' };
+			}
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function deleteTempChange(id: string): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const { error } = await supabase
+			.from('temp_changes')
+			.delete()
+			.eq('id', id);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to delete temp change' };
+		}
+
+		// Best-effort cleanup of calendar events created for this record
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'temp_change')
+			.eq('source_id', id);
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
 	}
 }
 
@@ -749,3 +1334,278 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 	}
 }
 
+// Read helpers for Event/Block Time
+export interface EventBlockTimeRecord {
+	id: string;
+	artist_id: string;
+	title: string;
+	date: string;
+	start_time: string;
+	end_time: string;
+	repeatable: boolean;
+	repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
+	repeat_duration?: number | null;
+	repeat_duration_unit?: 'weeks' | 'months' | 'years' | null;
+	notes?: string | null;
+	off_booking_enabled: boolean;
+	off_booking_repeatable?: boolean | null;
+	off_booking_repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
+	off_booking_repeat_duration?: number | null;
+	off_booking_repeat_duration_unit?: 'weeks' | 'months' | 'years' | null;
+	off_booking_notes?: string | null;
+}
+
+export async function getEventBlockTimeById(id: string): Promise<{ success: boolean; data?: EventBlockTimeRecord; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		const { data, error } = await supabase
+			.from('event_block_times')
+			.select('*')
+			.eq('id', id)
+			.single();
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load event' };
+		}
+		return { success: true, data: data as EventBlockTimeRecord };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function deleteEventBlockTime(id: string): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		const { error } = await supabase
+			.from('event_block_times')
+			.delete()
+			.eq('id', id);
+		if (error) {
+			return { success: false, error: error.message || 'Failed to delete event' };
+		}
+		// Optional: also delete related calendar events created from this block time
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'block_time')
+			.eq('source_id', id);
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+// Update helpers for Event/Block Time
+export type UpdateEventBlockTimeInput = Pick<
+	EventBlockTimeRecord,
+	| 'title'
+	| 'date'
+	| 'start_time'
+	| 'end_time'
+	| 'repeatable'
+	| 'repeat_type'
+	| 'repeat_duration'
+	| 'repeat_duration_unit'
+	| 'notes'
+	| 'off_booking_enabled'
+	| 'off_booking_repeatable'
+	| 'off_booking_repeat_type'
+	| 'off_booking_repeat_duration'
+	| 'off_booking_repeat_duration_unit'
+	| 'off_booking_notes'
+> & {
+	// Allow passthrough to avoid excess property errors from callers spreading an existing record
+	id?: string;
+	artist_id?: string;
+};
+
+export async function updateEventBlockTime(
+	id: string,
+	input: UpdateEventBlockTimeInput
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		// Validate times if provided
+		if (input.start_time && input.end_time) {
+			const [sh, sm] = String(input.start_time).split(':').map(n => parseInt(n, 10));
+		 const [eh, em] = String(input.end_time).split(':').map(n => parseInt(n, 10));
+			if ((eh * 60 + em) <= (sh * 60 + sm)) {
+				return { success: false, error: 'End time must be after start time' };
+			}
+		}
+
+		// Resolve repeat fields (never write nulls to NOT NULL columns)
+		const isRepeat = !!input.repeatable;
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' =
+			input.repeat_type ?? 'daily';
+		const resolvedRepeatUnit: 'weeks' | 'months' | 'years' =
+			input.repeat_duration_unit ?? ((resolvedRepeatType === 'monthly') ? 'months' : 'weeks');
+		const resolvedRepeatDuration: number =
+			input.repeat_duration ?? 1;
+
+		const offEnabled = !!input.off_booking_enabled;
+		const offRepeatable = offEnabled ? !!input.off_booking_repeatable : false;
+		const offRepeatType: 'daily' | 'weekly' | 'monthly' =
+			input.off_booking_repeat_type ?? 'daily';
+		const offRepeatUnit: 'weeks' | 'months' | 'years' =
+			input.off_booking_repeat_duration_unit ?? ((offRepeatType === 'monthly') ? 'months' : 'weeks');
+		const offRepeatDuration: number =
+			input.off_booking_repeat_duration ?? 1;
+
+		const payload = {
+			title: input.title?.trim(),
+			date: input.date,
+			start_time: input.start_time,
+			end_time: input.end_time,
+			repeatable: isRepeat,
+			repeat_type: resolvedRepeatType,
+			repeat_duration: resolvedRepeatDuration,
+			repeat_duration_unit: resolvedRepeatUnit,
+			notes: input.notes?.trim() ?? null,
+			off_booking_enabled: offEnabled,
+			off_booking_repeatable: offRepeatable,
+			off_booking_repeat_type: offRepeatType,
+			off_booking_repeat_duration: offRepeatDuration,
+			off_booking_repeat_duration_unit: offRepeatUnit,
+			off_booking_notes: offEnabled ? (input.off_booking_notes?.trim() ?? null) : null,
+		};
+
+		const { error } = await supabase
+			.from('event_block_times')
+			.update(payload)
+			.eq('id', id);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to update event' };
+		}
+
+		// Reconcile existing calendar events created from this block-time:
+		// Strategy: delete prior generated events for this block and recreate based on new settings.
+		// Fetch artist id if not provided in input
+		let artistId = input.artist_id;
+		if (!artistId) {
+			const { data: row } = await supabase
+				.from('event_block_times')
+				.select('artist_id')
+				.eq('id', id)
+				.single();
+			artistId = (row as { artist_id?: string } | null)?.artist_id;
+		}
+
+		if (artistId) {
+			// Remove prior events for this block
+			await supabase
+				.from('events')
+				.delete()
+				.eq('source', 'block_time')
+				.eq('source_id', id);
+
+			// Helpers for date math
+			function parseYmd(ymd: string): Date {
+				return new Date(`${ymd}T12:00:00`);
+			}
+			function addDays(d: Date, days: number): Date {
+				const nd = new Date(d);
+				nd.setDate(nd.getDate() + days);
+				return nd;
+			}
+			function addWeeks(d: Date, weeks: number): Date {
+				return addDays(d, weeks * 7);
+			}
+			function addMonths(d: Date, months: number): Date {
+				const nd = new Date(d);
+				const m = nd.getMonth() + months;
+				nd.setMonth(m);
+				return nd;
+			}
+			function addYears(d: Date, years: number): Date {
+				const nd = new Date(d);
+				nd.setFullYear(nd.getFullYear() + years);
+				return nd;
+			}
+			function formatYmd(d: Date): string {
+				const y = d.getFullYear();
+				const m = String(d.getMonth() + 1).padStart(2, '0');
+				const day = String(d.getDate()).padStart(2, '0');
+				return `${y}-${m}-${day}`;
+			}
+
+			const startTimeStr = input.start_time ?? '09:00';
+			const endTimeStr = input.end_time ?? '17:00';
+
+			// Build occurrences based on repeat settings
+			const baseDate = input.date || undefined;
+			if (baseDate) {
+				const base = parseYmd(baseDate);
+				const isRepeatOcc = !!input.repeatable;
+
+				let windowEndExclusive: Date | null = null;
+				if (isRepeatOcc) {
+					const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' = (input.repeat_type ?? 'daily');
+					const resolvedUnit: 'weeks' | 'months' | 'years' =
+						(input.repeat_duration_unit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks'));
+					const resolvedDuration = input.repeat_duration ?? 1;
+					if (resolvedUnit === 'weeks') {
+						windowEndExclusive = addWeeks(base, resolvedDuration);
+					} else if (resolvedUnit === 'months') {
+						windowEndExclusive = addMonths(base, resolvedDuration);
+					} else {
+						windowEndExclusive = addYears(base, resolvedDuration);
+					}
+				}
+
+				const occurrences: Date[] = [];
+				if (!isRepeatOcc) {
+					occurrences.push(base);
+				} else {
+					const repeatType: 'daily' | 'weekly' | 'monthly' = (input.repeat_type ?? 'daily');
+					if (repeatType === 'daily') {
+						let cursor = new Date(base);
+						while (windowEndExclusive && cursor < windowEndExclusive) {
+							occurrences.push(new Date(cursor));
+							cursor = addDays(cursor, 1);
+						}
+					} else if (repeatType === 'weekly') {
+						let cursor = new Date(base);
+						while (windowEndExclusive && cursor < windowEndExclusive) {
+							occurrences.push(new Date(cursor));
+							cursor = addWeeks(cursor, 1);
+						}
+					} else {
+						let cursor = new Date(base);
+						while (windowEndExclusive && cursor < windowEndExclusive) {
+							occurrences.push(new Date(cursor));
+							cursor = addMonths(cursor, 1);
+						}
+					}
+				}
+
+				for (const occ of occurrences) {
+					const ymd = formatYmd(occ);
+					const start = composeDateTime(ymd, startTimeStr, '09:00');
+					const end = composeDateTime(ymd, endTimeStr, '17:00');
+					const titleForEvents = (input.title ?? '').trim() || 'Event';
+
+					const ev = await createEvent({
+						artistId,
+						title: titleForEvents,
+						allDay: false,
+						startDate: start,
+						endDate: end,
+						color: 'green',
+						type: 'item',
+						source: 'block_time',
+						sourceId: id,
+					});
+					if (!ev.success) {
+						return { success: false, error: ev.error || 'Failed to (re)create one of the block-time events' };
+					}
+				}
+			}
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
