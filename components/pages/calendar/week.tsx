@@ -1,7 +1,11 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, View, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { dayNames, toLocalDateString } from "./utils";
+import { dayNames, toLocalDateString, getEventColorClass } from "./utils";
+import { useAuth } from "@/lib/contexts/auth-context";
+import { getEventsInRange, type CalendarEvent } from "@/lib/services/calendar-service";
+import { useFocusEffect } from "@react-navigation/native";
+import { toYmd, parseYmdFromDb } from "@/lib/utils";
 
 type WeekViewProps = {
     currentDate: Date;
@@ -9,6 +13,9 @@ type WeekViewProps = {
 };
 
 export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
+    const { artist } = useAuth();
+    const [eventsByDay, setEventsByDay] = useState<Record<string, CalendarEvent[]>>({});
+
     const weekDays = useMemo(() => {
         const startOfWeek = new Date(currentDate);
         const day = startOfWeek.getDay(); // 0 = Sun
@@ -25,6 +32,57 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
             };
         });
     }, [currentDate]);
+
+    const weekRange = useMemo(() => {
+        const start = new Date(weekDays[0].date.getFullYear(), weekDays[0].date.getMonth(), weekDays[0].date.getDate(), 0, 0, 0, 0);
+        const last = weekDays[weekDays.length - 1].date;
+        const end = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
+        return { start, end };
+    }, [weekDays]);
+
+    const loadEvents = useCallback(async () => {
+        if (!artist?.id || weekDays.length === 0) return;
+        try {
+            const res = await getEventsInRange({
+                artistId: artist.id,
+                start: weekRange.start,
+                end: weekRange.end,
+            });
+            const events = res.events || [];
+
+            const visibleStart = new Date(weekDays[0].date.getFullYear(), weekDays[0].date.getMonth(), weekDays[0].date.getDate(), 12);
+            const last = weekDays[weekDays.length - 1].date;
+            const visibleEnd = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 12);
+
+            const map: Record<string, CalendarEvent[]> = {};
+            for (const ev of events) {
+                const evStart = parseYmdFromDb(ev.start_date);
+                const evEnd = parseYmdFromDb(ev.end_date);
+                const rangeStart = evStart < visibleStart ? visibleStart : evStart;
+                const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
+                const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
+                while (cursor <= rangeEnd) {
+                    const key = toYmd(cursor);
+                    if (!map[key]) map[key] = [];
+                    map[key].push(ev);
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+            }
+            setEventsByDay(map);
+        } catch {
+            setEventsByDay({});
+        }
+    }, [artist?.id, weekDays, weekRange.start, weekRange.end]);
+
+    useEffect(() => {
+        loadEvents();
+    }, [loadEvents]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadEvents();
+        }, [loadEvents])
+    );
 
     const timeSlots = useMemo(() => {
         // 30-minute slots (48 rows), matching DayView formatting
@@ -77,7 +135,21 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                     </Text>
                 </View>
                 {weekDays.map((wd, idx) => (
-                    <View key={`ad-${idx}`} className="flex-1 h-full px-1 flex-row flex-wrap items-center border-r border-border-secondary" style={idx === 6 ? { borderRightWidth: 0 } : {}}>
+                    <View key={`ad-${idx}`} className="flex-1 h-full flex-row flex-wrap items-center border-r border-border-secondary" style={idx === 6 ? { borderRightWidth: 0 } : {}}>
+                        {(() => {
+                            const key = toYmd(wd.date);
+                            const items = (eventsByDay[key] || []).filter(ev => ev.type === "background" || ev.allday === true);
+                            if (items.length === 0) return null;
+                            return items.map(ev => (
+                                <Pressable
+                                    key={ev.id}
+                                    className={`px-2 absolute top-0 bottom-0 h-full items-center ${getEventColorClass(ev.color)}`}
+                                    style={{ opacity: 0.8, left: 0, right: -1 }}
+                                    pointerEvents="none"
+                                >
+                                </Pressable>
+                            ));
+                        })()}
                     </View>
                 ))}
             </View>

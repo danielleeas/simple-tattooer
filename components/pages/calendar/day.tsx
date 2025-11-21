@@ -86,7 +86,7 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                             <Pressable
                                 key={ev.id}
                                 className={`px-2 h-full items-center ${getEventColorClass(ev.color)}`}
-                                style={{ opacity: 0.8, marginRight: 2, maxWidth: 80 }}
+                                style={{ opacity: 0.8, marginRight: 2, maxWidth: 100 }}
                                 pointerEvents="none"
                             >
                                 <Text numberOfLines={1} className="text-[14px] text-foreground font-medium leading-none">

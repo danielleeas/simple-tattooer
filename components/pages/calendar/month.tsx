@@ -155,13 +155,15 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                             const style: Partial<ViewStyle> = {
                                                 height: "25%",
                                                 top: 32,
+                                                right: -1,
+                                                left: 0
                                             };
                                             return (
                                                 <View
                                                     key={`mo-bg-${weekIndex}-${dayIndex}-${i4}`}
                                                     pointerEvents="none"
                                                     style={{ opacity: 0.5, ...style as ViewStyle }}
-                                                    className={`absolute left-0 right-0 ${getEventColorClass(bg.color)}`}
+                                                    className={`absolute ${getEventColorClass(bg.color)}`}
                                                 />
                                             );
                                         });
