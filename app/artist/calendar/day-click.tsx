@@ -112,7 +112,7 @@ export default function SingleDate() {
 
     return (
         <>
-            <Stack.Screen options={{headerShown: false, animation: 'slide_from_bottom'}} />
+            <Stack.Screen options={{headerShown: false, animation: 'slide_from_right'}} />
             <SafeAreaView className='flex-1 bg-background'>
                 <Header leftButtonImage={BACK_IMAGE} leftButtonTitle="Back" onLeftButtonPress={handleBack} />
                 <StableGestureWrapper onSwipeRight={handleBack} threshold={80} enabled={true}>

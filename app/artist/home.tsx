@@ -17,6 +17,7 @@ import { RootState } from '@/lib/redux/store';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { formatYmd } from '@/lib/utils';
 
 const ICON_STYLE: ImageStyle = {
     height: 56,
@@ -41,7 +42,12 @@ export default function ProductionHome() {
     };
 
     const handleToday = () => {
-        // router.push('/production/today');
+        const currentDate = new Date();
+        const dateString = formatYmd(currentDate);
+        router.push({
+            pathname: '/artist/calendar/day-click',
+            params: { date: dateString },
+        });
     };
 
     const handleAlert = () => {
