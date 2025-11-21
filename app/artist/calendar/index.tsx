@@ -84,6 +84,11 @@ export default function CalendarPage() {
         setIsDayMenuOpen(false);
     }
 
+    const openSpotConventionAdd = () => {
+        router.push('/artist/calendar/spot-convention/add');
+        closeActionModal();
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -156,7 +161,7 @@ export default function CalendarPage() {
                         >
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
-                                onPress={closeActionModal}
+                                onPress={openSpotConventionAdd}
                                 accessibilityRole="button"
                                 accessibilityLabel="Add Guest Spot or Convention"
                             >
