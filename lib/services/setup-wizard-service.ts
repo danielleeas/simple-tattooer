@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadFileToStorage, FileUpload } from '@/lib/services/storage-service';
 import { BASE_URL } from '@/lib/constants';
 import { buildBookingLink } from '@/lib/utils';
+import { Artist } from '@/lib/redux/types';
 
 type OnProgress = (progress: number, label?: string) => void;
 
@@ -340,7 +341,21 @@ export async function saveSetupWizard(
   }
 
   progress(0.98, 'Wrapping up');
-  progress(1, 'Done');
 }
 
+export async function sendWelcomeEmail(artist: Artist, artistName: string, artistBookingLink: string): Promise<void> {
+  if (!artist?.email) {
+    throw new Error('Artist email not found');
+  }
+
+  try {
+    void supabase.functions
+    .invoke('welcome-email', {
+      body: { to: artist.email, artistName, artistBookingLink },
+    })
+    .catch((err) => console.warn('Failed to send welcome email:', err));
+  } catch (err) {
+    console.warn('Welcome email trigger error:', err);
+  }
+}
 

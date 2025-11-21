@@ -7,8 +7,9 @@ import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useToast } from '@/lib/contexts/toast-context';
 import { useAppDispatch } from '@/lib/redux/hooks';
-import { saveSetupWizard } from '@/lib/services/setup-wizard-service';
+import { saveSetupWizard, sendWelcomeEmail } from '@/lib/services/setup-wizard-service';
 import { LoadingOverlay } from '@/components/lib/loading-overlay';
+import { fetchUpdatedArtistProfile } from '@/lib/redux/slices/auth-slice';
 
 interface WizardNavigationProps {
   currentStep: number;
@@ -86,6 +87,12 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
           if (label) setSaveMessage(label);
         }
       );
+
+      setSaveProgress(0.99);
+      setSaveMessage("Fetching Updated Data");
+      await dispatch(fetchUpdatedArtistProfile(artist.id));
+
+      await sendWelcomeEmail(artist, details.name, details.bookingLinkSuffix);
 
       toast({
         title: 'Welcome aboard!',
