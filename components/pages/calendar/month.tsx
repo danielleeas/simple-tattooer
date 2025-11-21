@@ -152,12 +152,18 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                         const bgs = (eventsByDay[key] || []).filter(ev => ev.type === 'background');
                                         if (bgs.length === 0) return null;
                                         return bgs.map((bg, i4) => {
+                                            const source = bg.source;
                                             const style: Partial<ViewStyle> = {
                                                 height: "25%",
-                                                top: 32,
+                                                bottom: '50%',
                                                 right: -1,
                                                 left: 0
                                             };
+                                            if (source === 'temp_change') {
+                                                style.bottom = '25%';
+                                            } else if (source === 'book_off') {
+                                                style.bottom = '0%';
+                                            }
                                             return (
                                                 <View
                                                     key={`mo-bg-${weekIndex}-${dayIndex}-${i4}`}
