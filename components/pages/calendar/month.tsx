@@ -21,6 +21,9 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
         a.getMonth() === b.getMonth() &&
         a.getFullYear() === b.getFullYear();
 
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
     const calendarDays: CalendarDay[] = useMemo(() => {
         const today = new Date();
         const year = currentDate.getFullYear();
@@ -174,6 +177,38 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                             );
                                         });
                                     })()}
+
+                                    
+
+                                    {/* Single-day timed items (show a few pills) */}
+                                    <View className="w-full px-1 mt-1 gap-1">
+                                        {(() => {
+                                            const dStart = startOfDay(day.date);
+                                            const dEnd = endOfDay(day.date);
+                                            const key = toYmd(day.date);
+                                            const singles = (eventsByDay[key] || []).filter(e => {
+                                                if (e.type !== 'item' || e.allday) return false;
+                                                const evStart = parseYmdFromDb(e.start_date);
+                                                return evStart >= dStart && evStart <= dEnd;
+                                            });
+                                            const visibleSingles = singles.slice(0, 2);
+                                            const hasMoreSingles = singles.length > 2;
+                                            return (
+                                                <>
+                                                    {visibleSingles.map((e, i) => (
+                                                        <View key={`sd-${weekIndex}-${dayIndex}-${i}`} className={`w-full h-4 rounded px-1 justify-center ${getEventColorClass(e.color)}`}>
+                                                            <Text className="text-[9px] text-foreground" numberOfLines={1}>{e.title}</Text>
+                                                        </View>
+                                                    ))}
+                                                    {hasMoreSingles && (
+                                                        <View className="w-full h-4 rounded px-1 justify-center border border-border-secondary">
+                                                            <Text className="text-[9px] text-text-secondary" numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.5}>+{singles.length - 2} more</Text>
+                                                        </View>
+                                                    )}
+                                                </>
+                                            )
+                                        })()}
+                                    </View>
                                 </Pressable>
                             );
                         })}

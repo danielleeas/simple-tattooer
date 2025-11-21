@@ -434,6 +434,49 @@ CREATE INDEX IF NOT EXISTS idx_off_days_notes ON off_days(notes);
 CREATE INDEX IF NOT EXISTS idx_off_days_created_at ON off_days(created_at);
 CREATE INDEX IF NOT EXISTS idx_off_days_updated_at ON off_days(updated_at);
 
+-- event block times table for storing event block times
+CREATE TABLE IF NOT EXISTS event_block_times (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  repeatable BOOLEAN NOT NULL DEFAULT FALSE,
+  repeat_type TEXT NOT NULL DEFAULT 'daily',
+  repeat_duration INTEGER NOT NULL DEFAULT 1,
+  repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
+  notes TEXT NULL,
+  off_booking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  off_booking_repeatable BOOLEAN NOT NULL DEFAULT FALSE,
+  off_booking_repeat_type TEXT NOT NULL DEFAULT 'daily',
+  off_booking_repeat_duration INTEGER NOT NULL DEFAULT 1,
+  off_booking_repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
+  off_booking_notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for event block times
+CREATE INDEX IF NOT EXISTS idx_event_block_times_artist_id ON event_block_times(artist_id);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_title ON event_block_times(title);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_date ON event_block_times(date);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_start_time ON event_block_times(start_time);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_end_time ON event_block_times(end_time);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_repeatable ON event_block_times(repeatable) WHERE repeatable = true;
+CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_type ON event_block_times(repeat_type);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_duration ON event_block_times(repeat_duration);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_duration_unit ON event_block_times(repeat_duration_unit);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_notes ON event_block_times(notes);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_enabled ON event_block_times(off_booking_enabled) WHERE off_booking_enabled = true;
+CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeatable ON event_block_times(off_booking_repeatable) WHERE off_booking_repeatable = true;
+CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeat_type ON event_block_times(off_booking_repeat_type);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeat_duration ON event_block_times(off_booking_repeat_duration);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeat_duration_unit ON event_block_times(off_booking_repeat_duration_unit);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_notes ON event_block_times(off_booking_notes);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_created_at ON event_block_times(created_at);
+CREATE INDEX IF NOT EXISTS idx_event_block_times_updated_at ON event_block_times(updated_at);
+
 -- events table for storing events
 CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

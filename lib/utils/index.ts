@@ -158,3 +158,10 @@ export const parseYmdFromDb = (s: string): Date => {
   const [y, m, d] = part.split('-').map(n => parseInt(n, 10));
   return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0);
 };
+
+export function formatYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

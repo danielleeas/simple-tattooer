@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { uuidv4 } from '@/lib/utils';
 import type { Locations } from '@/lib/redux/types';
 
 export interface CalendarEvent {
@@ -548,6 +549,198 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 		}
 
 		return { success: true, id: tempChangeId };
+	} catch (err) {
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : 'Unknown error',
+		};
+	}
+}
+
+// Create Event/Block Time (single-day time range, optional future enhancements for repeats/off-booking)
+export interface CreateEventBlockTimeParams {
+	artistId: string;
+	date: string; // "YYYY-MM-DD"
+	title: string;
+	startTime?: string; // "HH:mm"
+	endTime?: string;   // "HH:mm"
+	repeatable?: boolean;
+	repeatType?: 'daily' | 'weekly' | 'monthly';
+	repeatDuration?: number;
+	repeatDurationUnit?: 'weeks' | 'months' | 'years';
+	notes?: string;
+	offBookingEnabled?: boolean;
+	offBookingRepeatable?: boolean;
+	offBookingRepeatType?: 'daily' | 'weekly' | 'monthly';
+	offBookingRepeatDuration?: number;
+	offBookingRepeatDurationUnit?: 'weeks' | 'months' | 'years';
+	offBookingNotes?: string;
+}
+
+export interface CreateEventBlockTimeResult {
+	success: boolean;
+	id?: string;
+	error?: string;
+}
+
+export async function createEventBlockTime(params: CreateEventBlockTimeParams): Promise<CreateEventBlockTimeResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.title?.trim()) {
+			return { success: false, error: 'Title is required' };
+		}
+		if (!params.date) {
+			return { success: false, error: 'Date is required' };
+		}
+
+		// Validate times if provided: end must be after start
+		const startTimeStr = params.startTime ?? '09:00';
+		const endTimeStr = params.endTime ?? '17:00';
+		if (startTimeStr && endTimeStr) {
+			const [sh, sm] = startTimeStr.split(':').map(n => parseInt(n, 10));
+			const [eh, em] = endTimeStr.split(':').map(n => parseInt(n, 10));
+			if ((eh * 60 + em) <= (sh * 60 + sm)) {
+				return { success: false, error: 'End time must be after start time' };
+			}
+		}
+
+		// Insert primary block-time record
+		const isRepeat = !!params.repeatable;
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' = params.repeatType ?? 'daily';
+		const resolvedUnit: 'weeks' | 'months' | 'years' =
+			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
+		const resolvedDuration = params.repeatDuration ?? 1;
+
+		const offEnabled = !!params.offBookingEnabled;
+		const offRepeatable = offEnabled && !!params.offBookingRepeatable;
+		const offRepeatType: 'daily' | 'weekly' | 'monthly' =
+			(params.offBookingRepeatType ?? 'daily');
+		const offUnit: 'weeks' | 'months' | 'years' =
+			(params.offBookingRepeatDurationUnit ?? (offRepeatType === 'monthly' ? 'months' : 'weeks'));
+		const offDuration = params.offBookingRepeatDuration ?? 1;
+
+		const insertPayload = {
+			artist_id: params.artistId,
+			title: params.title.trim(),
+			date: params.date,
+			start_time: startTimeStr,
+			end_time: endTimeStr,
+			repeatable: isRepeat,
+			repeat_type: resolvedRepeatType,
+			repeat_duration: resolvedDuration,
+			repeat_duration_unit: resolvedUnit,
+			notes: params.notes?.trim() || null,
+			off_booking_enabled: offEnabled,
+			off_booking_repeatable: offRepeatable,
+			off_booking_repeat_type: offRepeatType,
+			off_booking_repeat_duration: offDuration,
+			off_booking_repeat_duration_unit: offUnit,
+			off_booking_notes: params.offBookingNotes?.trim() || null,
+		};
+
+		const { data: blockRow, error: blockErr } = await supabase
+			.from('event_block_times')
+			.insert([insertPayload])
+			.select('id, date')
+			.single();
+
+		if (blockErr) {
+			return { success: false, error: blockErr.message || 'Failed to create event block time' };
+		}
+
+		// Helpers for date math
+		function parseYmd(ymd: string): Date {
+			return new Date(`${ymd}T12:00:00`);
+		}
+		function addDays(d: Date, days: number): Date {
+			const nd = new Date(d);
+			nd.setDate(nd.getDate() + days);
+			return nd;
+		}
+		function addWeeks(d: Date, weeks: number): Date {
+			return addDays(d, weeks * 7);
+		}
+		function addMonths(d: Date, months: number): Date {
+			const nd = new Date(d);
+			const m = nd.getMonth() + months;
+			nd.setMonth(m);
+			return nd;
+		}
+		function addYears(d: Date, years: number): Date {
+			const nd = new Date(d);
+			nd.setFullYear(nd.getFullYear() + years);
+			return nd;
+		}
+		function formatYmd(d: Date): string {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${y}-${m}-${day}`;
+		}
+
+		// Build occurrences based on repeat settings
+		const base = parseYmd(params.date);
+		let windowEndExclusive: Date | null = null;
+		if (isRepeat) {
+			if (resolvedUnit === 'weeks') {
+				windowEndExclusive = addWeeks(base, resolvedDuration);
+			} else if (resolvedUnit === 'months') {
+				windowEndExclusive = addMonths(base, resolvedDuration);
+			} else {
+				windowEndExclusive = addYears(base, resolvedDuration);
+			}
+		}
+
+		const occurrences: Date[] = [];
+		if (!isRepeat) {
+			occurrences.push(base);
+		} else {
+			if (resolvedRepeatType === 'daily') {
+				let cursor = new Date(base);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addDays(cursor, 1);
+				}
+			} else if (resolvedRepeatType === 'weekly') {
+				let cursor = new Date(base);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addWeeks(cursor, 1);
+				}
+			} else {
+				let cursor = new Date(base);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addMonths(cursor, 1);
+				}
+			}
+		}
+
+		// Create calendar events for each occurrence
+		for (const occ of occurrences) {
+			const ymd = formatYmd(occ);
+			const start = composeDateTime(ymd, startTimeStr, '09:00');
+			const end = composeDateTime(ymd, endTimeStr, '17:00');
+
+			const ev = await createEvent({
+				artistId: params.artistId,
+				title: params.title.trim(),
+				allDay: false,
+				startDate: start,
+				endDate: end,
+				color: 'green',
+				type: 'item',
+				source: 'block_time',
+				sourceId: blockRow?.id as string,
+			});
+			if (!ev.success) {
+				return { success: false, error: ev.error || 'Failed to create one of the block-time events' };
+			}
+		}
+
+		return { success: true, id: blockRow?.id as string | undefined };
 	} catch (err) {
 		return {
 			success: false,

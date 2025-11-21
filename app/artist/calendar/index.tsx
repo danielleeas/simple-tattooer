@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, ScrollView, Pressable, Modal, TouchableOpacity } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from "expo-router";
+import { formatYmd } from "@/lib/utils";
 
 import Header from "@/components/lib/Header";
 import { Icon } from "@/components/ui/icon";
@@ -96,6 +97,14 @@ export default function CalendarPage() {
 
     const openOffDaysAdd = () => {
         router.push('/artist/calendar/off-days/add');
+        closeActionModal();
+    }
+
+    const openEventBlockTimeAdd = () => {
+        router.push({
+            pathname: '/artist/calendar/event-block-time/add',
+            params: { date: formatYmd(currentDate) },
+        });
         closeActionModal();
     }
 
@@ -255,7 +264,7 @@ export default function CalendarPage() {
 
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
-                                onPress={closeActionModal}
+                                onPress={openEventBlockTimeAdd}
                                 accessibilityRole="button"
                                 accessibilityLabel="Add Event/ Block Time"
                             >
