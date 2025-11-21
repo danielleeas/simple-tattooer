@@ -69,10 +69,11 @@ const sizeConfig = {
 };
 
 export interface DatePickerProps {
-    selectedDate?: Date;
-    selectedDates?: Date[];
-    onDateSelect?: (date: Date) => void;
-    onDatesSelect?: (dates: Date[]) => void;
+    // Preferred when your backend stores YYYY-MM-DD. Parsed as local dates.
+    selectedDateString?: string;
+    selectedDatesStrings?: string[];
+    onDateStringSelect?: (date: string) => void; // Local date string YYYY-MM-DD
+    onDatesStringSelect?: (dates: string[]) => void; // Local date strings YYYY-MM-DD
     // Availability: if provided, any date not in this list is disabled
     availableDates?: string[]; // YYYY-MM-DD
     // Month change callback (year is 4-digit, month is 0-11)
@@ -81,8 +82,9 @@ export interface DatePickerProps {
     size?: 'small' | 'default' | 'large';
     className?: string;
     placeholder?: string;
-    minDate?: Date;
-    maxDate?: Date;
+    // String constraints parsed as local dates (YYYY-MM-DD)
+    minDateString?: string;
+    maxDateString?: string;
     // Modal props
     showModal?: boolean;
     modalTitle?: string;
@@ -92,6 +94,8 @@ export interface DatePickerProps {
     dateFormat?: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' | 'MMM DD, YYYY' | 'MM DD';
     // Show calendar icon
     showCalendarIcon?: boolean;
+    // Show "Today" button
+    showTodayButton?: boolean;
     // Selection mode
     selectionMode?: 'single' | 'multiple' | 'range';
     maxSelections?: number; // Maximum number of dates that can be selected
@@ -148,6 +152,8 @@ const NativeCalendarPicker = ({
     selectedDates,
     onDateSelect,
     onDatesSelect,
+    onDateStringSelect,
+    onDatesStringSelect,
     availableDates,
     onMonthChange,
     minDate,
@@ -156,11 +162,14 @@ const NativeCalendarPicker = ({
     maxSelections,
     size = 'default',
     disabled = false,
+    showTodayButton = true,
 }: {
     selectedDate?: Date;
     selectedDates?: Date[];
     onDateSelect?: (date: Date) => void;
     onDatesSelect?: (dates: Date[]) => void;
+    onDateStringSelect?: (date: string) => void;
+    onDatesStringSelect?: (dates: string[]) => void;
     availableDates?: string[];
     onMonthChange?: (year: number, month: number) => void;
     minDate?: Date;
@@ -169,6 +178,7 @@ const NativeCalendarPicker = ({
     maxSelections?: number;
     size?: 'small' | 'default' | 'large';
     disabled?: boolean;
+    showTodayButton?: boolean;
 }) => {
     const [currentMonth, setCurrentMonth] = useState(
         selectedDate || selectedDates?.[0] || new Date()
@@ -338,6 +348,7 @@ const NativeCalendarPicker = ({
 
             setTempSelectedDates(newSelectedDates);
             onDatesSelect?.(newSelectedDates);
+            onDatesStringSelect?.(newSelectedDates.map(d => toYmd(d)));
         } else if (selectionMode === 'range') {
             const newSelectedDates = [...tempSelectedDates];
             if (newSelectedDates.length === 0) {
@@ -345,6 +356,7 @@ const NativeCalendarPicker = ({
                 newSelectedDates.push(normalizeOutputDate(day.date));
                 setTempSelectedDates(newSelectedDates);
                 onDatesSelect?.(newSelectedDates);
+                onDatesStringSelect?.(newSelectedDates.map(d => toYmd(d)));
             } else if (newSelectedDates.length === 1) {
                 // Build full inclusive range between start and end
                 const start = new Date(Math.min(newSelectedDates[0].getTime(), day.date.getTime()));
@@ -357,14 +369,17 @@ const NativeCalendarPicker = ({
                 }
                 setTempSelectedDates(range);
                 onDatesSelect?.(range);
+                onDatesStringSelect?.(range.map(d => toYmd(d)));
             } else {
                 // Reset and start a new range
                 const normalized = normalizeOutputDate(day.date);
                 setTempSelectedDates([normalized]);
                 onDatesSelect?.([normalized]);
+                onDatesStringSelect?.([toYmd(normalized)]);
             }
         } else {
             onDateSelect?.(normalizeOutputDate(day.date));
+            onDateStringSelect?.(toYmd(day.date));
         }
     };
 
@@ -540,25 +555,27 @@ const NativeCalendarPicker = ({
 
     return (
         <View style={{ width: '100%', opacity: disabled ? 0.5 : 1 }}>
-            <View className="flex-row items-center justify-center">
-                <Pressable
-                    onPress={goToToday}
-                    className="rounded-lg border border-border-secondary"
-                    style={{ 
-                        backgroundColor: 'transparent',
-                        padding: config.todayButtonPadding
-                    }}
-                    disabled={disabled}
-                >
-                    <Text 
-                        variant="small" 
-                        className="text-text-secondary"
-                        style={{ fontSize: config.headerFontSize }}
+            {showTodayButton && (
+                <View className="flex-row items-center justify-center">
+                    <Pressable
+                        onPress={goToToday}
+                        className="rounded-lg border border-border-secondary"
+                        style={{ 
+                            backgroundColor: 'transparent',
+                            padding: config.todayButtonPadding
+                        }}
+                        disabled={disabled}
                     >
-                        Today
-                    </Text>
-                </Pressable>
-            </View>
+                        <Text 
+                            variant="small" 
+                            className="text-text-secondary"
+                            style={{ fontSize: config.headerFontSize }}
+                        >
+                            Today
+                        </Text>
+                    </Pressable>
+                </View>
+            )}
             {/* Header with month/year and navigation */}
             <View className="flex-row items-center justify-between mb-4">
                 <Pressable
@@ -862,8 +879,8 @@ const NativeCalendarPicker = ({
 const InlineDatePicker = ({
     selectedDate,
     selectedDates,
-    onDateSelect,
-    onDatesSelect,
+    onDateStringSelect,
+    onDatesStringSelect,
     availableDates,
     onMonthChange,
     minDate,
@@ -873,11 +890,12 @@ const InlineDatePicker = ({
     maxSelections,
     size = 'default',
     disabled = false,
+    showTodayButton,
 }: {
     selectedDate?: Date;
     selectedDates?: Date[];
-    onDateSelect?: (date: Date) => void;
-    onDatesSelect?: (dates: Date[]) => void;
+    onDateStringSelect?: (date: string) => void;
+    onDatesStringSelect?: (dates: string[]) => void;
     availableDates?: string[];
     onMonthChange?: (year: number, month: number) => void;
     minDate?: Date;
@@ -887,14 +905,15 @@ const InlineDatePicker = ({
     maxSelections?: number;
     size?: 'small' | 'default' | 'large';
     disabled?: boolean;
+    showTodayButton?: boolean;
 }) => {
     return (
         <View className={cn('w-full', className)}>
             <NativeCalendarPicker
                 selectedDate={selectedDate}
                 selectedDates={selectedDates}
-                onDateSelect={onDateSelect}
-                onDatesSelect={onDatesSelect}
+                onDateStringSelect={onDateStringSelect}
+                onDatesStringSelect={onDatesStringSelect}
                 availableDates={availableDates}
                 onMonthChange={onMonthChange}
                 minDate={minDate}
@@ -903,36 +922,59 @@ const InlineDatePicker = ({
                 maxSelections={maxSelections}
                 size={size}
                 disabled={disabled}
+                showTodayButton={showTodayButton}
             />
         </View>
     );
 };
 
 function DatePicker({
-    selectedDate,
-    selectedDates,
-    onDateSelect,
-    onDatesSelect,
+    selectedDateString,
+    selectedDatesStrings,
+    onDateStringSelect,
+    onDatesStringSelect,
     availableDates,
     onMonthChange,
     disabled = false,
     size = 'default',
     className,
     placeholder = 'Select date',
-    minDate,
-    maxDate,
+    minDateString,
+    maxDateString,
     showModal = true,
     modalTitle = 'Select Date',
     showInline = false,
     dateFormat = 'MM/DD/YYYY',
     showCalendarIcon = true,
+    showTodayButton = true,
     selectionMode = 'single',
     maxSelections,
 }: DatePickerProps) {
+    // Helpers to ensure local-only handling
+    const parseYmdToLocalDate = (ymd?: string): Date | undefined => {
+        if (!ymd) return undefined;
+        const [y, m, d] = ymd.split('-').map(Number);
+        if (!y || !m || !d) return undefined;
+        return new Date(y, m - 1, d, 12); // noon local
+    };
+    const normalizeLocalNoon = (d?: Date): Date | undefined => {
+        if (!d) return undefined;
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+    };
+
+    // Prefer string props when provided; otherwise normalize Date props
+    const effectiveSelectedDate = parseYmdToLocalDate(selectedDateString);
+    const effectiveSelectedDates = (selectedDatesStrings && selectedDatesStrings.length > 0
+        ? selectedDatesStrings.map(parseYmdToLocalDate).filter(Boolean) as Date[]
+        : []);
+
+    const effectiveMinDate = parseYmdToLocalDate(minDateString);
+    const effectiveMaxDate = parseYmdToLocalDate(maxDateString);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [tempSelectedDate, setTempSelectedDate] = useState<Date | undefined>(selectedDate);
+    const [tempSelectedDate, setTempSelectedDate] = useState<Date | undefined>(effectiveSelectedDate);
     const [tempSelectedDates, setTempSelectedDates] = useState<Date[]>(
-        selectedDates || (selectedDate ? [selectedDate] : [])
+        effectiveSelectedDates || (effectiveSelectedDate ? [effectiveSelectedDate] : [])
     );
 
     const handleDateSelect = (date: Date) => {
@@ -943,23 +985,25 @@ function DatePicker({
         setTempSelectedDates(dates);
     };
 
+    const toYmdLocal = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
     const handleConfirm = () => {
         if (selectionMode === 'multiple' || selectionMode === 'range') {
-            onDatesSelect?.(tempSelectedDates);
-        } else {
-            if (tempSelectedDate) {
-                onDateSelect?.(tempSelectedDate);
-            }
+            onDatesStringSelect?.(tempSelectedDates.map(toYmdLocal));
+        } else if (tempSelectedDate) {
+            onDateStringSelect?.(toYmdLocal(tempSelectedDate));
         }
         setIsModalOpen(false);
     };
 
     const handleCancel = () => {
-        if (selectionMode === 'multiple' || selectionMode === 'range') {
-            setTempSelectedDates(selectedDates || []);
-        } else {
-            setTempSelectedDate(selectedDate);
-        }
+        setTempSelectedDates(effectiveSelectedDates || []);
+        setTempSelectedDate(effectiveSelectedDate);
         setIsModalOpen(false);
     };
 
@@ -967,32 +1011,34 @@ function DatePicker({
     React.useEffect(() => {
         if (isModalOpen) {
             if (selectionMode === 'multiple' || selectionMode === 'range') {
-                setTempSelectedDates(selectedDates || []);
+                setTempSelectedDates(effectiveSelectedDates || []);
             } else {
-                setTempSelectedDate(selectedDate);
+                setTempSelectedDate(effectiveSelectedDate);
             }
         }
-    }, [isModalOpen, selectedDate, selectedDates, selectionMode]);
+    }, [isModalOpen, effectiveSelectedDate, effectiveSelectedDates, selectionMode]);
 
     const displayDate = () => {
-        if (selectionMode === 'range' && selectedDates && selectedDates.length > 0) {
-            if (selectedDates.length === 1) {
-                return formatDate(selectedDates[0], dateFormat);
+        const dispDates = effectiveSelectedDates;
+        const dispDate = effectiveSelectedDate;
+        if (selectionMode === 'range' && dispDates && dispDates.length > 0) {
+            if (dispDates.length === 1) {
+                return formatDate(dispDates[0], dateFormat);
             }
-            if (selectedDates.length >= 2) {
-                const start = selectedDates[0];
-                const end = selectedDates[selectedDates.length - 1];
+            if (dispDates.length >= 2) {
+                const start = dispDates[0];
+                const end = dispDates[dispDates.length - 1];
                 return `${formatDate(start, dateFormat)} - ${formatDate(end, dateFormat)}`;
             }
         }
-        if (selectionMode === 'multiple' && selectedDates && selectedDates.length > 0) {
-            if (selectedDates.length === 1) {
-                return formatDate(selectedDates[0], dateFormat);
+        if (selectionMode === 'multiple' && dispDates && dispDates.length > 0) {
+            if (dispDates.length === 1) {
+                return formatDate(dispDates[0], dateFormat);
             } else {
-                return `${selectedDates.length} dates selected`;
+                return `${dispDates.length} dates selected`;
             }
-        } else if (selectedDate) {
-            return formatDate(selectedDate, dateFormat);
+        } else if (dispDate) {
+            return formatDate(dispDate, dateFormat);
         }
         return placeholder;
     };
@@ -1001,19 +1047,20 @@ function DatePicker({
     if (showInline) {
         return (
             <InlineDatePicker
-                selectedDate={selectedDate}
-                selectedDates={selectedDates}
-                onDateSelect={onDateSelect}
-                onDatesSelect={onDatesSelect}
+                selectedDate={effectiveSelectedDate}
+                selectedDates={effectiveSelectedDates}
+                onDateStringSelect={onDateStringSelect}
+                onDatesStringSelect={onDatesStringSelect}
                 availableDates={availableDates}
                 onMonthChange={onMonthChange}
-                minDate={minDate}
-                maxDate={maxDate}
+                minDate={effectiveMinDate}
+                maxDate={effectiveMaxDate}
                 className={className}
                 selectionMode={selectionMode}
                 maxSelections={maxSelections}
                 size={size}
                 disabled={disabled}
+                showTodayButton={showTodayButton}
             />
         );
     }
@@ -1033,7 +1080,7 @@ function DatePicker({
                     <Text
                         className='leading-none'
                         style={{
-                            color: (selectedDate || (selectedDates && selectedDates.length > 0)) ? THEME.dark.foreground : THEME.dark.textSecondary,
+                            color: (effectiveSelectedDate || (effectiveSelectedDates && effectiveSelectedDates.length > 0)) ? THEME.dark.foreground : THEME.dark.textSecondary,
                         }}
                     >
                         {displayDate()}
@@ -1102,13 +1149,16 @@ function DatePicker({
                                 selectedDates={tempSelectedDates}
                                 onDateSelect={handleDateSelect}
                                 onDatesSelect={handleDatesSelect}
+                                onDateStringSelect={onDateStringSelect}
+                                onDatesStringSelect={onDatesStringSelect}
                                 availableDates={availableDates}
                                 onMonthChange={onMonthChange}
-                                minDate={minDate}
-                                maxDate={maxDate}
+                                minDate={effectiveMinDate}
+                                maxDate={effectiveMaxDate}
                                 selectionMode={selectionMode}
                                 maxSelections={maxSelections}
                                 size={size}
+                                showTodayButton={showTodayButton}
                             />
                         </View>
 

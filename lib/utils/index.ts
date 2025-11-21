@@ -127,21 +127,20 @@ export const convertTimeToHHMMString = (time: Date) => {
   return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
 };
 
-export function formatDate(date: Date, showWeekday?: boolean, showMonth?: boolean) {
+export function formatDate(date: string, showWeekday?: boolean, showMonth?: boolean) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const month = months[date.getMonth()];
-  const day = date.getDate();
-  const year = date.getFullYear();
-  const weekday = weekdays[date.getDay()];
+  const [year, month, day] = date.split('-').map(Number);
+  const weekday = weekdays[new Date(year, month - 1, day).getDay()];
+  const monthName = months[month - 1];
 
   if (showWeekday) {
-    return `${weekday}, ${month} ${day}, ${year}`;
+    return `${weekday}, ${monthName} ${day}, ${year}`;
   }
 
   if (showMonth) {
-    return `${month} ${day}`;
+    return `${monthName} ${day}`;
   }
 
-  return `${month} ${day}, ${year}`;
+  return `${monthName} ${day}, ${year}`;
 }

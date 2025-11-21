@@ -27,6 +27,16 @@ import { LocationModal } from "@/components/lib/location-modal";
 // import { addTemporaryLocation } from "@/lib/services/settings-service";
 // import { createSpotConvention } from "@/lib/services/calendar-service";
 
+interface FormDataProps {
+    title: string;
+    dates: string[];
+    diffTimeEnabled: boolean;
+    startTimes: Record<string, string>;
+    endTimes: Record<string, string>;
+    location: Locations | undefined;
+    notes: string;
+}
+
 export default function AddSpotConventionPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -39,21 +49,13 @@ export default function AddSpotConventionPage() {
     const [loading, setLoading] = useState(false);
     const [locationData, setLocationData] = useState<Locations[]>([]);
     const [openTempLocationModal, setOpenTempLocationModal] = useState(false);
-    const [formData, setFormData] = useState<{
-        title: string;
-        dates: string[];
-        diffTimeEnabled: boolean;
-        startTimes: Record<string, string>;
-        endTimes: Record<string, string>;
-        location: string;
-        notes: string;
-    }>({
+    const [formData, setFormData] = useState<FormDataProps>({
         title: '',
         dates: [],
         diffTimeEnabled: false,
         startTimes: {},
         endTimes: {},
-        location: '',
+        location: undefined,
         notes: '',
     });
 
@@ -62,22 +64,6 @@ export default function AddSpotConventionPage() {
             setLocationData(artist.locations);
         }
     }, [artist?.locations]);
-
-    // Helper functions for individual date time management
-    const getDateKey = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const parseDateKey = (key: string) => {
-        const [yearStr, monthStr, dayStr] = key.split('-');
-        const year = Number(yearStr);
-        const month = Number(monthStr) - 1;
-        const day = Number(dayStr);
-        return new Date(year, month, day);
-    };
 
     const setAllStartTimes = (time: Date) => {
         setFormData(prev => {
@@ -99,9 +85,8 @@ export default function AddSpotConventionPage() {
         });
     };
 
-    const handleDatesSelect = (dates: Date[]) => {
-        console.log('handleDatesSelect', dates);
-        const newDateKeys = dates.map(getDateKey);
+    const handleDatesStringSelect = (dates: string[]) => {
+        const newDateKeys = dates;
         setFormData(prev => {
             const prevFirstDateKey = prev.dates?.[0];
             const sharedStart = (prevFirstDateKey && prev.startTimes?.[prevFirstDateKey]) || DEFAULT_START;
@@ -127,29 +112,8 @@ export default function AddSpotConventionPage() {
     };
 
     const handleLocationSelect = async (location: Locations) => {
-        const locationData = {
-            address: location.address,
-            place_id: location.place_id,
-            coordinates: location.coordinates,
-            is_main_studio: false,
-            is_temporary: true,
-        };
-        // const result = await addTemporaryLocation(artist.id, locationData);
-        // if (!result.success) {
-        //     toast({
-        //         variant: 'error',
-        //         title: 'Error',
-        //         description: result.error || 'Failed to add temporary location',
-        //     });
-        // }
-        // setLocationData((prev) => {
-        //     const newLoc = result.location as ArtistLocation | undefined;
-        //     if (!newLoc) return prev;
-        //     const newKey = newLoc.id ?? newLoc.place_id;
-        //     const exists = prev.some(l => (l.id ?? l.place_id) === newKey);
-        //     return exists ? prev : [...prev, newLoc];
-        // });
-        // setFormData({ ...formData, location: result.location?.id ?? result.location?.place_id ?? '' });
+        setFormData(prev => ({ ...prev, location }));
+        setLocationData(prev => [...prev, location]);
         setOpenTempLocationModal(false);
     };
 
@@ -158,25 +122,27 @@ export default function AddSpotConventionPage() {
     };
 
     const handleSave = async () => {
-        if (!artist?.id) {
-            toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
-            return;
-        }
-        if (!formData.title?.trim()) {
-            toast({ variant: 'error', title: 'Title is required' });
-            return;
-        }
-        if (!formData.dates?.length) {
-            toast({ variant: 'error', title: 'Select at least one date' });
-            return;
-        }
-        if (!formData.location) {
-            toast({ variant: 'error', title: 'Select a location' });
-            return;
-        }
+        // if (!artist?.id) {
+        //     toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
+        //     return;
+        // }
+        // if (!formData.title?.trim()) {
+        //     toast({ variant: 'error', title: 'Title is required' });
+        //     return;
+        // }
+        // if (!formData.dates?.length) {
+        //     toast({ variant: 'error', title: 'Select at least one date' });
+        //     return;
+        // }
+        // if (!formData.location) {
+        //     toast({ variant: 'error', title: 'Select a location' });
+        //     return;
+        // }
 
         try {
             setLoading(true);
+
+            console.log('formData', formData);
             // const result = await createSpotConvention({
             //     artistId: artist.id,
             //     title: formData.title.trim(),
@@ -192,8 +158,8 @@ export default function AddSpotConventionPage() {
             //     return;
             // }
 
-            toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });
-            router.dismissTo('/artist/calendar');
+            // toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });
+            // router.dismissTo('/artist/calendar');
 
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to add spot convention', description: error instanceof Error ? error.message : 'Unknown error' });
@@ -246,9 +212,10 @@ export default function AddSpotConventionPage() {
                                     <View className="gap-2">
                                         <Text variant="h5">Choose Date</Text>
                                         <DatePicker
-                                            selectedDates={formData.dates.map(parseDateKey)}
-                                            onDatesSelect={handleDatesSelect}
+                                            selectedDatesStrings={formData.dates}
+                                            onDatesStringSelect={handleDatesStringSelect}
                                             showInline={true}
+                                            showTodayButton={false}
                                             selectionMode="range"
                                             className="border border-border rounded-sm p-2"
                                         />
@@ -352,12 +319,10 @@ export default function AddSpotConventionPage() {
                                             {formData.diffTimeEnabled ? (
                                                 <View className="gap-6">
                                                     {formData.dates.map((dateString, index) => {
-                                                        const date = parseDateKey(dateString);
-                                                        const dateKey = getDateKey(date);
                                                         return (
                                                             <View key={index} className="gap-6 flex-row items-start justify-between">
                                                                 <View className="w-[80px]">
-                                                                    <Text variant="h5">{formatDate(date, false, true)}</Text>
+                                                                    <Text variant="h5">{formatDate(dateString, false, true)}</Text>
                                                                 </View>
                                                                 <View className="flex-1 gap-4">
                                                                     <View className="items-start gap-2 flex-1">
@@ -366,8 +331,8 @@ export default function AddSpotConventionPage() {
                                                                                 <TimePicker
                                                                                     minuteInterval={15}
                                                                                     className="w-full"
-                                                                                    selectedTime={formData.startTimes?.[dateKey] ? convertTimeToISOString(formData.startTimes[dateKey]) : new Date()}
-                                                                                    onTimeSelect={(time) => setFormData(prev => ({ ...prev, startTimes: { ...prev.startTimes, [dateKey]: convertTimeToHHMMString(time) } }))}
+                                                                                    selectedTime={formData.startTimes?.[dateString] ? convertTimeToISOString(formData.startTimes[dateString]) : new Date()}
+                                                                                    onTimeSelect={(time) => setFormData(prev => ({ ...prev, startTimes: { ...prev.startTimes, [dateString]: convertTimeToHHMMString(time) } }))}
                                                                                 />
                                                                             </View>
                                                                         </Collapse>
@@ -379,8 +344,8 @@ export default function AddSpotConventionPage() {
                                                                                 <TimePicker
                                                                                     minuteInterval={15}
                                                                                     className="w-full"
-                                                                                    selectedTime={formData.endTimes?.[dateKey] ? convertTimeToISOString(formData.endTimes[dateKey]) : new Date()}
-                                                                                    onTimeSelect={(time) => setFormData(prev => ({ ...prev, endTimes: { ...prev.endTimes, [dateKey]: convertTimeToHHMMString(time) } }))}
+                                                                                    selectedTime={formData.endTimes?.[dateString] ? convertTimeToISOString(formData.endTimes[dateString]) : new Date()}
+                                                                                    onTimeSelect={(time) => setFormData(prev => ({ ...prev, endTimes: { ...prev.endTimes, [dateString]: convertTimeToHHMMString(time) } }))}
                                                                                 />
                                                                             </View>
                                                                         </Collapse>
@@ -438,8 +403,8 @@ export default function AddSpotConventionPage() {
                                         <View className="gap-2 w-full">
                                             <DropdownPicker
                                                 options={locationData.map((location: Locations) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                                value={formData.location}
-                                                onValueChange={(value: string) => setFormData({ ...formData, location: value as string })}
+                                                value={formData.location?.id ?? formData.location?.place_id ?? undefined}
+                                                onValueChange={(value: string) => setFormData({ ...formData, location: locationData.find(l => l.id === value || l.place_id === value) || undefined })}
                                                 placeholder="Select location"
                                                 modalTitle="Select Location"
                                             />
