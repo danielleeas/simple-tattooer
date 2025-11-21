@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
-import { CalendarDay, dayNames } from "./utils";
+import { CalendarDay, dayNames, toLocalDateString } from "./utils";
 
 type MonthViewProps = {
     currentDate: Date;
-    onDatePress?: (date: Date) => void;
+    onDatePress: (dateString: string) => void;
 };
 
 export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
@@ -67,7 +67,7 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                             return (
                                 <Pressable
                                     key={`${weekIndex}-${dayIndex}`}
-                                    onPress={() => onDatePress?.(day.date)}
+                                    onPress={() => onDatePress(toLocalDateString(day.date))}
                                     className="flex-1 items-center pt-2 justify-start border-border-secondary border-r border-b relative"
                                 >
                                     <View className={`rounded-full relative items-center justify-center ${bubbleClasses}`} style={{ width: 24, height: 24 }}>

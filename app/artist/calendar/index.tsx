@@ -55,6 +55,11 @@ export default function CalendarPage() {
         });
     };
 
+    const onDatePress = (dateString: string) => {
+        // Example: handle string in local timezone "YYYY-MM-DDTHH:mm:ss±HH:MM"
+        console.log(dateString);
+    };
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -93,7 +98,7 @@ export default function CalendarPage() {
                             </Pressable>
                         </View>
                         <View className="flex-1 w-full">
-                            <MonthView currentDate={currentDate} />
+                            <MonthView currentDate={currentDate} onDatePress={onDatePress} />
                         </View>
                     </View>
                 </StableGestureWrapper>
