@@ -10,7 +10,8 @@ import { Text } from "@/components/ui/text";
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import { getViewLabel } from "@/components/pages/calendar/utils";
 import { MonthView } from "@/components/pages/calendar/month";
-
+import { DayView } from "@/components/pages/calendar/day";
+import { WeekView } from "@/components/pages/calendar/week";
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
 
@@ -98,7 +99,9 @@ export default function CalendarPage() {
                             </Pressable>
                         </View>
                         <View className="flex-1 w-full">
-                            <MonthView currentDate={currentDate} onDatePress={onDatePress} />
+                            {viewMode === 'day' && <DayView currentDate={currentDate} />}
+                            {viewMode === 'month' && <MonthView currentDate={currentDate} onDatePress={onDatePress} />}
+                            {viewMode === 'week' && <WeekView currentDate={currentDate} />}
                         </View>
                     </View>
                 </StableGestureWrapper>
