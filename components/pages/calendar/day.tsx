@@ -56,6 +56,43 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
         return slots;
     }, [currentDate]);
 
+    // Layout constants: each row is 30 minutes tall (40px), so 1 hour = 80px.
+    const GRID_ROW_HEIGHT = 40;
+    const HOUR_HEIGHT = GRID_ROW_HEIGHT * 2;
+    const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
+    const dayStart = useMemo(
+        () => new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0, 0),
+        [currentDate]
+    );
+    const dayEnd = useMemo(
+        () => new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999),
+        [currentDate]
+    );
+    const parsedEvents = useMemo(() => {
+        const parseDateTime = (s: string) => new Date((s || "").replace(" ", "T"));
+        return (eventsToday || []).map((e) => ({
+            ...e,
+            startDate: parseDateTime(e.start_date),
+            endDate: parseDateTime(e.end_date),
+            allDay: !!e.allday,
+        }));
+    }, [eventsToday]);
+    const timedEvents = useMemo(
+        () =>
+            parsedEvents.filter(
+                (e) => !e.allDay && e.type === "item" && e.endDate >= dayStart && e.startDate <= dayEnd
+            ),
+        [parsedEvents, dayStart, dayEnd]
+    );
+    const backgroundEvents = useMemo(
+        () =>
+            parsedEvents.filter(
+                (e) => !e.allDay && e.type === "background" && e.endDate >= dayStart && e.startDate <= dayEnd
+            ),
+        [parsedEvents, dayStart, dayEnd]
+    );
+    const dayContentHeight = useMemo(() => timeSlots.length * GRID_ROW_HEIGHT, [timeSlots.length]);
+
     return (
         <View className="flex-1 border border-border-secondary">
             {/* Header */}
@@ -99,32 +136,83 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
 
             {/* Time grid */}
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                {timeSlots.map((slot, index) => (
-                    <View key={index} className="flex-row border-b border-border-secondary" style={{ height: 40 }}>
-                        <View className="w-20 justify-center items-center border-r border-border-secondary py-2">
-                            <Text className="text-xs">{slot.timeString}</Text>
+                <View style={{ height: dayContentHeight, position: "relative" }}>
+                    {timeSlots.map((slot, index) => (
+                        <View key={index} className="flex-row border-b border-border-secondary" style={{ height: GRID_ROW_HEIGHT }}>
+                            <View className="w-20 justify-center items-center border-r border-border-secondary py-2">
+                                <Text className="text-xs">{slot.timeString}</Text>
+                            </View>
+                            <Pressable
+                                className="flex-1 justify-center items-center py-2"
+                                onPress={() => {
+                                    const selectedDateTime = new Date(
+                                        currentDate.getFullYear(),
+                                        currentDate.getMonth(),
+                                        currentDate.getDate(),
+                                        slot.hour,
+                                        slot.minute,
+                                        0,
+                                        0
+                                    );
+                                    const datePart = toLocalDateString(selectedDateTime);
+                                    const hh = String(selectedDateTime.getHours()).padStart(2, "0");
+                                    const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
+                                    const datetimeString = `${datePart} ${hh}:${mm}`;
+                                    onTimeSelect(datetimeString);
+                                }}
+                            />
                         </View>
-                        <Pressable
-                            className="flex-1 justify-center items-center py-2"
-                            onPress={() => {
-                                const selectedDateTime = new Date(
-                                    currentDate.getFullYear(),
-                                    currentDate.getMonth(),
-                                    currentDate.getDate(),
-                                    slot.hour,
-                                    slot.minute,
-                                    0,
-                                    0
-                                );
-                                const datePart = toLocalDateString(selectedDateTime);
-                                const hh = String(selectedDateTime.getHours()).padStart(2, "0");
-                                const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
-                                const datetimeString = `${datePart} ${hh}:${mm}`;
-                                onTimeSelect(datetimeString);
-                            }}
-                        />
-                    </View>
-                ))}
+                    ))}
+                    {/* Background overlays */}
+                    {backgroundEvents.map((e, idx) => {
+                        const startMs = Math.max(e.startDate.getTime(), dayStart.getTime());
+                        const endMs = Math.min(e.endDate.getTime(), dayEnd.getTime());
+                        const minutesFromStart = (startMs - dayStart.getTime()) / (1000 * 60);
+                        const minutesDuration = Math.max(15, (endMs - startMs) / (1000 * 60));
+                        return (
+                            <View
+                                key={`bg-${idx}`}
+                                pointerEvents="none"
+                                style={{
+                                    position: "absolute",
+                                    top: minutesFromStart * MINUTE_HEIGHT,
+                                    left: 80,
+                                    right: 0,
+                                    height: minutesDuration * MINUTE_HEIGHT,
+                                    backgroundColor: "#000",
+                                    opacity: 0.06,
+                                }}
+                            />
+                        );
+                    })}
+                    {/* Timed item events */}
+                    {timedEvents.map((e, idx) => {
+                        const startMs = Math.max(e.startDate.getTime(), dayStart.getTime());
+                        const endMs = Math.min(e.endDate.getTime(), dayEnd.getTime());
+                        const minutesFromStart = (startMs - dayStart.getTime()) / (1000 * 60);
+                        const minutesDuration = Math.max(15, (endMs - startMs) / (1000 * 60));
+                        return (
+                            <View
+                                key={`item-${e.id}-${idx}`}
+                                style={{
+                                    position: "absolute",
+                                    top: minutesFromStart * MINUTE_HEIGHT,
+                                    left: 86,
+                                    right: 6,
+                                    height: minutesDuration * MINUTE_HEIGHT,
+                                    borderRadius: 2,
+                                    paddingHorizontal: 6,
+                                    justifyContent: "center",
+                                }}
+                                className={`${getEventColorClass(e.color)}`}
+                            >
+                                <Text className="text-[10px] text-background" numberOfLines={2}>
+                                    {e.title || "Event"}
+                                </Text>
+                            </View>
+                        );
+                    })}
+                </View>
             </ScrollView>
         </View>
     );
