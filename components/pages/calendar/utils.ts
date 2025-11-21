@@ -50,3 +50,18 @@ export const toLocalDateString = (date: Date) => {
     const day = pad(date.getDate());
     return `${year}-${month}-${day}`;
 };
+
+export const getEventColorClass = (color: string) => {
+    switch (color) {
+        case 'blue':
+            return 'bg-blue-500';
+        case 'green':
+            return 'bg-green';
+        case 'orange':
+            return 'bg-orange-500';
+        case 'purple':
+            return 'bg-purple';
+        default:
+            return 'bg-primary';
+    }
+};

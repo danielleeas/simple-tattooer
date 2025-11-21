@@ -42,6 +42,18 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                 </View>
             </View>
 
+            {/* All-day band */}
+            <View className="flex-row items-center border-b border-border-secondary" style={{ height: 28 }}>
+                <View className="w-20 h-full justify-center items-center border-r border-border-secondary">
+                    <Text className="text-[10px] text-text-secondary" style={{ letterSpacing: 1 }}>
+                        All-day
+                    </Text>
+                </View>
+                <View className="flex-1 h-full px-2 flex-row flex-wrap items-center">
+                    
+                </View>
+            </View>
+
             {/* Time grid */}
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {timeSlots.map((slot, index) => (

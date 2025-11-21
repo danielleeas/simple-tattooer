@@ -144,3 +144,17 @@ export function formatDate(date: string, showWeekday?: boolean, showMonth?: bool
 
   return `${monthName} ${day}, ${year}`;
 }
+
+export const toYmd = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+export const parseYmdFromDb = (s: string): Date => {
+  // Expect "YYYY-MM-DD HH:mm" or "YYYY-MM-DDTHH:mm"
+  const part = (s || '').split(' ')[0].split('T')[0];
+  const [y, m, d] = part.split('-').map(n => parseInt(n, 10));
+  return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0);
+};

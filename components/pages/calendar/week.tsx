@@ -69,6 +69,19 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                 ))}
             </View>
 
+            {/* All-day band */}
+            <View className="flex-row items-center border-b border-border-secondary" style={{ height: 28 }}>
+                <View className="w-14 h-full justify-center items-center border-r border-border-secondary">
+                    <Text className="text-[10px] text-text-secondary" style={{ letterSpacing: 1 }}>
+                        All-day
+                    </Text>
+                </View>
+                {weekDays.map((wd, idx) => (
+                    <View key={`ad-${idx}`} className="flex-1 h-full px-1 flex-row flex-wrap items-center border-r border-border-secondary" style={idx === 6 ? { borderRightWidth: 0 } : {}}>
+                    </View>
+                ))}
+            </View>
+
             {/* Time grid */}
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {timeSlots.map((slot, rowIdx) => (

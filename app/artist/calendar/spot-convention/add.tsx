@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/contexts/auth-context";
 import { Locations } from "@/lib/redux/types";
 import { LocationModal } from "@/components/lib/location-modal";
 // import { addTemporaryLocation } from "@/lib/services/settings-service";
-// import { createSpotConvention } from "@/lib/services/calendar-service";
+import { createSpotConvention } from "@/lib/services/calendar-service";
 
 interface FormDataProps {
     title: string;
@@ -122,44 +122,43 @@ export default function AddSpotConventionPage() {
     };
 
     const handleSave = async () => {
-        // if (!artist?.id) {
-        //     toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
-        //     return;
-        // }
-        // if (!formData.title?.trim()) {
-        //     toast({ variant: 'error', title: 'Title is required' });
-        //     return;
-        // }
-        // if (!formData.dates?.length) {
-        //     toast({ variant: 'error', title: 'Select at least one date' });
-        //     return;
-        // }
-        // if (!formData.location) {
-        //     toast({ variant: 'error', title: 'Select a location' });
-        //     return;
-        // }
+        if (!artist?.id) {
+            toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
+            return;
+        }
+        if (!formData.title?.trim()) {
+            toast({ variant: 'error', title: 'Title is required' });
+            return;
+        }
+        if (!formData.dates?.length) {
+            toast({ variant: 'error', title: 'Select at least one date' });
+            return;
+        }
+        if (!formData.location) {
+            toast({ variant: 'error', title: 'Select a location' });
+            return;
+        }
 
         try {
             setLoading(true);
 
-            console.log('formData', formData);
-            // const result = await createSpotConvention({
-            //     artistId: artist.id,
-            //     title: formData.title.trim(),
-            //     dates: formData.dates,
-            //     diffTimeEnabled: formData.diffTimeEnabled,
-            //     startTimes: formData.startTimes,
-            //     endTimes: formData.endTimes,
-            //     locationId: formData.location,
-            //     notes: formData.notes?.trim() || undefined,
-            // });
-            // if (!result.success) {
-            //     toast({ variant: 'error', title: 'Failed to add spot convention', description: result.error });
-            //     return;
-            // }
+            const result = await createSpotConvention({
+                artistId: artist.id,
+                title: formData.title.trim(),
+                dates: formData.dates,
+                diffTimeEnabled: formData.diffTimeEnabled,
+                startTimes: formData.startTimes,
+                endTimes: formData.endTimes,
+                location: formData.location,
+                notes: formData.notes?.trim() || undefined,
+            });
+            if (!result.success) {
+                toast({ variant: 'error', title: 'Failed to add spot convention', description: result.error });
+                return;
+            }
 
-            // toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });
-            // router.dismissTo('/artist/calendar');
+            toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });
+            router.dismissTo('/artist/calendar');
 
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to add spot convention', description: error instanceof Error ? error.message : 'Unknown error' });
@@ -167,8 +166,6 @@ export default function AddSpotConventionPage() {
         } finally {
             setLoading(false);
         }
-
-
     };
 
     return (

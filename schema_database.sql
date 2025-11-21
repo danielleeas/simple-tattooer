@@ -353,6 +353,60 @@ CREATE INDEX IF NOT EXISTS idx_artist_portfolios_portfolio_description ON artist
 CREATE INDEX IF NOT EXISTS idx_artist_portfolios_created_at ON artist_portfolios(created_at);
 CREATE INDEX IF NOT EXISTS idx_artist_portfolios_updated_at ON artist_portfolios(updated_at);
 
+-- spot convention table for storing spot conventions
+CREATE TABLE IF NOT EXISTS spot_conventions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  dates TEXT[] NOT NULL,
+  diff_time_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  start_times JSONB NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(start_times) = 'object'),
+  end_times JSONB NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(end_times) = 'object'),
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for spot conventions
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_artist_id ON spot_conventions(artist_id);
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_title ON spot_conventions(title);
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_dates ON spot_conventions(dates);
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_diff_time_enabled ON spot_conventions(diff_time_enabled) WHERE diff_time_enabled = true;
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_location_id ON spot_conventions(location_id);
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_notes ON spot_conventions(notes);
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_created_at ON spot_conventions(created_at);
+CREATE INDEX IF NOT EXISTS idx_spot_conventions_updated_at ON spot_conventions(updated_at);
+
+-- events table for storing events
+CREATE TABLE IF NOT EXISTS events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  allDay BOOLEAN NOT NULL DEFAULT FALSE,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'blue',
+  type TEXT NOT NULL DEFAULT 'item',
+  source TEXT NOT NULL DEFAULT 'block_time',
+  source_id UUID NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for events
+CREATE INDEX IF NOT EXISTS idx_events_artist_id ON events(artist_id);
+CREATE INDEX IF NOT EXISTS idx_events_title ON events(title);
+CREATE INDEX IF NOT EXISTS idx_events_allDay ON events(allDay) WHERE allDay = true;
+CREATE INDEX IF NOT EXISTS idx_events_start_date ON events(start_date);
+CREATE INDEX IF NOT EXISTS idx_events_end_date ON events(end_date);
+CREATE INDEX IF NOT EXISTS idx_events_color ON events(color);
+CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
+CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);
+CREATE INDEX IF NOT EXISTS idx_events_source_id ON events(source_id);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
+CREATE INDEX IF NOT EXISTS idx_events_updated_at ON events(updated_at);
+
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
