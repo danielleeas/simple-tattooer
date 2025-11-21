@@ -53,7 +53,7 @@ export default function ProductionHome() {
     };
 
     const handleCalendar = () => {
-        // router.push('/production/calendar');
+        router.push('/artist/calendar');
     };
 
     const handleSettings = () => {
