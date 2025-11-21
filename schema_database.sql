@@ -378,6 +378,33 @@ CREATE INDEX IF NOT EXISTS idx_spot_conventions_notes ON spot_conventions(notes)
 CREATE INDEX IF NOT EXISTS idx_spot_conventions_created_at ON spot_conventions(created_at);
 CREATE INDEX IF NOT EXISTS idx_spot_conventions_updated_at ON spot_conventions(updated_at);
 
+-- temp changes table for storing temp changes
+CREATE TABLE IF NOT EXISTS temp_changes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  work_days TEXT[] NOT NULL DEFAULT '{}' CHECK (work_days <@ ARRAY['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+  different_time_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  start_times JSONB NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(start_times) = 'object'),
+  end_times JSONB NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(end_times) = 'object'),
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for temp changes
+CREATE INDEX IF NOT EXISTS idx_temp_changes_artist_id ON temp_changes(artist_id);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_start_date ON temp_changes(start_date);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_end_date ON temp_changes(end_date);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_work_days ON temp_changes(work_days);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_different_time_enabled ON temp_changes(different_time_enabled) WHERE different_time_enabled = true;
+CREATE INDEX IF NOT EXISTS idx_temp_changes_location_id ON temp_changes(location_id);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_notes ON temp_changes(notes);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_created_at ON temp_changes(created_at);
+CREATE INDEX IF NOT EXISTS idx_temp_changes_updated_at ON temp_changes(updated_at);
+
 -- events table for storing events
 CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

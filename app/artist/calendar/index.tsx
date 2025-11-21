@@ -89,6 +89,11 @@ export default function CalendarPage() {
         closeActionModal();
     }
 
+    const openTempChangeAdd = () => {
+        router.push('/artist/calendar/temp-change/add');
+        closeActionModal();
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -174,7 +179,7 @@ export default function CalendarPage() {
 
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
-                                onPress={closeActionModal}
+                                onPress={openTempChangeAdd}
                                 accessibilityRole="button"
                                 accessibilityLabel="Temporarily Change Your Work Days"
                             >
