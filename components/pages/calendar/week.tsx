@@ -6,13 +6,13 @@ import { useAuth } from "@/lib/contexts/auth-context";
 import { getEventsInRange, type CalendarEvent } from "@/lib/services/calendar-service";
 import { useFocusEffect } from "@react-navigation/native";
 import { toYmd, parseYmdFromDb } from "@/lib/utils";
+import { router } from "expo-router";
 
 type WeekViewProps = {
     currentDate: Date;
-    onTimeSelect: (datetime: string) => void;
 };
 
-export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
+export const WeekView = ({ currentDate }: WeekViewProps) => {
     const { artist } = useAuth();
     const [eventsByDay, setEventsByDay] = useState<Record<string, CalendarEvent[]>>({});
     const [weekEvents, setWeekEvents] = useState<CalendarEvent[]>([]);
@@ -124,6 +124,33 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
         }));
     }, [weekEvents]);
 
+    const handleEventClick = (source: string, source_id: string) => {
+        if (source === 'block_time') {
+            router.push({
+                pathname: '/artist/calendar/event-block-time/[id]',
+                params: { id: source_id }
+            });
+        } 
+        else if (source === 'spot_convention') {
+            router.push({
+                pathname: '/artist/calendar/spot-convention/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'temp_change') {
+            router.push({
+                pathname: '/artist/calendar/temp-change/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'book_off') {
+            router.push({
+                pathname: '/artist/calendar/off-days/[id]',
+                params: { id: source_id }
+            });
+        }
+    }
+
     return (
         <View className="flex-1 border border-border-secondary">
             {/* Header */}
@@ -167,7 +194,7 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                                     key={ev.id}
                                     className={`px-2 absolute top-0 bottom-0 h-full items-center ${getEventColorClass(ev.color)}`}
                                     style={{ opacity: 0.8, left: 0, right: -1 }}
-                                    pointerEvents="none"
+                                    onPress={() => handleEventClick(ev.source, ev.source_id)}
                                 >
                                 </Pressable>
                             ));
@@ -186,26 +213,10 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                                 <Text className="text-xs leading-none">{slot.amPm}</Text>
                             </View>
                             {weekDays.map((d, colIdx) => (
-                                <Pressable
+                                <View
                                     key={colIdx}
                                     className="flex-1 justify-center items-center py-2 border-r border-border-secondary"
                                     style={colIdx === 6 ? { borderRightWidth: 0 } : {}}
-                                    onPress={() => {
-                                        const selectedDateTime = new Date(
-                                            d.date.getFullYear(),
-                                            d.date.getMonth(),
-                                            d.date.getDate(),
-                                            slot.hour,
-                                            slot.minute,
-                                            0,
-                                            0
-                                        );
-                                        const datePart = toLocalDateString(selectedDateTime);
-                                        const hh = String(selectedDateTime.getHours()).padStart(2, "0");
-                                        const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
-                                        const datetimeString = `${datePart} ${hh}:${mm}`;
-                                        onTimeSelect(datetimeString);
-                                    }}
                                 />
                             ))}
                         </View>
@@ -213,7 +224,6 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
 
                     {/* Timed overlays across the week */}
                     <View
-                        pointerEvents="none"
                         style={{
                             position: "absolute",
                             left: TIME_COL_WIDTH,
@@ -229,38 +239,15 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                                 const dayTimed = parsedEvents.filter(
                                     (e: any) => !e.allDay && e.type === "item" && e.endDate.getTime() >= dStart && e.startDate.getTime() <= dEnd
                                 );
-                                const dayBackgrounds = parsedEvents.filter(
-                                    (e: any) => !e.allDay && e.type === "background" && e.endDate.getTime() >= dStart && e.startDate.getTime() <= dEnd
-                                );
                                 return (
                                     <View key={`wkcol-${di}`} style={{ flex: 1, position: "relative" }}>
-                                        {dayBackgrounds.map((e: any, idx: number) => {
-                                            const s = Math.max(e.startDate.getTime(), dStart);
-                                            const en = Math.min(e.endDate.getTime(), dEnd);
-                                            const minutesFromStart = (s - dStart) / (1000 * 60);
-                                            const minutesDuration = Math.max(15, (en - s) / (1000 * 60));
-                                            return (
-                                                <View
-                                                    key={`wkbg-${di}-${idx}`}
-                                                    style={{
-                                                        position: "absolute",
-                                                        top: minutesFromStart * MINUTE_HEIGHT,
-                                                        left: 0,
-                                                        right: 0,
-                                                        height: minutesDuration * MINUTE_HEIGHT,
-                                                        backgroundColor: "#000",
-                                                        opacity: 0.06,
-                                                    }}
-                                                />
-                                            );
-                                        })}
                                         {dayTimed.map((e: any, idx: number) => {
                                             const s = Math.max(e.startDate.getTime(), dStart);
                                             const en = Math.min(e.endDate.getTime(), dEnd);
                                             const minutesFromStart = (s - dStart) / (1000 * 60);
                                             const minutesDuration = Math.max(15, (en - s) / (1000 * 60));
                                             return (
-                                                <View
+                                                <Pressable
                                                     key={`wkitem-${di}-${idx}`}
                                                     style={{
                                                         position: "absolute",
@@ -273,11 +260,12 @@ export const WeekView = ({ currentDate, onTimeSelect }: WeekViewProps) => {
                                                         justifyContent: "center",
                                                     }}
                                                     className={`${getEventColorClass(e.color)}`}
+                                                    onPress={() => handleEventClick(e.source, e.source_id)}
                                                 >
                                                     <Text className="text-[10px] text-foreground text-center" numberOfLines={2}>
                                                         {e.title || "Event"}
                                                     </Text>
-                                                </View>
+                                                </Pressable>
                                             );
                                         })}
                                     </View>

@@ -65,15 +65,7 @@ export default function CalendarPage() {
             params: { date: dateString },
         });
     };
-
-    const onDayTimeSelect = (datetime: string) => {
-        console.log(datetime);
-    }
-
-    const onWeekTimeSelect = (datetime: string) => {
-        console.log(datetime);
-    }
-
+    
     const openActionModal = () => {
         if (viewMode === 'month' || viewMode === 'week') {
             setIsMonthMenuOpen(true);
@@ -148,9 +140,9 @@ export default function CalendarPage() {
                             </Pressable>
                         </View>
                         <View className="flex-1 w-full">
-                            {viewMode === 'day' && <DayView currentDate={currentDate} onTimeSelect={onDayTimeSelect} />}
+                            {viewMode === 'day' && <DayView currentDate={currentDate} />}
                             {viewMode === 'month' && <MonthView currentDate={currentDate} onDatePress={onDatePress} />}
-                            {viewMode === 'week' && <WeekView currentDate={currentDate} onTimeSelect={onWeekTimeSelect} />}
+                            {viewMode === 'week' && <WeekView currentDate={currentDate} />}
                         </View>
 
                         <Pressable

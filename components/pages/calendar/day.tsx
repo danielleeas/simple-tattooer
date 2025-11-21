@@ -5,13 +5,13 @@ import { dayNames, toLocalDateString, getEventColorClass } from "./utils";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { getEventsInRange, type CalendarEvent } from "@/lib/services/calendar-service";
 import { useFocusEffect } from "@react-navigation/native";
+import { router } from "expo-router";
 
 type DayViewProps = {
     currentDate: Date;
-    onTimeSelect: (datetime: string) => void;
 };
 
-export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
+export const DayView = ({ currentDate }: DayViewProps) => {
     const { artist } = useAuth();
     const [eventsToday, setEventsToday] = useState<CalendarEvent[]>([]);
 
@@ -93,6 +93,33 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
     );
     const dayContentHeight = useMemo(() => timeSlots.length * GRID_ROW_HEIGHT, [timeSlots.length]);
 
+    const handleEventClick = (source: string, source_id: string) => {
+        if (source === 'block_time') {
+            router.push({
+                pathname: '/artist/calendar/event-block-time/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'spot_convention') {
+            router.push({
+                pathname: '/artist/calendar/spot-convention/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'temp_change') {
+            router.push({
+                pathname: '/artist/calendar/temp-change/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'book_off') {
+            router.push({
+                pathname: '/artist/calendar/off-days/[id]',
+                params: { id: source_id }
+            });
+        }
+    }
+
     return (
         <View className="flex-1 border border-border-secondary">
             {/* Header */}
@@ -122,9 +149,9 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                         .map((ev) => (
                             <Pressable
                                 key={ev.id}
+                                onPress={() => handleEventClick(ev.source, ev.source_id)}
                                 className={`px-2 h-full items-center ${getEventColorClass(ev.color)}`}
                                 style={{ opacity: 0.8, marginRight: 2, maxWidth: 100 }}
-                                pointerEvents="none"
                             >
                                 <Text numberOfLines={1} className="text-[14px] text-foreground font-medium leading-none">
                                     {ev.title || "Event"}
@@ -142,24 +169,8 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                             <View className="w-20 justify-center items-center border-r border-border-secondary py-2">
                                 <Text className="text-xs">{slot.timeString}</Text>
                             </View>
-                            <Pressable
+                            <View
                                 className="flex-1 justify-center items-center py-2"
-                                onPress={() => {
-                                    const selectedDateTime = new Date(
-                                        currentDate.getFullYear(),
-                                        currentDate.getMonth(),
-                                        currentDate.getDate(),
-                                        slot.hour,
-                                        slot.minute,
-                                        0,
-                                        0
-                                    );
-                                    const datePart = toLocalDateString(selectedDateTime);
-                                    const hh = String(selectedDateTime.getHours()).padStart(2, "0");
-                                    const mm = String(selectedDateTime.getMinutes()).padStart(2, "0");
-                                    const datetimeString = `${datePart} ${hh}:${mm}`;
-                                    onTimeSelect(datetimeString);
-                                }}
                             />
                         </View>
                     ))}
@@ -192,8 +203,9 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                         const minutesFromStart = (startMs - dayStart.getTime()) / (1000 * 60);
                         const minutesDuration = Math.max(15, (endMs - startMs) / (1000 * 60));
                         return (
-                            <View
+                            <Pressable
                                 key={`item-${e.id}-${idx}`}
+                                onPress={() => handleEventClick(e.source, e.source_id)}
                                 style={{
                                     position: "absolute",
                                     top: minutesFromStart * MINUTE_HEIGHT,
@@ -210,7 +222,7 @@ export const DayView = ({ currentDate, onTimeSelect }: DayViewProps) => {
                                 <Text className="text-md text-foreground" numberOfLines={2}>
                                     {e.title || "Event"}
                                 </Text>
-                            </View>
+                            </Pressable>
                         );
                     })}
                 </View>
