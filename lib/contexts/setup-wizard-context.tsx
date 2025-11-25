@@ -78,7 +78,7 @@ interface SetupWizardCalendar {
 }
 
 interface SetupWizardDeposit {
-  amount: number;
+  amount: string;
   holdTime: string;
   remindTime: string;
   policy: string;
@@ -88,20 +88,20 @@ interface SetupWizardDeposit {
 interface MoreThanOne {
   isMoreOne: boolean;
   sessionStartTime: Date;
-  sessionCount: number;
-  sessionDuration: number;
-  breakTime: number;
+  sessionCount: string;
+  sessionDuration: string;
+  breakTime: string;
 }
 
 interface BackToBack {
   isBackToBack: boolean;
-  maxSessions: number;
+  maxSessions: string;
 }
 
 interface SetupWizardBookingRules {
   moreThanOne: MoreThanOne;
   backToBack: BackToBack;
-  bufferSession: number;
+  bufferSession: string;
 }
 
 interface SetupWizardDrawingRules {
@@ -163,26 +163,26 @@ const defaultCalendar: SetupWizardCalendar = {
 };
 
 const defaultDeposit: SetupWizardDeposit = {
-  amount: 100,
+  amount: '',
   holdTime: '12',
   remindTime: '12',
-  policy: 'Here is Deposit Policy',
-  cancellationPolicy: 'Here is Cancellation Policy',
+  policy: '',
+  cancellationPolicy: '',
 };
 
 const defaultBookingRules: SetupWizardBookingRules = {
   moreThanOne: {
     isMoreOne: false,
     sessionStartTime: new Date(),
-    sessionCount: 0,
-    sessionDuration: 0,
-    breakTime: 0,
+    sessionCount: '',
+    sessionDuration: '',
+    breakTime: '',
   },
   backToBack: {
     isBackToBack: false,
-    maxSessions: 0,
+    maxSessions: '',
   },
-  bufferSession: 0,
+  bufferSession: '',
 };
 
 const defaultDrawingRules: SetupWizardDrawingRules = {

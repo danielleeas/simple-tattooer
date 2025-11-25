@@ -15,12 +15,12 @@ export interface WorkDayDataProps {
 
 export interface BookingDataProps {
     multipleSessionsEnabled: boolean;
-    sessionsPerDay: number;
-    sessionDuration: number;
-    breakTime: number;
+    sessionsPerDay: string;
+    sessionDuration: string;
+    breakTime: string;
     backToBackEnabled: boolean;
-    maxBackToBack: number;
-    bufferBetweenSessions: number;
+    maxBackToBack: string;
+    bufferBetweenSessions: string;
 }
 
 export interface DrawingDataProps {
@@ -30,7 +30,7 @@ export interface DrawingDataProps {
     finalAppointmentRemindTime: number;
     autoEmail: boolean;
     autoFillDrawing: boolean;
-    maxReschedulesAllowed: number;
+    maxReschedulesAllowed: string;
     rescheduleBookingDays: number;
 }
 

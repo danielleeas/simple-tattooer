@@ -1,14 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { SignupData, Artist, Subscriptions } from '@/lib/redux/types';
-import { withRetryAndTimeout, safeAsync } from '@/lib/utils';
+import { withRetryAndTimeout, safeAsync, buildBookingLink } from '@/lib/utils';
 import { BASE_URL } from '@/lib/constants';
-
-// Safely build a URL by removing duplicate slashes at the boundary
-const buildBookingLink = (base: string, suffix: string): string => {
-  const normalizedBase = base.replace(/\/+$/, '');
-  const normalizedSuffix = suffix.replace(/^\/+/, '');
-  return `${normalizedBase}/${normalizedSuffix}`;
-}
 
 // Sign up user with Supabase Auth
 export const signUpUser = async (signupData: SignupData): Promise<{ user: any; session: any; error: any }> => {

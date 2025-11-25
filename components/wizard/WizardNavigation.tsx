@@ -10,6 +10,8 @@ import { useAppDispatch } from '@/lib/redux/hooks';
 import { saveSetupWizard, sendWelcomeEmail } from '@/lib/services/setup-wizard-service';
 import { LoadingOverlay } from '@/components/lib/loading-overlay';
 import { fetchUpdatedArtistProfile } from '@/lib/redux/slices/auth-slice';
+import { BASE_URL } from '@/lib/constants';
+import { buildFullBookingLink } from '@/lib/utils';
 
 interface WizardNavigationProps {
   currentStep: number;
@@ -92,7 +94,8 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
       setSaveMessage("Fetching Updated Data");
       await dispatch(fetchUpdatedArtistProfile(artist.id));
 
-      await sendWelcomeEmail(artist, details.name, details.bookingLinkSuffix);
+      const fullBookingLink = buildFullBookingLink(BASE_URL, details.bookingLinkSuffix);
+      await sendWelcomeEmail(artist, details.name, fullBookingLink);
 
       toast({
         title: 'Welcome aboard!',

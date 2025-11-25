@@ -29,7 +29,7 @@ import { LoadingOverlay } from "@/components/lib/loading-overlay";
 
 
 const defaultDepositData: DepositDataProps = {
-    depositAmount: 100,
+    depositAmount: '',
     depositHoldTime: 12,
     depositRemindTime: 12,
     paypalEnabled: false,
@@ -71,7 +71,7 @@ export default function YourRules() {
     const createDepositDataFromArtist = useCallback((artistData: any): DepositDataProps => {
         return {
             ...defaultDepositData,
-            depositAmount: artistData?.rule?.deposit_amount ?? 100,
+            depositAmount: artistData?.rule?.deposit_amount?.toString() ?? '',
             depositHoldTime: artistData?.rule?.deposit_hold_time ?? 12,
             depositRemindTime: artistData?.rule?.deposit_remind_time ?? 12,
             paypalEnabled: artistData?.rule?.paypal_enabled ?? false,

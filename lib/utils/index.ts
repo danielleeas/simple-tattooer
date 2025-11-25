@@ -15,6 +15,13 @@ export const buildBookingLink = (base: string, suffix: string): string => {
   return `${normalizedBase}/${normalizedSuffix}`;
 }
 
+export const buildFullBookingLink = (base: string, suffix: string): string => {
+  const baseString = base.replace(/\/+$/, '');
+  const suffixString = suffix.replace(/^\/+/, '');
+  const fullBookingLink = `${baseString}/artist/${suffixString}`;
+  return fullBookingLink;
+}
+
 export const sortWeekdays = (days: string[]): string[] => {
   const weekdayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   // Do not mutate the input array; return a sorted copy instead
@@ -175,14 +182,14 @@ export const isoToLocalHHMM = (value?: string | Date) => {
   const s = (typeof value === 'string' ? value.trim() : String(value));
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?(?:Z|[+-]\d{2}:\d{2})?$/);
   if (m) {
-      const y = parseInt(m[1], 10);
-      const mo = parseInt(m[2], 10) - 1;
-      const d = parseInt(m[3], 10);
-      const hh = parseInt(m[4] ?? '0', 10);
-      const mm = parseInt(m[5] ?? '0', 10);
-      const ss = parseInt(m[6] ?? '0', 10);
-      const ms = parseInt(m[7] ?? '0', 10);
-      return toHHMM(new Date(y, mo, d, hh, mm, ss, ms));
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10) - 1;
+    const d = parseInt(m[3], 10);
+    const hh = parseInt(m[4] ?? '0', 10);
+    const mm = parseInt(m[5] ?? '0', 10);
+    const ss = parseInt(m[6] ?? '0', 10);
+    const ms = parseInt(m[7] ?? '0', 10);
+    return toHHMM(new Date(y, mo, d, hh, mm, ss, ms));
   }
   return toHHMM(new Date(s));
 };

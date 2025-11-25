@@ -14,7 +14,7 @@ import { Collapse } from "@/components/lib/collapse";
 import { BASE_URL } from "@/lib/constants";
 import { LocationModal, LocationData } from '@/components/lib/location-modal';
 import { BrandingDataProps, opacityOptions, placementOptions } from "@/components/pages/your-app/type";
-import { compressImage, uuidv4 } from "@/lib/utils";
+import { buildFullBookingLink, compressImage, uuidv4 } from "@/lib/utils";
 import { checkBookingLinkAvailability } from "@/lib/services/auth-service";
 import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/lib/contexts";
@@ -41,7 +41,8 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
     const copyBookingLink = async (bookingLink: string) => {
-        await Clipboard.setStringAsync(bookingLink);
+        const fullBookingLink = buildFullBookingLink(BASE_URL, bookingLink);
+        await Clipboard.setStringAsync(fullBookingLink);
     }
 
     const bookingLinkSuffix = (bookingLink: string) => {

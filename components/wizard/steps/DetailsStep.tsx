@@ -3,7 +3,7 @@ import { View, Image, Pressable, TouchableOpacity } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Text } from '@/components/ui/text';
-import { ChevronDown, PlusIcon } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { checkBookingLinkAvailability } from '@/lib/services/auth-service';
 import { BASE_URL } from '@/lib/constants';
 
 import DeleteIcon from '@/assets/images/icons/delete.png';
+import { buildFullBookingLink } from '@/lib/utils';
 
 export function DetailsStep() {
   const { details, updateDetails, bookingLinkError, setBookingLinkError } = useSetupWizard();
@@ -92,7 +93,8 @@ export function DetailsStep() {
   }, [artist?.id]);
 
   const copyBookingLink = async (bookingLinkSuffix: string) => {
-    await Clipboard.setStringAsync(`${BASE_URL}/${bookingLinkSuffix}`);
+    const fullBookingLink = buildFullBookingLink(BASE_URL, bookingLinkSuffix);
+    await Clipboard.setStringAsync(fullBookingLink);
   }
 
   // Cleanup timeout on unmount
@@ -122,6 +124,10 @@ export function DetailsStep() {
           <View className="gap-2">
             <Text variant="h5">Your Name</Text>
             <Input
+              spellCheck={false}
+              autoCorrect={false}
+              autoComplete="off"
+              textContentType="none"
               value={details.name}
               onChangeText={(text) => updateDetails({ name: text })}
             />
@@ -158,6 +164,10 @@ export function DetailsStep() {
               <Text className='text-text-secondary text-base'>{BASE_URL}/</Text>
 
               <Input
+                spellCheck={false}
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="none"
                 className="border-0 pl-0"
                 value={details.bookingLinkSuffix}
                 onChangeText={(text) => {

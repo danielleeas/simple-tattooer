@@ -1,5 +1,5 @@
 export interface DepositDataProps {
-    depositAmount: number;
+    depositAmount: string;
     depositHoldTime: number;
     depositRemindTime: number;
     paypalEnabled: boolean;

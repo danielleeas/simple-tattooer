@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { BookingDataProps } from "./type";
@@ -14,16 +13,6 @@ interface BookingProps {
 }
 
 export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
-    const [sessionsPerDayInput, setSessionsPerDayInput] = useState<string>(String(bookingData.sessionsPerDay ?? 0));
-    const [maxBackToBackInput, setMaxBackToBackInput] = useState<string>(String(bookingData.maxBackToBack ?? 0));
-    const [bufferDaysInput, setBufferDaysInput] = useState<string>(String(bookingData.bufferBetweenSessions ?? 0));
-
-    useEffect(() => {
-        setSessionsPerDayInput(String(bookingData.sessionsPerDay ?? 0));
-        setMaxBackToBackInput(String(bookingData.maxBackToBack ?? 0));
-        setBufferDaysInput(String(bookingData.bufferBetweenSessions ?? 0));
-    }, [bookingData]);
-
     return (
         <View className="gap-4 mt-4">
             <View className="flex-row items-start gap-2">
@@ -47,22 +36,12 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                         </View>
                         <View className='w-20'>
                             <Input
+                                keyboardType="number-pad"
+                                inputMode="numeric"
+                                placeholder="0"
                                 className="h-8"
-                                value={sessionsPerDayInput}
-                                onFocus={() => {
-                                    if (sessionsPerDayInput === '0') {
-                                        setSessionsPerDayInput('');
-                                    }
-                                }}
-                                onChangeText={(text) => {
-                                    setSessionsPerDayInput(text);
-                                }}
-                                onBlur={() => {
-                                    const n = parseInt(sessionsPerDayInput, 10);
-                                    const normalized = !isNaN(n) && n >= 0 ? n : 0;
-                                    updateBookingData({ sessionsPerDay: normalized } as Partial<BookingDataProps>);
-                                    setSessionsPerDayInput(String(normalized));
-                                }}
+                                value={bookingData.sessionsPerDay}
+                                onChangeText={(text) => updateBookingData({ sessionsPerDay: text } as Partial<BookingDataProps>)}
                             />
                         </View>
                     </View>
@@ -70,8 +49,8 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                     <View className="items-start gap-2">
                         <Collapse title="How long is each session?" textClassName="text-xl">
                             <TimeDurationPicker
-                                selectedDuration={bookingData.sessionDuration || 0}
-                                onDurationSelect={(duration) => updateBookingData({ sessionDuration: duration } as Partial<BookingDataProps>)}
+                                selectedDuration={Number(bookingData.sessionDuration) || undefined}
+                                onDurationSelect={(duration) => updateBookingData({ sessionDuration: duration.toString() } as Partial<BookingDataProps>)}
                                 minuteInterval={15}
                                 minDuration={15}
                                 maxDuration={525}
@@ -87,8 +66,8 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                         </View>
                         <View className='flex-1 w-full'>
                             <TimeDurationPicker
-                                selectedDuration={bookingData.breakTime || 0}
-                                onDurationSelect={(duration) => updateBookingData({ breakTime: duration } as Partial<BookingDataProps>)}
+                                selectedDuration={Number(bookingData.breakTime) || undefined}
+                                onDurationSelect={(duration) => updateBookingData({ breakTime: duration.toString() } as Partial<BookingDataProps>)}
                                 minuteInterval={15}
                                 minDuration={15}
                                 maxDuration={525}
@@ -121,22 +100,12 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                     </View>
                     <View className='w-20'>
                         <Input
+                            keyboardType="number-pad"
+                            inputMode="numeric"
+                            placeholder="0"
                             className="h-8"
-                            value={maxBackToBackInput}
-                            onFocus={() => {
-                                if (maxBackToBackInput === '0') {
-                                    setMaxBackToBackInput('');
-                                }
-                            }}
-                            onChangeText={(text) => {
-                                setMaxBackToBackInput(text);
-                            }}
-                            onBlur={() => {
-                                const n = parseInt(maxBackToBackInput, 10);
-                                const normalized = !isNaN(n) && n >= 0 ? n : 0;
-                                updateBookingData({ maxBackToBack: normalized } as Partial<BookingDataProps>);
-                                setMaxBackToBackInput(String(normalized));
-                            }}
+                            value={bookingData.maxBackToBack}
+                            onChangeText={(text) => updateBookingData({ maxBackToBack: text } as Partial<BookingDataProps>)}
                         />
                     </View>
                 </View>
@@ -150,21 +119,11 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                 <View className='w-20'>
                     <Input
                         className="h-8"
-                        value={bufferDaysInput}
-                        onFocus={() => {
-                            if (bufferDaysInput === '0') {
-                                setBufferDaysInput('');
-                            }
-                        }}
-                        onChangeText={(text) => {
-                            setBufferDaysInput(text);
-                        }}
-                        onBlur={() => {
-                            const n = parseInt(bufferDaysInput, 10);
-                            const normalized = !isNaN(n) && n >= 0 ? n : 0;
-                            updateBookingData({ bufferBetweenSessions: normalized } as Partial<BookingDataProps>);
-                            setBufferDaysInput(String(normalized));
-                        }}
+                        value={bookingData.bufferBetweenSessions}
+                        keyboardType="number-pad"
+                        inputMode="numeric"
+                        placeholder="0"
+                        onChangeText={(text) => updateBookingData({ bufferBetweenSessions: text } as Partial<BookingDataProps>)}
                     />
                 </View>
             </View>

@@ -99,6 +99,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                         className='min-h-28'
                         value={policyData.cancellationPolicy || ''}
                         onChangeText={(text) => updatePolicyData({ cancellationPolicy: text })}
+                        placeholder="Type your message here."
                     />
                 </Collapse>
             </View>
@@ -114,6 +115,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                         className='min-h-28'
                         value={policyData.reschedulePolicy || ''}
                         onChangeText={(text) => updatePolicyData({ reschedulePolicy: text })}
+                        placeholder="Type your message here."
                     />
                 </Collapse>
             </View>

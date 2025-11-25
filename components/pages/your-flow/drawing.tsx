@@ -13,12 +13,6 @@ interface DrawingProps {
 }
 
 export const Drawing = ({ drawingData, updateDrawingData }: DrawingProps) => {
-    const [maxReschedulesInput, setMaxReschedulesInput] = useState<string>(String(drawingData.maxReschedulesAllowed ?? 0));
-
-    useEffect(() => {
-        setMaxReschedulesInput(String(drawingData.maxReschedulesAllowed ?? 0));
-    }, [drawingData.maxReschedulesAllowed]);
-
     return (
         <View className="gap-6 mt-4">
             <View className="flex-row items-start gap-2">
@@ -145,22 +139,12 @@ export const Drawing = ({ drawingData, updateDrawingData }: DrawingProps) => {
                 </View>
                 <View className='w-20'>
                     <Input
+                        keyboardType="number-pad"
+                        inputMode="numeric"
+                        placeholder="0"
                         className="h-8"
-                        value={maxReschedulesInput}
-                        onFocus={() => {
-                            if (maxReschedulesInput === '0') {
-                                setMaxReschedulesInput('');
-                            }
-                        }}
-                        onChangeText={(text) => {
-                            setMaxReschedulesInput(text);
-                        }}
-                        onBlur={() => {
-                            const n = parseInt(maxReschedulesInput, 10);
-                            const normalized = !isNaN(n) && n >= 0 ? n : 0;
-                            updateDrawingData({ maxReschedulesAllowed: normalized });
-                            setMaxReschedulesInput(String(normalized));
-                        }}
+                        value={drawingData.maxReschedulesAllowed}
+                        onChangeText={(text) => updateDrawingData({ maxReschedulesAllowed: text })}
                     />
                 </View>
             </View>

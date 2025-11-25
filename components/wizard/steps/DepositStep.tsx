@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Image, Pressable } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Text } from '@/components/ui/text';
@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea"
 export function DepositStep() {
 
     const { deposit, updateDeposit } = useSetupWizard();
-    const [depositInput, setDepositInput] = useState<string | null>(null);
 
     const timesChunks = [
         [{ value: '12', label: '12 Hours' }, { value: '24', label: '24 Hours' }],
@@ -39,17 +38,9 @@ export function DepositStep() {
                         </View>
                         <View className='w-20'>
                             <Input
-                                value={depositInput !== null ? depositInput : (deposit.amount?.toString() || '')} 
-                                onChangeText={(text) => {
-                                    setDepositInput(text);
-                                    if (text.trim() === '') {
-                                        return;
-                                    }
-                                    const amount = parseInt(text);
-                                    if (!isNaN(amount)) {
-                                        updateDeposit({ amount: amount });
-                                    }
-                                }} />
+                                placeholder="500"
+                                value={deposit.amount} 
+                                onChangeText={(text) => updateDeposit({ amount: text })} />
                         </View>
                     </View>
 

@@ -43,7 +43,17 @@ export function PaymentMethodStep() {
                         </View>
                         {paymentMethod.paypal.isPayPal && (
                             <View className="flex flex-row items-center gap-3">
-                                <Input keyboardType="email-address" placeholder="Add email or link" value={paymentMethod.paypal.email} onChangeText={(text) => updatePaymentMethod({ paypal: { isPayPal: paymentMethod.paypal.isPayPal, email: text } })} />
+                                <Input
+                                    keyboardType="email-address"
+                                    placeholder="Add email or link"
+                                    value={paymentMethod.paypal.email}
+                                    onChangeText={(text) => updatePaymentMethod({ paypal: { isPayPal: paymentMethod.paypal.isPayPal, email: text } })}
+                                    spellCheck={false}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                    autoComplete="off"
+                                    autoFocus={false}
+                                />
                             </View>
                         )}
                     </View>
@@ -68,7 +78,16 @@ export function PaymentMethodStep() {
                         </View>
                         {paymentMethod.eTransfer.isETransfer && (
                             <View className="flex flex-row items-center gap-3">
-                                <Input placeholder="Add email or phone number" value={paymentMethod.eTransfer.emailOrPhone} onChangeText={(text) => updatePaymentMethod({ eTransfer: { isETransfer: paymentMethod.eTransfer.isETransfer, emailOrPhone: text } })} />
+                                <Input
+                                    placeholder="Add email or phone number"
+                                    value={paymentMethod.eTransfer.emailOrPhone}
+                                    onChangeText={(text) => updatePaymentMethod({ eTransfer: { isETransfer: paymentMethod.eTransfer.isETransfer, emailOrPhone: text } })}
+                                    spellCheck={false}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                    autoComplete="off"
+                                    autoFocus={false}
+                                />
                             </View>
                         )}
                     </View>
@@ -90,7 +109,16 @@ export function PaymentMethodStep() {
                         </View>
                         {paymentMethod.creditCard.isCreditCard && (
                             <View className="flex flex-row items-center gap-3">
-                                <Input placeholder="Add link to Square or Stripe" value={paymentMethod.creditCard.cardLink} onChangeText={(text) => updatePaymentMethod({ creditCard: { isCreditCard: paymentMethod.creditCard.isCreditCard, cardLink: text } })} />
+                                <Input
+                                    placeholder="Add link to Square or Stripe"
+                                    value={paymentMethod.creditCard.cardLink}
+                                    onChangeText={(text) => updatePaymentMethod({ creditCard: { isCreditCard: paymentMethod.creditCard.isCreditCard, cardLink: text } })}
+                                    spellCheck={false}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                    autoComplete="off"
+                                    autoFocus={false}
+                                />
                             </View>
                         )}
                     </View>
@@ -115,7 +143,16 @@ export function PaymentMethodStep() {
                         </View>
                         {paymentMethod.venmo.isVenmo && (
                             <View className="flex flex-row items-center gap-3">
-                                <Input placeholder="Add link to Venmo" value={paymentMethod.venmo.emailOrPhone} onChangeText={(text) => updatePaymentMethod({ venmo: { isVenmo: paymentMethod.venmo.isVenmo, emailOrPhone: text } })} />
+                                <Input
+                                    placeholder="Add link to Venmo"
+                                    value={paymentMethod.venmo.emailOrPhone}
+                                    onChangeText={(text) => updatePaymentMethod({ venmo: { isVenmo: paymentMethod.venmo.isVenmo, emailOrPhone: text } })}
+                                    spellCheck={false}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                    autoComplete="off"
+                                    autoFocus={false}
+                                />
                             </View>
                         )}
                     </View>

@@ -22,18 +22,11 @@ export const Deposit = ({ depositData, updateDepositData }: DepositProps) => {
                 <View className="w-20">
                     <Input
                         className="h-8"
-                        value={depositInput !== null ? depositInput : (depositData.depositAmount?.toString() || '')}
-                        onChangeText={(text) => {
-                            setDepositInput(text);
-                            if (text.trim() === '') {
-                                return;
-                            }
-
-                            const amount = parseInt(text);
-                            if (!isNaN(amount)) {
-                                updateDepositData({ depositAmount: amount });
-                            }
-                        }}
+                        keyboardType="number-pad"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={depositData.depositAmount}
+                        onChangeText={(text) => updateDepositData({ depositAmount: text })}
                     />
                 </View>
             </View>

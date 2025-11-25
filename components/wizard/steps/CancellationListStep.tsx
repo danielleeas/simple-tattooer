@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Image, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 export function CancellationListStep() {
 
     const { cancellationList, updateCancellationList } = useSetupWizard();
-    const [maxReschedulesAllowedText, setMaxReschedulesAllowedText] = useState(cancellationList.maxReschedulesAllowed);
 
     const dayChunks = [
         [{ value: '14', label: '14 Days' }, { value: '30', label: '30 Days' }],
@@ -63,22 +62,11 @@ export function CancellationListStep() {
                         <View className='w-20'>
                             <Input
                                 className="h-8"
-                                value={maxReschedulesAllowedText}
+                                value={cancellationList.maxReschedulesAllowed}
                                 keyboardType="number-pad"
                                 inputMode="numeric"
-                                onFocus={() => {
-                                    if (maxReschedulesAllowedText === '0') setMaxReschedulesAllowedText('');
-                                }}
-                                onChangeText={(text) => {
-                                    const cleaned = text.replace(/[^0-9]/g, '');
-                                    setMaxReschedulesAllowedText(cleaned);
-                                }}
-                                onBlur={() => {
-                                    const num = parseInt(maxReschedulesAllowedText, 10);
-                                    const next = isNaN(num) ? '0' : String(num);
-                                    updateCancellationList({ maxReschedulesAllowed: next });
-                                    setMaxReschedulesAllowedText(next);
-                                }}
+                                onChangeText={(text) => updateCancellationList({ maxReschedulesAllowed: text })}
+                                placeholder='0'
                             />
                         </View>
                     </View>

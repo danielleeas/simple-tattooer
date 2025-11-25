@@ -24,8 +24,8 @@ export function BrandingStep() {
         </View>
         <View className="gap-4">
           <View>
-            <Text variant="h5" className="text-center mt-2">Add a photo for your Personal Booking</Text>
-            <Text variant="h5" className="text-center">Link & Welcome Screen</Text>
+            <Text variant="h5" className="text-center mt-2" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Add a photo for your Personal Booking</Text>
+            <Text variant="h5" className="text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Link & Welcome Screen</Text>
           </View>
           <View className='w-full' style={{ height: 582 }}>
             <AvatarPicker

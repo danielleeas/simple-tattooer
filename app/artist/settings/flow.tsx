@@ -46,12 +46,12 @@ const defaultWorkDayData: WorkDayDataProps = {
 
 const defaultBookingData: BookingDataProps = {
     multipleSessionsEnabled: false,
-    sessionsPerDay: 0,
-    sessionDuration: 0,
-    breakTime: 0,
+    sessionsPerDay: '',
+    sessionDuration: '',
+    breakTime: '',
     backToBackEnabled: false,
-    maxBackToBack: 0,
-    bufferBetweenSessions: 0,
+    maxBackToBack: '',
+    bufferBetweenSessions: '',
 };
 
 const defaultDrawingData: DrawingDataProps = {
@@ -61,7 +61,7 @@ const defaultDrawingData: DrawingDataProps = {
     finalAppointmentRemindTime: 0,
     autoEmail: false,
     autoFillDrawing: false,
-    maxReschedulesAllowed: 0,
+    maxReschedulesAllowed: '',
     rescheduleBookingDays: 0,
 };
 
