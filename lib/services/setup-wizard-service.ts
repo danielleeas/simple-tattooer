@@ -225,6 +225,7 @@ export async function saveSetupWizard(
     terms_of_condition: null,
     updated_at: new Date().toISOString(),
   };
+
   if (existingRule?.id) {
     const { error: ruleUpdateErr } = await supabase
       .from('rules')

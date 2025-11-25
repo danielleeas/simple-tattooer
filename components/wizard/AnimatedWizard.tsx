@@ -43,7 +43,7 @@ export function AnimatedWizard() {
   }, [stepNumber, translateX]);
 
   return (
-    <View className="flex-1 bg-background gap-4 relative">
+    <View className="flex-1 bg-background relative">
       {/* Progress Indicator */}
       <WizardProgress 
         currentStep={stepNumber} 

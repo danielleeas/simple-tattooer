@@ -440,8 +440,8 @@ export function CalendarStep() {
             <View className="gap-2">
               <Text variant="h5">Consult length</Text>
               <TimeDurationPicker
-                selectedDuration={calendar.consultation.duration}
-                onDurationSelect={(duration) => updateCalendar({ consultation: { ...calendar.consultation, duration: duration } })}
+                selectedDuration={Number(calendar.consultation.duration) || undefined}
+                onDurationSelect={(duration) => updateCalendar({ consultation: { ...calendar.consultation, duration: duration.toString() } })}
                 minuteInterval={15}
                 minDuration={15}
                 maxDuration={525} // 4 hours max

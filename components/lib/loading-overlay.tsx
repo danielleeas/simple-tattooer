@@ -14,7 +14,7 @@ interface LoadingOverlayProps {
 
 export function LoadingOverlay({ 
   visible, 
-  message = 'Loading...', 
+  message, 
   title,
   subtitle,
   progress,

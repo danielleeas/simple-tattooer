@@ -38,7 +38,7 @@ interface Consultation {
   isOffer: boolean;
   isInPerson: boolean;
   isOnline: boolean;
-  duration: number;
+  duration: string;
   workDays: string[];
   startTimes: Date[];
   isDifferentStartTimes: boolean;
@@ -153,7 +153,7 @@ const defaultCalendar: SetupWizardCalendar = {
     isOffer: false,
     isInPerson: false,
     isOnline: false,
-    duration: 0,
+    duration: '',
     workDays: [],
     startTimes: [new Date(2024, 0, 1, 9, 0)], // Initialize with at least one default time
     isDifferentStartTimes: false,
@@ -164,8 +164,8 @@ const defaultCalendar: SetupWizardCalendar = {
 
 const defaultDeposit: SetupWizardDeposit = {
   amount: '',
-  holdTime: '12',
-  remindTime: '12',
+  holdTime: '',
+  remindTime: '',
   policy: '',
   cancellationPolicy: '',
 };
@@ -187,16 +187,16 @@ const defaultBookingRules: SetupWizardBookingRules = {
 
 const defaultDrawingRules: SetupWizardDrawingRules = {
   isDrawingAdvance: false,
-  reviewAdvanceTime: '24',
-  changePolicyTime: '24',
-  finalAppointmentRemindTime: '24',
+  reviewAdvanceTime: '',
+  changePolicyTime: '',
+  finalAppointmentRemindTime: '',
 };
 
 const defaultCancellationList: SetupWizardCancellationList = {
   isAutoEmail: false,
   isAutoFillDrawing: false,
-  rescheduleTime: '24',
-  maxReschedulesAllowed: '0',
+  rescheduleTime: '',
+  maxReschedulesAllowed: '',
 };
 
 const defaultPaymentMethod: SetupWizardPaymentMethod = {
