@@ -152,6 +152,10 @@ export default function EditOffDaysPage() {
             toast({ variant: 'error', title: 'Select start and end dates' });
             return;
         }
+        if (formData.startDate === formData.endDate) {
+            toast({ variant: 'error', title: 'Select start and end date' });
+            return;
+        }
         if (formData.endDate < formData.startDate) {
             toast({ variant: 'error', title: 'End date must be after start date' });
             return;
@@ -213,131 +217,125 @@ export default function EditOffDaysPage() {
                     leftButtonImage={X_IMAGE}
                     onLeftButtonPress={handleBack}
                 />
-                <StableGestureWrapper
-                    onSwipeRight={handleBack}
-                    threshold={80}
-                    enabled={true}
-                >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8">
-                        <KeyboardAwareScrollView
-                            bottomOffset={50}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            className="flex-1"
-                        >
-                            <View className="gap-6 pb-6">
-                                <View className="items-center justify-center pb-9">
-                                    <Image
-                                        source={APPOINTMENT_IMAGE}
-                                        style={{ width: 56, height: 56 }}
-                                        resizeMode="contain"
-                                    />
-                                    <Text variant="h6" className="text-center uppercase">Edit Book Off/</Text>
-                                    <Text variant="h6" className="text-center uppercase leading-none">Multiple Days</Text>
+                <View className="flex-1 bg-background px-4 pt-2 pb-8">
+                    <KeyboardAwareScrollView
+                        bottomOffset={50}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        className="flex-1"
+                    >
+                        <View className="gap-6 pb-6">
+                            <View className="items-center justify-center pb-9">
+                                <Image
+                                    source={APPOINTMENT_IMAGE}
+                                    style={{ width: 56, height: 56 }}
+                                    resizeMode="contain"
+                                />
+                                <Text variant="h6" className="text-center uppercase">Edit Book Off/</Text>
+                                <Text variant="h6" className="text-center uppercase leading-none">Multiple Days</Text>
+                            </View>
+
+                            {/* Form Fields */}
+                            {initialLoading ? (
+                                <View className="flex-1 items-center justify-center py-20">
+                                    <ActivityIndicator size="large" color="#fff" />
                                 </View>
-
-                                {/* Form Fields */}
-                                {initialLoading ? (
-                                    <View className="flex-1 items-center justify-center py-20">
-                                        <ActivityIndicator size="large" color="#fff" />
+                            ) : (
+                                <View className="gap-6">
+                                    {/* Event Name */}
+                                    <View className="gap-2">
+                                        <Text variant="h5">Title</Text>
+                                        <Input
+                                            placeholder="Enter title"
+                                            value={formData.title}
+                                            onChangeText={(text) => setFormData({ ...formData, title: text })}
+                                            className="w-full"
+                                        />
                                     </View>
-                                ) : (
-                                    <View className="gap-6">
-                                        {/* Event Name */}
-                                        <View className="gap-2">
-                                            <Text variant="h5">Title</Text>
-                                            <Input
-                                                placeholder="Enter title"
-                                                value={formData.title}
-                                                onChangeText={(text) => setFormData({ ...formData, title: text })}
-                                                className="w-full"
-                                            />
-                                        </View>
 
-                                        <View className="gap-2">
-                                            <Text variant="h5">Choose Date</Text>
-                                            <DatePicker
-                                                selectedDatesStrings={buildRangeDates(formData.startDate, formData.endDate)}
-                                                onDatesStringSelect={handleDatesStringSelect}
-                                                showInline={true}
-                                                showTodayButton={false}
-                                                selectionMode="range"
-                                                className="border border-border rounded-sm p-2"
-                                            />
-                                        </View>
-                                        <View className="gap-2">
-                                            <View className="flex-row items-start gap-1">
-                                                <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
-                                                    <Text variant="h5" className="w-[310px]">Repeat?</Text>
-                                                </Pressable>
-                                                <View>
-                                                    <Switch
-                                                        checked={formData.isRepeat}
-                                                        onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
-                                                    />
-                                                </View>
+                                    <View className="gap-2">
+                                        <Text variant="h5">Choose Date</Text>
+                                        <DatePicker
+                                            selectedDatesStrings={buildRangeDates(formData.startDate, formData.endDate)}
+                                            onDatesStringSelect={handleDatesStringSelect}
+                                            showInline={true}
+                                            showTodayButton={false}
+                                            selectionMode="range"
+                                            className="border border-border rounded-sm p-2"
+                                        />
+                                    </View>
+                                    <View className="gap-2">
+                                        <View className="flex-row items-start gap-1">
+                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
+                                                <Text variant="h5" className="w-[310px]">Repeat?</Text>
+                                            </Pressable>
+                                            <View>
+                                                <Switch
+                                                    checked={formData.isRepeat}
+                                                    onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
+                                                />
                                             </View>
-
-                                            {formData.isRepeat && (
-                                                <View className="gap-2">
-                                                    <View className="flex-row items-center gap-2">
-                                                        <Button disabled={disableDaily} onPress={() => setFormData({ ...formData, repeatType: 'daily' })} variant={formData.repeatType === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                            <Text variant='small'>Daily</Text>
-                                                        </Button>
-                                                        <Button disabled={disableWeekly} onPress={() => setFormData({ ...formData, repeatType: 'weekly' })} variant={formData.repeatType === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                            <Text variant='small'>Weekly</Text>
-                                                        </Button>
-                                                        <Button onPress={() => setFormData({ ...formData, repeatType: 'monthly' })} variant={formData.repeatType === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                            <Text variant='small'>Monthly</Text>
-                                                        </Button>
-                                                    </View>
-                                                </View>
-                                            )}
                                         </View>
 
                                         {formData.isRepeat && (
                                             <View className="gap-2">
-                                                <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
-                                                    <View className="gap-2 w-full">
-                                                        <DurationPicker
-                                                            selectedDuration={formData.repeatDuration}
-                                                            onDurationSelect={(duration) => setFormData({ ...formData, repeatDuration: duration })}
-                                                            maxValue={12}
-                                                            modalTitle="Select Repeat Duration"
-                                                            disabledUnits={formData.repeatType === 'monthly' ? ['weeks'] : undefined}
-                                                        />
-                                                    </View>
-                                                </Collapse>
+                                                <View className="flex-row items-center gap-2">
+                                                    <Button disabled={disableDaily} onPress={() => setFormData({ ...formData, repeatType: 'daily' })} variant={formData.repeatType === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Daily</Text>
+                                                    </Button>
+                                                    <Button disabled={disableWeekly} onPress={() => setFormData({ ...formData, repeatType: 'weekly' })} variant={formData.repeatType === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Weekly</Text>
+                                                    </Button>
+                                                    <Button onPress={() => setFormData({ ...formData, repeatType: 'monthly' })} variant={formData.repeatType === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Monthly</Text>
+                                                    </Button>
+                                                </View>
                                             </View>
                                         )}
+                                    </View>
 
+                                    {formData.isRepeat && (
                                         <View className="gap-2">
-                                            <Text variant="h5">Notes</Text>
-                                            <Textarea
-                                                placeholder="Project Notes"
-                                                className="min-h-28"
-                                                value={formData.notes}
-                                                onChangeText={(text) => setFormData({ ...formData, notes: text })}
-                                            />
+                                            <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
+                                                <View className="gap-2 w-full">
+                                                    <DurationPicker
+                                                        selectedDuration={formData.repeatDuration}
+                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatDuration: duration })}
+                                                        maxValue={12}
+                                                        modalTitle="Select Repeat Duration"
+                                                        disabledUnits={formData.repeatType === 'monthly' ? ['weeks'] : undefined}
+                                                    />
+                                                </View>
+                                            </Collapse>
                                         </View>
-                                        <View className="flex-row gap-3">
-                                            <View className="flex-1">
-                                                <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
-                                                    <Text variant='h5'>Cancel</Text>
-                                                </Button>
-                                            </View>
-                                            <View className="flex-1">
-                                                <Button onPress={handleSave} size="lg" disabled={loading}>
-                                                    <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
-                                                </Button>
-                                            </View>
+                                    )}
+
+                                    <View className="gap-2">
+                                        <Text variant="h5">Notes</Text>
+                                        <Textarea
+                                            placeholder="Project Notes"
+                                            className="min-h-28"
+                                            value={formData.notes}
+                                            onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                        />
+                                    </View>
+                                    <View className="flex-row gap-3">
+                                        <View className="flex-1">
+                                            <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                                <Text variant='h5'>Cancel</Text>
+                                            </Button>
+                                        </View>
+                                        <View className="flex-1">
+                                            <Button onPress={handleSave} size="lg" disabled={loading}>
+                                                <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
+                                            </Button>
                                         </View>
                                     </View>
-                                )}
-                            </View>
-                        </KeyboardAwareScrollView>
-                    </View>
-                </StableGestureWrapper >
+                                </View>
+                            )}
+                        </View>
+                    </KeyboardAwareScrollView>
+                </View>
             </SafeAreaView >
         </>
     );

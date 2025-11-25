@@ -134,6 +134,10 @@ export default function EditTempChangePage() {
             toast({ variant: 'error', title: 'Select start and end dates' });
             return;
         }
+        if (formData.start_date === formData.end_date) {
+            toast({ variant: 'error', title: 'Select start and end date' });
+            return;
+        }
         if (formData.end_date < formData.start_date) {
             toast({ variant: 'error', title: 'End date must be after start date' });
             return;
@@ -306,252 +310,246 @@ export default function EditTempChangePage() {
                     leftButtonImage={X_IMAGE}
                     onLeftButtonPress={handleBack}
                 />
-                <StableGestureWrapper
-                    onSwipeRight={handleBack}
-                    threshold={80}
-                    enabled={true}
-                >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8">
-                        <KeyboardAwareScrollView
-                            bottomOffset={50}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            className="flex-1"
-                        >
-                            <View className="gap-6 pb-6">
-                                <View className="flex-row items-start gap-4">
-                                    <View className="h-6 w-6 rounded-xl bg-purple" />
-                                    <Text variant="h4" className="leading-8">Edit Temporary Work Days</Text>
+                <View className="flex-1 bg-background px-4 pt-2 pb-8">
+                    <KeyboardAwareScrollView
+                        bottomOffset={50}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        className="flex-1"
+                    >
+                        <View className="gap-6 pb-6">
+                            <View className="flex-row items-start gap-4">
+                                <View className="h-6 w-6 rounded-xl bg-purple" />
+                                <Text variant="h4" className="leading-8">Edit Temporary Work Days</Text>
+                            </View>
+
+                            {/* Form Fields */}
+                            <View className="gap-6">
+                                <View className="gap-2">
+                                    <Text variant="h5">Choose Date</Text>
+                                    <DatePicker
+                                        selectedDatesStrings={buildRangeDates(formData.start_date, formData.end_date)}
+                                        onDatesStringSelect={handleDatesStringSelect}
+                                        showInline={true}
+                                        showTodayButton={false}
+                                        selectionMode="range"
+                                        className="border border-border rounded-sm p-2"
+                                    />
                                 </View>
 
-                                {/* Form Fields */}
-                                <View className="gap-6">
+                                <View className="gap-2">
+                                    <Text variant="h5">Choose Your New Work Days</Text>
                                     <View className="gap-2">
-                                        <Text variant="h5">Choose Date</Text>
-                                        <DatePicker
-                                            selectedDatesStrings={buildRangeDates(formData.start_date, formData.end_date)}
-                                            onDatesStringSelect={handleDatesStringSelect}
-                                            showInline={true}
-                                            showTodayButton={false}
-                                            selectionMode="range"
-                                            className="border border-border rounded-sm p-2"
+                                        <WeekdayToggle
+                                            selectedDays={formData.work_days || []}
+                                            onToggleDay={handleToggleDay}
                                         />
                                     </View>
+                                </View>
 
-                                    <View className="gap-2">
-                                        <Text variant="h5">Choose Your New Work Days</Text>
-                                        <View className="gap-2">
-                                            <WeekdayToggle
-                                                selectedDays={formData.work_days || []}
-                                                onToggleDay={handleToggleDay}
-                                            />
-                                        </View>
-                                    </View>
-
-                                    <View className="flex-row items-start gap-1">
-                                        <Pressable className="flex-1 gap-2" onPress={() => {
-                                            const newValue = !formData.different_time_enabled;
-                                            if (!newValue) {
-                                                // Switching to "not enabled" - take times from first day and apply to all
-                                                const firstDay = formData.work_days?.[0];
-                                                if (firstDay && formData.start_times?.[firstDay] && formData.end_times?.[firstDay]) {
-                                                    const startTime = formData.start_times[firstDay];
-                                                    const endTime = formData.end_times[firstDay];
-                                                    setFormData(prev => {
-                                                        const newStartTimes: Record<string, string> = {};
-                                                        const newEndTimes: Record<string, string> = {};
-                                                        prev.work_days?.forEach(day => {
-                                                            newStartTimes[day] = startTime;
-                                                            newEndTimes[day] = endTime;
-                                                        });
-                                                        return { ...prev, different_time_enabled: newValue, start_times: newStartTimes, end_times: newEndTimes };
-                                                    });
-                                                } else {
-                                                    setFormData(prev => ({ ...prev, different_time_enabled: newValue }));
-                                                }
-                                            } else {
-                                                // Switching to "enabled" - prefill each selected day with unified/default times
-                                                const baseStart = defaultStartTime();
-                                                const baseEnd = defaultEndTime();
-                                                // Persist to form data in HH:mm
+                                <View className="flex-row items-start gap-1">
+                                    <Pressable className="flex-1 gap-2" onPress={() => {
+                                        const newValue = !formData.different_time_enabled;
+                                        if (!newValue) {
+                                            // Switching to "not enabled" - take times from first day and apply to all
+                                            const firstDay = formData.work_days?.[0];
+                                            if (firstDay && formData.start_times?.[firstDay] && formData.end_times?.[firstDay]) {
+                                                const startTime = formData.start_times[firstDay];
+                                                const endTime = formData.end_times[firstDay];
                                                 setFormData(prev => {
                                                     const newStartTimes: Record<string, string> = {};
                                                     const newEndTimes: Record<string, string> = {};
-                                                    (prev.work_days || []).forEach(day => {
-                                                        newStartTimes[day] = formatTimeHHmm(baseStart);
-                                                        newEndTimes[day] = formatTimeHHmm(baseEnd);
+                                                    prev.work_days?.forEach(day => {
+                                                        newStartTimes[day] = startTime;
+                                                        newEndTimes[day] = endTime;
                                                     });
                                                     return { ...prev, different_time_enabled: newValue, start_times: newStartTimes, end_times: newEndTimes };
                                                 });
+                                            } else {
+                                                setFormData(prev => ({ ...prev, different_time_enabled: newValue }));
                                             }
-                                        }}>
-                                            <Text variant="h5" className="w-[310px]">Do these days have different start & end times?</Text>
-                                        </Pressable>
-                                        <View>
-                                            <Switch
-                                                checked={formData.different_time_enabled || false}
-                                                onCheckedChange={(checked) => {
-                                                    if (!checked) {
-                                                        // Switching to "not enabled" - take times from first day and apply to all
-                                                        const firstDay = formData.work_days?.[0];
-                                                        if (firstDay && formData.start_times?.[firstDay] && formData.end_times?.[firstDay]) {
-                                                            const startTime = formData.start_times[firstDay];
-                                                            const endTime = formData.end_times[firstDay];
-                                                            setFormData(prev => {
-                                                                const newStartTimes: Record<string, string> = {};
-                                                                const newEndTimes: Record<string, string> = {};
-                                                                prev.work_days?.forEach(day => {
-                                                                    newStartTimes[day] = startTime;
-                                                                    newEndTimes[day] = endTime;
-                                                                });
-                                                                return { ...prev, different_time_enabled: checked, start_times: newStartTimes, end_times: newEndTimes };
-                                                            });
-                                                        } else {
-                                                            setFormData(prev => ({ ...prev, different_time_enabled: checked }));
-                                                        }
-                                                    } else {
-                                                        // Switching to "enabled" - prefill each selected day with unified/default times
-                                                        const baseStart = defaultStartTime();
-                                                        const baseEnd = defaultEndTime();
-                                                        // Persist to form data in HH:mm
+                                        } else {
+                                            // Switching to "enabled" - prefill each selected day with unified/default times
+                                            const baseStart = defaultStartTime();
+                                            const baseEnd = defaultEndTime();
+                                            // Persist to form data in HH:mm
+                                            setFormData(prev => {
+                                                const newStartTimes: Record<string, string> = {};
+                                                const newEndTimes: Record<string, string> = {};
+                                                (prev.work_days || []).forEach(day => {
+                                                    newStartTimes[day] = formatTimeHHmm(baseStart);
+                                                    newEndTimes[day] = formatTimeHHmm(baseEnd);
+                                                });
+                                                return { ...prev, different_time_enabled: newValue, start_times: newStartTimes, end_times: newEndTimes };
+                                            });
+                                        }
+                                    }}>
+                                        <Text variant="h5" className="w-[310px]">Do these days have different start & end times?</Text>
+                                    </Pressable>
+                                    <View>
+                                        <Switch
+                                            checked={formData.different_time_enabled || false}
+                                            onCheckedChange={(checked) => {
+                                                if (!checked) {
+                                                    // Switching to "not enabled" - take times from first day and apply to all
+                                                    const firstDay = formData.work_days?.[0];
+                                                    if (firstDay && formData.start_times?.[firstDay] && formData.end_times?.[firstDay]) {
+                                                        const startTime = formData.start_times[firstDay];
+                                                        const endTime = formData.end_times[firstDay];
                                                         setFormData(prev => {
                                                             const newStartTimes: Record<string, string> = {};
                                                             const newEndTimes: Record<string, string> = {};
-                                                            (prev.work_days || []).forEach(day => {
-                                                                newStartTimes[day] = formatTimeHHmm(baseStart);
-                                                                newEndTimes[day] = formatTimeHHmm(baseEnd);
+                                                            prev.work_days?.forEach(day => {
+                                                                newStartTimes[day] = startTime;
+                                                                newEndTimes[day] = endTime;
                                                             });
                                                             return { ...prev, different_time_enabled: checked, start_times: newStartTimes, end_times: newEndTimes };
                                                         });
+                                                    } else {
+                                                        setFormData(prev => ({ ...prev, different_time_enabled: checked }));
                                                     }
-                                                }}
-                                            />
-                                        </View>
-                                    </View>
-
-                                    {formData.different_time_enabled ? (
-                                        <View className="gap-6">
-                                            {formData.work_days?.map((day, index) => {
-                                                return (
-                                                    <View key={index} className="gap-6 flex-row items-start justify-between">
-                                                        <View className="w-[80px]">
-                                                            <Text variant="h5">{capitalizeFirstLetter(day)}</Text>
-                                                        </View>
-                                                        <View className="flex-1 gap-4">
-                                                            <View className="items-start gap-2 flex-1">
-                                                                <Collapse title="Start Time">
-                                                                    <View className="w-full">
-                                                                        <TimePicker
-                                                                            minuteInterval={15}
-                                                                            className="w-full"
-                                                                            selectedTime={formData.start_times?.[day] ? convertTimeToISOString(formData.start_times?.[day]) : defaultStartTime()}
-                                                                            onTimeSelect={(time) => setFormData(prev => ({ ...prev, start_times: { ...prev.start_times, [day]: convertTimeToHHMMString(time) } }))}
-                                                                        />
-                                                                    </View>
-                                                                </Collapse>
-                                                            </View>
-                                                            <View className="items-start gap-2 flex-1">
-                                                                <Collapse title="End Time">
-                                                                    <View className="w-full">
-                                                                        <TimePicker
-                                                                            minuteInterval={15}
-                                                                            className="w-full"
-                                                                            selectedTime={formData.end_times?.[day] ? convertTimeToISOString(formData.end_times?.[day]) : defaultEndTime()}
-                                                                            onTimeSelect={(time) => setFormData(prev => ({ ...prev, end_times: { ...prev.end_times, [day]: convertTimeToHHMMString(time) } }))}
-                                                                        />
-                                                                    </View>
-                                                                </Collapse>
-                                                            </View>
-                                                        </View>
-                                                    </View>
-                                                )
-                                            })}
-                                        </View>
-                                    ) : (
-                                        <View className="gap-6">
-                                            <View className="items-start gap-2">
-                                                <Collapse title="Start Time" textClassName="text-xl">
-                                                    <View className="gap-2 w-full">
-                                                        {(() => {
-                                                            const firstDay = formData.work_days?.[0];
-                                                            const startTimeString = firstDay ? (formData.start_times?.[firstDay] || '09:00') : '09:00';
-                                                            return (
-                                                                <TimePicker
-                                                                    minuteInterval={15}
-                                                                    className="w-full"
-                                                                    selectedTime={convertTimeToISOString(startTimeString)}
-                                                                    onTimeSelect={(time) => setAllStartTimes(time)}
-                                                                />
-                                                            );
-                                                        })()}
-                                                    </View>
-                                                </Collapse>
-                                            </View>
-                                            <View className="items-start gap-2">
-                                                <Collapse title="End Time" textClassName="text-xl">
-                                                    <View className="gap-2 w-full">
-                                                        {(() => {
-                                                            const firstDay = formData.work_days?.[0];
-                                                            const endTimeString = firstDay ? (formData.end_times?.[firstDay] || '17:00') : '17:00';
-                                                            return (
-                                                                <TimePicker
-                                                                    minuteInterval={15}
-                                                                    className="w-full"
-                                                                    selectedTime={convertTimeToISOString(endTimeString)}
-                                                                    onTimeSelect={(time) => setAllEndTimes(time)}
-                                                                />
-                                                            );
-                                                        })()}
-                                                    </View>
-                                                </Collapse>
-                                            </View>
-                                        </View>
-                                    )}
-
-                                    <View className="gap-2">
-                                        <Text variant="h5">Location</Text>
-                                        <View className="gap-2 w-full">
-                                            <DropdownPicker
-                                                options={locationData.map((location: ArtistLocation) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                                value={formData.location_id}
-                                                onValueChange={(value: string) => setFormData({ ...formData, location_id: value as string })}
-                                                placeholder="Select location"
-                                                modalTitle="Select Location"
-                                            />
-                                        </View>
-                                        <Button variant="outline" onPress={() => setOpenTempLocationModal(true)}>
-                                            <Text variant='h5'>Add Temporary Location</Text>
-                                            <Icon as={Plus} size={20} />
-                                        </Button>
-                                    </View>
-
-                                    <View className="gap-2">
-                                        <Text variant="h5">Notes</Text>
-                                        <Textarea
-                                            placeholder="Project Notes"
-                                            className="min-h-28"
-                                            value={formData.notes}
-                                            onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                                } else {
+                                                    // Switching to "enabled" - prefill each selected day with unified/default times
+                                                    const baseStart = defaultStartTime();
+                                                    const baseEnd = defaultEndTime();
+                                                    // Persist to form data in HH:mm
+                                                    setFormData(prev => {
+                                                        const newStartTimes: Record<string, string> = {};
+                                                        const newEndTimes: Record<string, string> = {};
+                                                        (prev.work_days || []).forEach(day => {
+                                                            newStartTimes[day] = formatTimeHHmm(baseStart);
+                                                            newEndTimes[day] = formatTimeHHmm(baseEnd);
+                                                        });
+                                                        return { ...prev, different_time_enabled: checked, start_times: newStartTimes, end_times: newEndTimes };
+                                                    });
+                                                }
+                                            }}
                                         />
                                     </View>
+                                </View>
 
-                                    <View className="flex-row gap-3">
-                                        <View className="flex-1">
-                                            <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
-                                                <Text variant='h5'>Cancel</Text>
-                                            </Button>
+                                {formData.different_time_enabled ? (
+                                    <View className="gap-6">
+                                        {formData.work_days?.map((day, index) => {
+                                            return (
+                                                <View key={index} className="gap-6 flex-row items-start justify-between">
+                                                    <View className="w-[80px]">
+                                                        <Text variant="h5">{capitalizeFirstLetter(day)}</Text>
+                                                    </View>
+                                                    <View className="flex-1 gap-4">
+                                                        <View className="items-start gap-2 flex-1">
+                                                            <Collapse title="Start Time">
+                                                                <View className="w-full">
+                                                                    <TimePicker
+                                                                        minuteInterval={15}
+                                                                        className="w-full"
+                                                                        selectedTime={formData.start_times?.[day] ? convertTimeToISOString(formData.start_times?.[day]) : defaultStartTime()}
+                                                                        onTimeSelect={(time) => setFormData(prev => ({ ...prev, start_times: { ...prev.start_times, [day]: convertTimeToHHMMString(time) } }))}
+                                                                    />
+                                                                </View>
+                                                            </Collapse>
+                                                        </View>
+                                                        <View className="items-start gap-2 flex-1">
+                                                            <Collapse title="End Time">
+                                                                <View className="w-full">
+                                                                    <TimePicker
+                                                                        minuteInterval={15}
+                                                                        className="w-full"
+                                                                        selectedTime={formData.end_times?.[day] ? convertTimeToISOString(formData.end_times?.[day]) : defaultEndTime()}
+                                                                        onTimeSelect={(time) => setFormData(prev => ({ ...prev, end_times: { ...prev.end_times, [day]: convertTimeToHHMMString(time) } }))}
+                                                                    />
+                                                                </View>
+                                                            </Collapse>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            )
+                                        })}
+                                    </View>
+                                ) : (
+                                    <View className="gap-6">
+                                        <View className="items-start gap-2">
+                                            <Collapse title="Start Time" textClassName="text-xl">
+                                                <View className="gap-2 w-full">
+                                                    {(() => {
+                                                        const firstDay = formData.work_days?.[0];
+                                                        const startTimeString = firstDay ? (formData.start_times?.[firstDay] || '09:00') : '09:00';
+                                                        return (
+                                                            <TimePicker
+                                                                minuteInterval={15}
+                                                                className="w-full"
+                                                                selectedTime={convertTimeToISOString(startTimeString)}
+                                                                onTimeSelect={(time) => setAllStartTimes(time)}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </View>
+                                            </Collapse>
                                         </View>
-                                        <View className="flex-1">
-                                            <Button onPress={handleSave} size="lg" disabled={loading}>
-                                                <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
-                                            </Button>
+                                        <View className="items-start gap-2">
+                                            <Collapse title="End Time" textClassName="text-xl">
+                                                <View className="gap-2 w-full">
+                                                    {(() => {
+                                                        const firstDay = formData.work_days?.[0];
+                                                        const endTimeString = firstDay ? (formData.end_times?.[firstDay] || '17:00') : '17:00';
+                                                        return (
+                                                            <TimePicker
+                                                                minuteInterval={15}
+                                                                className="w-full"
+                                                                selectedTime={convertTimeToISOString(endTimeString)}
+                                                                onTimeSelect={(time) => setAllEndTimes(time)}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </View>
+                                            </Collapse>
                                         </View>
+                                    </View>
+                                )}
+
+                                <View className="gap-2">
+                                    <Text variant="h5">Location</Text>
+                                    <View className="gap-2 w-full">
+                                        <DropdownPicker
+                                            options={locationData.map((location: ArtistLocation) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
+                                            value={formData.location_id}
+                                            onValueChange={(value: string) => setFormData({ ...formData, location_id: value as string })}
+                                            placeholder="Select location"
+                                            modalTitle="Select Location"
+                                        />
+                                    </View>
+                                    <Button variant="outline" onPress={() => setOpenTempLocationModal(true)}>
+                                        <Text variant='h5'>Add Temporary Location</Text>
+                                        <Icon as={Plus} size={20} />
+                                    </Button>
+                                </View>
+
+                                <View className="gap-2">
+                                    <Text variant="h5">Notes</Text>
+                                    <Textarea
+                                        placeholder="Project Notes"
+                                        className="min-h-28"
+                                        value={formData.notes}
+                                        onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                    />
+                                </View>
+
+                                <View className="flex-row gap-3">
+                                    <View className="flex-1">
+                                        <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                            <Text variant='h5'>Cancel</Text>
+                                        </Button>
+                                    </View>
+                                    <View className="flex-1">
+                                        <Button onPress={handleSave} size="lg" disabled={loading}>
+                                            <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
+                                        </Button>
                                     </View>
                                 </View>
                             </View>
-                        </KeyboardAwareScrollView>
-                    </View>
-                </StableGestureWrapper >
+                        </View>
+                    </KeyboardAwareScrollView>
+                </View>
 
                 <LocationModal
                     visible={openTempLocationModal}
