@@ -169,6 +169,12 @@ export default function EditSpotConventionPage() {
         router.back();
     };
 
+    const handleCancel = () =>{
+        router.dismissTo(
+            { pathname: '/artist/calendar', params: { mode: 'month' } }
+        );
+    }
+
     const loadSpotConvention = useCallback(async () => {
         if (!id) return;
         try {
@@ -236,7 +242,7 @@ export default function EditSpotConventionPage() {
             }
 
             toast({ variant: 'success', title: 'Spot Convention Updated!', duration: 3000 });
-            router.dismissTo('/artist/calendar');
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to save spot convention', description: error instanceof Error ? error.message : 'Unknown error' });
             return;
@@ -502,7 +508,7 @@ export default function EditSpotConventionPage() {
 
                                     <View className="flex-row gap-3">
                                         <View className="flex-1">
-                                            <Button onPress={handleBack} size="lg" variant="outline" disabled={loading || fetching}>
+                                            <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading || fetching}>
                                                 <Text variant='h5'>Cancel</Text>
                                             </Button>
                                         </View>

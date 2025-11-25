@@ -988,7 +988,23 @@ export async function getTempChangeById(id: string): Promise<{ success: boolean;
 
 		const { data: row, error } = await supabase
 			.from('temp_changes')
-			.select('id, artist_id, start_date, end_date, work_days, different_time_enabled, start_times, end_times, location_id, notes')
+			.select(`
+				id,
+				artist_id,
+				start_date,
+				end_date,
+				work_days,
+				different_time_enabled,
+				start_times,
+				end_times,
+				location_id,
+				notes,
+				location:locations (
+					id,
+					address,
+					place_id
+				)
+			`)
 			.eq('id', id)
 			.single();
 
@@ -997,20 +1013,13 @@ export async function getTempChangeById(id: string): Promise<{ success: boolean;
 		}
 
 		let location: TempChangeRecord['location'] | undefined = undefined;
-		const locationId = (row as any)?.location_id as string | undefined;
-		if (locationId) {
-			const { data: locRow } = await supabase
-				.from('locations')
-				.select('id, address, place_id')
-				.eq('id', locationId)
-				.maybeSingle();
-			if (locRow) {
-				location = {
-					id: (locRow as any).id as string,
-					address: (locRow as any).address ?? null,
-					place_id: (locRow as any).place_id ?? null,
-				};
-			}
+		const loc = (row as any)?.location as { id: string; address?: string | null; place_id?: string | null } | null | undefined;
+		if (loc) {
+			location = {
+				id: loc.id,
+				address: (loc as any).address ?? null,
+				place_id: (loc as any).place_id ?? null,
+			};
 		}
 
 		const record: TempChangeRecord = {

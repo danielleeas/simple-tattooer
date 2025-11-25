@@ -176,7 +176,7 @@ export default function EditTempChangePage() {
                 return;
             }
             toast({ variant: 'success', title: 'Changes saved!', duration: 3000 });
-            router.dismissTo('/artist/calendar');
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to save changes', description: error instanceof Error ? error.message : 'Unknown error' });
         } finally {
@@ -292,6 +292,10 @@ export default function EditTempChangePage() {
         const start = sorted[0];
         const end = sorted[sorted.length - 1];
         setFormData(prev => ({ ...prev, start_date: start, end_date: end }));
+    };
+
+    const handleCancel = () => {
+        router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
     };
 
     return (
@@ -531,9 +535,18 @@ export default function EditTempChangePage() {
                                         />
                                     </View>
 
-                                    <Button onPress={handleSave} size="lg" disabled={loading}>
-                                        <Text variant='h5'>{loading ? 'Saving...' : 'Save Changes'}</Text>
-                                    </Button>
+                                    <View className="flex-row gap-3">
+                                        <View className="flex-1">
+                                            <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                                <Text variant='h5'>Cancel</Text>
+                                            </Button>
+                                        </View>
+                                        <View className="flex-1">
+                                            <Button onPress={handleSave} size="lg" disabled={loading}>
+                                                <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
+                                            </Button>
+                                        </View>
+                                    </View>
                                 </View>
                             </View>
                         </KeyboardAwareScrollView>

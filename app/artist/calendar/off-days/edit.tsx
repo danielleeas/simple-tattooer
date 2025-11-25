@@ -193,12 +193,16 @@ export default function EditOffDaysPage() {
             }
 
             toast({ variant: 'success', title: 'Event updated!', duration: 3000 });
-            router.back();
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to update off day', description: error instanceof Error ? error.message : 'Unknown error' });
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCancel = () => {
+        router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
     };
 
     return (
@@ -316,10 +320,18 @@ export default function EditOffDaysPage() {
                                                 onChangeText={(text) => setFormData({ ...formData, notes: text })}
                                             />
                                         </View>
-
-                                        <Button onPress={handleSave} size="lg" disabled={loading}>
-                                            <Text variant='h5'>{loading ? 'Saving...' : 'Save Changes'}</Text>
-                                        </Button>
+                                        <View className="flex-row gap-3">
+                                            <View className="flex-1">
+                                                <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                                    <Text variant='h5'>Cancel</Text>
+                                                </Button>
+                                            </View>
+                                            <View className="flex-1">
+                                                <Button onPress={handleSave} size="lg" disabled={loading}>
+                                                    <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
+                                                </Button>
+                                            </View>
+                                        </View>
                                     </View>
                                 )}
                             </View>

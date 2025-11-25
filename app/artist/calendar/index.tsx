@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, ScrollView, Pressable, Modal, TouchableOpacity } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack, useFocusEffect } from "expo-router";
+import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { formatYmd, parseYmdFromDb, toYmd } from "@/lib/utils";
 
 import Header from "@/components/lib/Header";
@@ -30,6 +30,7 @@ const Toggle = ({ label, active, onPress }: { label: string; active: boolean; on
 
 export default function CalendarPage() {
     const { artist } = useAuth();
+    const { mode } = useLocalSearchParams<{ mode?: string }>();
     const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
@@ -90,8 +91,12 @@ export default function CalendarPage() {
 
     useFocusEffect(
         useCallback(() => {
+            if (mode === 'day' || mode === 'week' || mode === 'month') {
+                setViewMode(mode as 'day' | 'week' | 'month');
+                router.setParams({ mode: undefined });
+            }
             loadEvents();
-        }, [loadEvents])
+        }, [loadEvents, mode])
     );
 
     const goPrev = () => {
@@ -254,7 +259,7 @@ export default function CalendarPage() {
                             >
                                 <View className="h-4 w-4 rounded-xl bg-purple" />
                                 <View className="flex-1 gap-1">
-                                    <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                    <Text className="leading-5 text-sm" numberOfLines={1}>
                                         Temporarily Change Your Work Days
                                     </Text>
                                 </View>

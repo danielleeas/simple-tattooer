@@ -75,7 +75,7 @@ export default function TempChangeDetailPage() {
             if (res.success) {
                 setIsDeleteModalOpen(false);
                 toast({ variant: 'success', title: 'Event deleted!', duration: 3000 });
-                router.dismissTo('/artist/calendar');
+                router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
             } else {
                 toast({ variant: 'error', title: res.error || 'Failed to delete event', duration: 3000 });
             }

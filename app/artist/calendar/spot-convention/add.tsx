@@ -158,7 +158,7 @@ export default function AddSpotConventionPage() {
             }
 
             toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });
-            router.dismissTo('/artist/calendar');
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
 
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to add spot convention', description: error instanceof Error ? error.message : 'Unknown error' });

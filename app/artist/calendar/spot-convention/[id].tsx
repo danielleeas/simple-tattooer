@@ -81,7 +81,7 @@ export default function SpotConventionDetailPage() {
             }
             setIsDeleteModalOpen(false);
             toast({ variant: 'success', title: 'Event deleted!', duration: 3000 });
-            router.dismissTo('/artist/calendar');
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (e) {
             toast({ variant: 'error', title: 'Failed to delete event', duration: 3000 });
         } finally {

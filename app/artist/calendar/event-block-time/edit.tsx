@@ -137,7 +137,7 @@ export default function AddEventBlockTimePage() {
             }
 
             toast({ variant: 'success', title: 'Event Updated!', duration: 3000 });
-            router.back();
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (e) {
             console.log(e)
             toast({ variant: 'error', title: e instanceof Error ? e.message : 'Unexpected error', duration: 3000 });
@@ -147,7 +147,7 @@ export default function AddEventBlockTimePage() {
     };
 
     const handleCancel = () => {
-        router.back();
+        router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
     };
 
     return (
