@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Pressable, ScrollView, Image, Modal } from 'react-native';
+import { View, Pressable, ScrollView, Image, Modal, PanResponder } from 'react-native';
 import { cn } from '@/lib/utils';
 import { cva } from 'class-variance-authority';
 import { THEME } from '@/lib/theme';
@@ -422,6 +422,29 @@ const NativeCalendarPicker = ({
         return years;
     };
 
+    // Swipe gesture to navigate months (left = next, right = previous)
+    const swipeThreshold = 50;
+    const panResponder = React.useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_evt, gestureState) => {
+                if (disabled) return false;
+                const dx = gestureState.dx;
+                const dy = gestureState.dy;
+                return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy);
+            },
+            onPanResponderRelease: (_evt, gestureState) => {
+                if (disabled) return;
+                const dx = gestureState.dx;
+                if (dx <= -swipeThreshold) {
+                    goToNextMonth();
+                } else if (dx >= swipeThreshold) {
+                    goToPreviousMonth();
+                }
+            },
+            onPanResponderTerminationRequest: () => true,
+        })
+    ).current;
+
     // Get day style based on state
     const getDayStyle = (day: CalendarDay) => {
         const baseStyle: any = {};
@@ -554,7 +577,7 @@ const NativeCalendarPicker = ({
     };
 
     return (
-        <View style={{ width: '100%', opacity: disabled ? 0.5 : 1 }}>
+        <View style={{ width: '100%', opacity: disabled ? 0.5 : 1 }} {...panResponder.panHandlers}>
             {showTodayButton && (
                 <View className="flex-row items-center justify-center">
                     <Pressable

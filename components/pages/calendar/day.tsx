@@ -1,49 +1,71 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { dayNames, toLocalDateString, getEventColorClass } from "./utils";
+import { dayNames, getEventColorClass } from "./utils";
 import { useAuth } from "@/lib/contexts/auth-context";
-import { getEventsInRange, type CalendarEvent } from "@/lib/services/calendar-service";
-import { useFocusEffect } from "@react-navigation/native";
+import { type CalendarEvent } from "@/lib/services/calendar-service";
 import { router } from "expo-router";
+import { toYmd } from "@/lib/utils";
 
 type DayViewProps = {
     currentDate: Date;
+    events: Record<string, CalendarEvent[]>;
 };
 
-export const DayView = ({ currentDate }: DayViewProps) => {
+export const DayView = ({ currentDate, events }: DayViewProps) => {
     const { artist } = useAuth();
     const [eventsToday, setEventsToday] = useState<CalendarEvent[]>([]);
 
-    const loadEvents = useCallback(async () => {
-        if (!artist?.id) return;
-        try {
-            const res = await getEventsInRange({
-                artistId: artist.id,
-                start: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0, 0),
-                end: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999),
-            });
-            setEventsToday(res.events || []);
-        } catch {
-            setEventsToday([]);
-        }
-    }, [artist?.id, currentDate]);
-
     useEffect(() => {
-        loadEvents();
-    }, [loadEvents]);
+        setEventsToday(events[toYmd(currentDate)] || []);
+    }, [events, currentDate]);
 
-    useFocusEffect(
-        useCallback(() => {
-            loadEvents();
-        }, [loadEvents])
-    );
+    // Resolve the working window for the selected day based on artist.flow
+    const { gridStart, gridEnd } = useMemo(() => {
+        const toDayKey = (dayIndex: number) => {
+            // 0=Sun..6=Sat -> 'sun'..'sat'
+            const keys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+            return keys[dayIndex] || 'mon';
+        };
+        const parseHHMM = (s?: string) => {
+            if (!s) return null;
+            const match = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+            if (!match) return null;
+            const h = Math.min(23, Math.max(0, parseInt(match[1], 10)));
+            const m = Math.min(59, Math.max(0, parseInt(match[2], 10)));
+            return { h, m };
+        };
+
+        const dayKey = toDayKey(currentDate.getDay());
+        const startStr = (artist?.flow?.start_times || {})[dayKey] || '09:00';
+        const endStr = (artist?.flow?.end_times || {})[dayKey] || '17:00';
+        const parsedStart = parseHHMM(startStr) || { h: 9, m: 0 };
+        const parsedEnd = parseHHMM(endStr) || { h: 17, m: 0 };
+
+        let start = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), parsedStart.h, parsedStart.m, 0, 0);
+        let end = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), parsedEnd.h, parsedEnd.m, 0, 0);
+
+        // Adjust window: start -1 hour, end +1 hour relative to configured times
+        start = new Date(start.getTime() - 60 * 60 * 1000);
+        end = new Date(end.getTime() + 60 * 60 * 1000);
+
+        // Ensure end is after start by at least 30 minutes
+        if (end.getTime() <= start.getTime()) {
+            end = new Date(start.getTime() + 30 * 60 * 1000);
+        }
+        return { gridStart: start, gridEnd: end };
+    }, [artist?.flow?.start_times, artist?.flow?.end_times, currentDate]);
 
     const timeSlots = useMemo(() => {
         const slots: { hour: number; minute: number; timeString: string }[] = [];
-        for (let i = 0; i < 48; i++) {
-            const hour24 = Math.floor(i / 2);
-            const minute = i % 2 === 0 ? 0 : 30;
+        const startTotalMin = gridStart.getHours() * 60 + gridStart.getMinutes();
+        const endTotalMin = gridEnd.getHours() * 60 + gridEnd.getMinutes();
+        const steps = Math.max(1, Math.ceil((endTotalMin - startTotalMin) / 30));
+
+        for (let i = 0; i < steps; i++) {
+            const total = startTotalMin + i * 30;
+            const hour24 = Math.floor(total / 60);
+            const minute = total % 60;
 
             let displayHour = hour24 % 12;
             if (displayHour === 0) displayHour = 12;
@@ -54,20 +76,15 @@ export const DayView = ({ currentDate }: DayViewProps) => {
             slots.push({ hour: hour24, minute, timeString });
         }
         return slots;
-    }, [currentDate]);
+    }, [gridStart, gridEnd]);
 
     // Layout constants: each row is 30 minutes tall (40px), so 1 hour = 80px.
     const GRID_ROW_HEIGHT = 40;
     const HOUR_HEIGHT = GRID_ROW_HEIGHT * 2;
     const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
-    const dayStart = useMemo(
-        () => new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0, 0),
-        [currentDate]
-    );
-    const dayEnd = useMemo(
-        () => new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999),
-        [currentDate]
-    );
+    // Use the grid window as the visible day range
+    const dayStart = gridStart;
+    const dayEnd = gridEnd;
     const parsedEvents = useMemo(() => {
         const parseDateTime = (s: string) => new Date((s || "").replace(" ", "T"));
         return (eventsToday || []).map((e) => ({

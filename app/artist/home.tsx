@@ -29,7 +29,8 @@ export default function ProductionHome() {
     const { artist, mode } = useAuth();
 
     const welcomeEnabled = useMemo(() => {
-        return artist?.app?.welcome_screen_enabled || false;
+        const artistPhoto = artist?.photo;
+        return artist?.app?.welcome_screen_enabled && artistPhoto ? true : false;
     }, [artist]);
 
 

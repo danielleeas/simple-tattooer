@@ -66,6 +66,7 @@ export function AvatarPicker({
     const [cropVisible, setCropVisible] = useState(false);
     const [originalSize, setOriginalSize] = useState<{ width: number; height: number } | null>(null);
     const { toast } = useToast();
+    const shouldUseCircleDisplay = isCircle || (!!aspect && aspect.length === 2 && aspect[0] === 1 && aspect[1] === 1);
 
     // Update image when initialImage prop changes
     useEffect(() => {
@@ -370,35 +371,69 @@ export function AvatarPicker({
     return (
         <View className={cn("h-48 w-full", className)}>
             {image ? (
-                <View className='w-full h-full rounded-xl overflow-hidden' style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
-                    <Image source={{ uri: image }} className='w-full h-full' />
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.9)']}
-                        locations={[0, 1]}
-                        className="absolute bottom-0 right-0 w-full h-20 flex-row items-end justify-center z-10"
-                        style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            width: '100%',
-                            height: 80,
-                            flexDirection: 'row',
-                            alignItems: 'flex-end',
-                            justifyContent: 'center',
-                            paddingBottom: 8,
-                        }}
-                    >
-                        <Button variant="link" style={{ paddingRight: 10 }} onPress={openEditModal}>
-                            <Icon as={Pencil} size={20} />
-                            <Text>Edit</Text>
-                        </Button>
-                        <Button variant="link" style={{ paddingLeft: 10 }} onPress={() => image && removeImage()}>
-                            <Icon as={Trash} size={20} />
-                            <Text>Delete</Text>
-                        </Button>
-                    </LinearGradient>
-                </View>
+                shouldUseCircleDisplay ? (
+                    <View className='w-full h-full items-center justify-center' style={{ position: 'relative' }}>
+                        <View className='w-48 h-48 rounded-full overflow-hidden'>
+                            <Image source={{ uri: image }} className='w-full h-full' />
+                        </View>
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.9)']}
+                            locations={[0, 1]}
+                            className="absolute bottom-0 right-0 w-full h-20 flex-row items-end justify-center z-10"
+                            style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                width: '100%',
+                                height: 80,
+                                flexDirection: 'row',
+                                alignItems: 'flex-end',
+                                justifyContent: 'center',
+                                paddingBottom: 8,
+                            }}
+                        >
+                            <Button variant="link" style={{ paddingRight: 10 }} onPress={openEditModal}>
+                                <Icon as={Pencil} size={20} />
+                                <Text>Edit</Text>
+                            </Button>
+                            <Button variant="link" style={{ paddingLeft: 10 }} onPress={() => image && removeImage()}>
+                                <Icon as={Trash} size={20} />
+                                <Text>Delete</Text>
+                            </Button>
+                        </LinearGradient>
+                    </View>
+                ) : (
+                    <View className='w-full h-full rounded-xl overflow-hidden' style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
+                        <Image source={{ uri: image }} className='w-full h-full' />
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.9)']}
+                            locations={[0, 1]}
+                            className="absolute bottom-0 right-0 w-full h-20 flex-row items-end justify-center z-10"
+                            style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                width: '100%',
+                                height: 80,
+                                flexDirection: 'row',
+                                alignItems: 'flex-end',
+                                justifyContent: 'center',
+                                paddingBottom: 8,
+                            }}
+                        >
+                            <Button variant="link" style={{ paddingRight: 10 }} onPress={openEditModal}>
+                                <Icon as={Pencil} size={20} />
+                                <Text>Edit</Text>
+                            </Button>
+                            <Button variant="link" style={{ paddingLeft: 10 }} onPress={() => image && removeImage()}>
+                                <Icon as={Trash} size={20} />
+                                <Text>Delete</Text>
+                            </Button>
+                        </LinearGradient>
+                    </View>
+                )
             ) : (
                 <Pressable
                     onPress={() => handleOptionModal(true)}
@@ -585,6 +620,9 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
     // Corner handle gestures for more explicit resizing
     const minSize = 40;
 
+    // Circle overlay when explicitly requested or when aspect is 1:1
+    const shouldUseCircle = isCircle || (!!aspect && aspect.length === 2 && aspect[0] === aspect[1]);
+
     const tlPan = Gesture.Pan()
         .onBegin(() => { startX.value = rectX.value; startY.value = rectY.value; startW.value = rectW.value; startH.value = rectH.value; })
         .onChange((e) => {
@@ -673,7 +711,7 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
         left: rectX.value,
         width: rectW.value,
         height: rectH.value,
-        borderRadius: 500,
+        borderRadius: shouldUseCircle ? 500 : 6,
     }));
 
     const overlayTopStyle = useAnimatedStyle(() => ({ position: 'absolute', left: 0, right: 0, top: 0, height: frameY.value + rectY.value, backgroundColor: 'rgba(0,0,0,0.55)' }));
@@ -824,7 +862,7 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
                             {/* Movable/resizable crop rect */}
                             <GestureDetector gesture={rectGesture}>
                                 <Animated.View style={[rectStyle]}>
-                                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', borderRadius: isCircle ? 500 : 6 }} />
+                                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', borderRadius: shouldUseCircle ? 500 : 6 }} />
                                     <View pointerEvents="none" style={{ flex: 1 }}>
                                         <View style={{ position: 'absolute', top: '33.333%', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.5)' }} />
                                         <View style={{ position: 'absolute', top: '66.666%', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.5)' }} />

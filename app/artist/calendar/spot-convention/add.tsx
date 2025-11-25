@@ -130,8 +130,8 @@ export default function AddSpotConventionPage() {
             toast({ variant: 'error', title: 'Title is required' });
             return;
         }
-        if (!formData.dates?.length) {
-            toast({ variant: 'error', title: 'Select at least one date' });
+        if ((formData.dates?.length || 0) < 2) {
+            toast({ variant: 'error', title: 'Select start and end date' });
             return;
         }
         if (!formData.location) {
@@ -176,57 +176,98 @@ export default function AddSpotConventionPage() {
                     leftButtonImage={X_IMAGE}
                     onLeftButtonPress={handleBack}
                 />
-                <StableGestureWrapper
-                    onSwipeRight={handleBack}
-                    threshold={80}
-                    enabled={true}
-                >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8">
-                        <KeyboardAwareScrollView
-                            bottomOffset={50}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            className="flex-1"
-                        >
-                            <View className="gap-6 pb-6">
-                                <View className="flex-row items-start gap-4">
-                                    <View className="h-6 w-6 rounded-xl bg-orange-500" />
-                                    <Text variant="h4" className="leading-8">Add Guest Spot/ Convention</Text>
+                <View className="flex-1 bg-background px-4 pt-2 pb-8">
+                    <KeyboardAwareScrollView
+                        bottomOffset={50}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        className="flex-1"
+                    >
+                        <View className="gap-6 pb-6">
+                            <View className="flex-row items-start gap-4">
+                                <View className="h-6 w-6 rounded-xl bg-orange-500" />
+                                <Text variant="h4" className="leading-8">Add Guest Spot/ Convention</Text>
+                            </View>
+
+                            {/* Form Fields */}
+                            <View className="gap-6">
+                                {/* Event Name */}
+                                <View className="gap-2">
+                                    <Text variant="h5">Title</Text>
+                                    <Input
+                                        placeholder="Enter title"
+                                        value={formData.title}
+                                        onChangeText={(text) => setFormData({ ...formData, title: text })}
+                                        className="w-full"
+                                    />
+                                </View>
+                                <View className="gap-2">
+                                    <Text variant="h5">Choose Date</Text>
+                                    <DatePicker
+                                        selectedDatesStrings={formData.dates}
+                                        onDatesStringSelect={handleDatesStringSelect}
+                                        showInline={true}
+                                        showTodayButton={false}
+                                        selectionMode="range"
+                                        className="border border-border rounded-sm p-2"
+                                    />
                                 </View>
 
-                                {/* Form Fields */}
-                                <View className="gap-6">
-                                    {/* Event Name */}
-                                    <View className="gap-2">
-                                        <Text variant="h5">Title</Text>
-                                        <Input
-                                            placeholder="Enter title"
-                                            value={formData.title}
-                                            onChangeText={(text) => setFormData({ ...formData, title: text })}
-                                            className="w-full"
-                                        />
-                                    </View>
-                                    <View className="gap-2">
-                                        <Text variant="h5">Choose Date</Text>
-                                        <DatePicker
-                                            selectedDatesStrings={formData.dates}
-                                            onDatesStringSelect={handleDatesStringSelect}
-                                            showInline={true}
-                                            showTodayButton={false}
-                                            selectionMode="range"
-                                            className="border border-border rounded-sm p-2"
-                                        />
-                                    </View>
-
-                                    {formData.dates.length > 0 && (
-                                        <>
-                                            <View className="flex-row items-start gap-1">
-                                                <Pressable
-                                                    className="flex-1 gap-2"
-                                                    onPress={() => {
-                                                        const newValue = !formData.diffTimeEnabled;
-                                                        if (!newValue) {
-                                                            // Switching to not enabled: take times from first date and apply to all
+                                {formData.dates.length > 0 && (
+                                    <>
+                                        <View className="flex-row items-start gap-1">
+                                            <Pressable
+                                                className="flex-1 gap-2"
+                                                onPress={() => {
+                                                    const newValue = !formData.diffTimeEnabled;
+                                                    if (!newValue) {
+                                                        // Switching to not enabled: take times from first date and apply to all
+                                                        const firstDateKey = formData.dates?.[0];
+                                                        if (firstDateKey && formData.startTimes?.[firstDateKey] && formData.endTimes?.[firstDateKey]) {
+                                                            const firstStart = formData.startTimes[firstDateKey];
+                                                            const firstEnd = formData.endTimes[firstDateKey];
+                                                            setFormData(prev => {
+                                                                const newStartTimes: Record<string, string> = {};
+                                                                const newEndTimes: Record<string, string> = {};
+                                                                prev.dates?.forEach(dk => {
+                                                                    newStartTimes[dk] = firstStart;
+                                                                    newEndTimes[dk] = firstEnd;
+                                                                });
+                                                                return { ...prev, diffTimeEnabled: newValue, startTimes: newStartTimes, endTimes: newEndTimes };
+                                                            });
+                                                        } else {
+                                                            // No first-date times: set defaults for all selected dates
+                                                            setFormData(prev => {
+                                                                const newStartTimes: Record<string, string> = {};
+                                                                const newEndTimes: Record<string, string> = {};
+                                                                prev.dates?.forEach(dk => {
+                                                                    newStartTimes[dk] = DEFAULT_START;
+                                                                    newEndTimes[dk] = DEFAULT_END;
+                                                                });
+                                                                return { ...prev, diffTimeEnabled: newValue, startTimes: newStartTimes, endTimes: newEndTimes };
+                                                            });
+                                                        }
+                                                    } else {
+                                                        // Enabling different times - user will set per-day times
+                                                        setFormData(prev => {
+                                                            const newStartTimes: Record<string, string> = { ...(prev.startTimes || {}) };
+                                                            const newEndTimes: Record<string, string> = { ...(prev.endTimes || {}) };
+                                                            prev.dates?.forEach(dk => {
+                                                                if (!newStartTimes[dk]) newStartTimes[dk] = DEFAULT_START;
+                                                                if (!newEndTimes[dk]) newEndTimes[dk] = DEFAULT_END;
+                                                            });
+                                                            return { ...prev, diffTimeEnabled: newValue, startTimes: newStartTimes, endTimes: newEndTimes };
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <Text variant="h5" className="w-[310px]">Do these days have different start & end hours?</Text>
+                                            </Pressable>
+                                            <View>
+                                                <Switch
+                                                    checked={formData.diffTimeEnabled}
+                                                    onCheckedChange={(checked) => {
+                                                        if (!checked) {
                                                             const firstDateKey = formData.dates?.[0];
                                                             if (firstDateKey && formData.startTimes?.[firstDateKey] && formData.endTimes?.[firstDateKey]) {
                                                                 const firstStart = formData.startTimes[firstDateKey];
@@ -238,10 +279,9 @@ export default function AddSpotConventionPage() {
                                                                         newStartTimes[dk] = firstStart;
                                                                         newEndTimes[dk] = firstEnd;
                                                                     });
-                                                                    return { ...prev, diffTimeEnabled: newValue, startTimes: newStartTimes, endTimes: newEndTimes };
+                                                                    return { ...prev, diffTimeEnabled: checked, startTimes: newStartTimes, endTimes: newEndTimes };
                                                                 });
                                                             } else {
-                                                                // No first-date times: set defaults for all selected dates
                                                                 setFormData(prev => {
                                                                     const newStartTimes: Record<string, string> = {};
                                                                     const newEndTimes: Record<string, string> = {};
@@ -249,11 +289,10 @@ export default function AddSpotConventionPage() {
                                                                         newStartTimes[dk] = DEFAULT_START;
                                                                         newEndTimes[dk] = DEFAULT_END;
                                                                     });
-                                                                    return { ...prev, diffTimeEnabled: newValue, startTimes: newStartTimes, endTimes: newEndTimes };
+                                                                    return { ...prev, diffTimeEnabled: checked, startTimes: newStartTimes, endTimes: newEndTimes };
                                                                 });
                                                             }
                                                         } else {
-                                                            // Enabling different times - user will set per-day times
                                                             setFormData(prev => {
                                                                 const newStartTimes: Record<string, string> = { ...(prev.startTimes || {}) };
                                                                 const newEndTimes: Record<string, string> = { ...(prev.endTimes || {}) };
@@ -261,175 +300,130 @@ export default function AddSpotConventionPage() {
                                                                     if (!newStartTimes[dk]) newStartTimes[dk] = DEFAULT_START;
                                                                     if (!newEndTimes[dk]) newEndTimes[dk] = DEFAULT_END;
                                                                 });
-                                                                return { ...prev, diffTimeEnabled: newValue, startTimes: newStartTimes, endTimes: newEndTimes };
+                                                                return { ...prev, diffTimeEnabled: checked, startTimes: newStartTimes, endTimes: newEndTimes };
                                                             });
                                                         }
                                                     }}
-                                                >
-                                                    <Text variant="h5" className="w-[310px]">Do these days have different start & end hours?</Text>
-                                                </Pressable>
-                                                <View>
-                                                    <Switch
-                                                        checked={formData.diffTimeEnabled}
-                                                        onCheckedChange={(checked) => {
-                                                            if (!checked) {
+                                                />
+                                            </View>
+                                        </View>
+
+                                        {formData.diffTimeEnabled ? (
+                                            <View className="gap-6">
+                                                {formData.dates.map((dateString, index) => {
+                                                    return (
+                                                        <View key={index} className="gap-6 flex-row items-start justify-between">
+                                                            <View className="w-[80px]">
+                                                                <Text variant="h5">{formatDate(dateString, false, true)}</Text>
+                                                            </View>
+                                                            <View className="flex-1 gap-4">
+                                                                <View className="items-start gap-2 flex-1">
+                                                                    <Collapse title="Start Time">
+                                                                        <View className="w-full">
+                                                                            <TimePicker
+                                                                                minuteInterval={15}
+                                                                                className="w-full"
+                                                                                selectedTime={formData.startTimes?.[dateString] ? convertTimeToISOString(formData.startTimes[dateString]) : new Date()}
+                                                                                onTimeSelect={(time) => setFormData(prev => ({ ...prev, startTimes: { ...prev.startTimes, [dateString]: convertTimeToHHMMString(time) } }))}
+                                                                            />
+                                                                        </View>
+                                                                    </Collapse>
+
+                                                                </View>
+                                                                <View className="items-start gap-2 flex-1">
+                                                                    <Collapse title="End Time">
+                                                                        <View className="w-full">
+                                                                            <TimePicker
+                                                                                minuteInterval={15}
+                                                                                className="w-full"
+                                                                                selectedTime={formData.endTimes?.[dateString] ? convertTimeToISOString(formData.endTimes[dateString]) : new Date()}
+                                                                                onTimeSelect={(time) => setFormData(prev => ({ ...prev, endTimes: { ...prev.endTimes, [dateString]: convertTimeToHHMMString(time) } }))}
+                                                                            />
+                                                                        </View>
+                                                                    </Collapse>
+                                                                </View>
+                                                            </View>
+                                                        </View>
+                                                    )
+                                                })}
+                                            </View>
+                                        ) : (
+                                            <View className="gap-6">
+                                                <View className="items-start gap-2">
+                                                    <Collapse title="Start Time" textClassName="text-xl">
+                                                        <View className="gap-2 w-full">
+                                                            {(() => {
                                                                 const firstDateKey = formData.dates?.[0];
-                                                                if (firstDateKey && formData.startTimes?.[firstDateKey] && formData.endTimes?.[firstDateKey]) {
-                                                                    const firstStart = formData.startTimes[firstDateKey];
-                                                                    const firstEnd = formData.endTimes[firstDateKey];
-                                                                    setFormData(prev => {
-                                                                        const newStartTimes: Record<string, string> = {};
-                                                                        const newEndTimes: Record<string, string> = {};
-                                                                        prev.dates?.forEach(dk => {
-                                                                            newStartTimes[dk] = firstStart;
-                                                                            newEndTimes[dk] = firstEnd;
-                                                                        });
-                                                                        return { ...prev, diffTimeEnabled: checked, startTimes: newStartTimes, endTimes: newEndTimes };
-                                                                    });
-                                                                } else {
-                                                                    setFormData(prev => {
-                                                                        const newStartTimes: Record<string, string> = {};
-                                                                        const newEndTimes: Record<string, string> = {};
-                                                                        prev.dates?.forEach(dk => {
-                                                                            newStartTimes[dk] = DEFAULT_START;
-                                                                            newEndTimes[dk] = DEFAULT_END;
-                                                                        });
-                                                                        return { ...prev, diffTimeEnabled: checked, startTimes: newStartTimes, endTimes: newEndTimes };
-                                                                    });
-                                                                }
-                                                            } else {
-                                                                setFormData(prev => {
-                                                                    const newStartTimes: Record<string, string> = { ...(prev.startTimes || {}) };
-                                                                    const newEndTimes: Record<string, string> = { ...(prev.endTimes || {}) };
-                                                                    prev.dates?.forEach(dk => {
-                                                                        if (!newStartTimes[dk]) newStartTimes[dk] = DEFAULT_START;
-                                                                        if (!newEndTimes[dk]) newEndTimes[dk] = DEFAULT_END;
-                                                                    });
-                                                                    return { ...prev, diffTimeEnabled: checked, startTimes: newStartTimes, endTimes: newEndTimes };
-                                                                });
-                                                            }
-                                                        }}
-                                                    />
+                                                                const startTimeString = firstDateKey ? (formData.startTimes?.[firstDateKey] || '09:00') : '09:00';
+                                                                return (
+                                                                    <TimePicker
+                                                                        minuteInterval={15}
+                                                                        className="w-full"
+                                                                        selectedTime={convertTimeToISOString(startTimeString)}
+                                                                        onTimeSelect={(time) => setAllStartTimes(time)}
+                                                                    />
+                                                                );
+                                                            })()}
+                                                        </View>
+                                                    </Collapse>
+                                                </View>
+                                                <View className="items-start gap-2">
+                                                    <Collapse title="End Time" textClassName="text-xl">
+                                                        <View className="gap-2 w-full">
+                                                            {(() => {
+                                                                const firstDateKey = formData.dates?.[0];
+                                                                const endTimeString = firstDateKey ? (formData.endTimes?.[firstDateKey] || '17:00') : '17:00';
+                                                                return (
+                                                                    <TimePicker
+                                                                        minuteInterval={15}
+                                                                        className="w-full"
+                                                                        selectedTime={convertTimeToISOString(endTimeString)}
+                                                                        onTimeSelect={(time) => setAllEndTimes(time)}
+                                                                    />
+                                                                );
+                                                            })()}
+                                                        </View>
+                                                    </Collapse>
                                                 </View>
                                             </View>
+                                        )}
+                                    </>
+                                )}
 
-                                            {formData.diffTimeEnabled ? (
-                                                <View className="gap-6">
-                                                    {formData.dates.map((dateString, index) => {
-                                                        return (
-                                                            <View key={index} className="gap-6 flex-row items-start justify-between">
-                                                                <View className="w-[80px]">
-                                                                    <Text variant="h5">{formatDate(dateString, false, true)}</Text>
-                                                                </View>
-                                                                <View className="flex-1 gap-4">
-                                                                    <View className="items-start gap-2 flex-1">
-                                                                        <Collapse title="Start Time">
-                                                                            <View className="w-full">
-                                                                                <TimePicker
-                                                                                    minuteInterval={15}
-                                                                                    className="w-full"
-                                                                                    selectedTime={formData.startTimes?.[dateString] ? convertTimeToISOString(formData.startTimes[dateString]) : new Date()}
-                                                                                    onTimeSelect={(time) => setFormData(prev => ({ ...prev, startTimes: { ...prev.startTimes, [dateString]: convertTimeToHHMMString(time) } }))}
-                                                                                />
-                                                                            </View>
-                                                                        </Collapse>
-
-                                                                    </View>
-                                                                    <View className="items-start gap-2 flex-1">
-                                                                        <Collapse title="End Time">
-                                                                            <View className="w-full">
-                                                                                <TimePicker
-                                                                                    minuteInterval={15}
-                                                                                    className="w-full"
-                                                                                    selectedTime={formData.endTimes?.[dateString] ? convertTimeToISOString(formData.endTimes[dateString]) : new Date()}
-                                                                                    onTimeSelect={(time) => setFormData(prev => ({ ...prev, endTimes: { ...prev.endTimes, [dateString]: convertTimeToHHMMString(time) } }))}
-                                                                                />
-                                                                            </View>
-                                                                        </Collapse>
-                                                                    </View>
-                                                                </View>
-                                                            </View>
-                                                        )
-                                                    })}
-                                                </View>
-                                            ) : (
-                                                <View className="gap-6">
-                                                    <View className="items-start gap-2">
-                                                        <Collapse title="Start Time" textClassName="text-xl">
-                                                            <View className="gap-2 w-full">
-                                                                {(() => {
-                                                                    const firstDateKey = formData.dates?.[0];
-                                                                    const startTimeString = firstDateKey ? (formData.startTimes?.[firstDateKey] || '09:00') : '09:00';
-                                                                    return (
-                                                                        <TimePicker
-                                                                            minuteInterval={15}
-                                                                            className="w-full"
-                                                                            selectedTime={convertTimeToISOString(startTimeString)}
-                                                                            onTimeSelect={(time) => setAllStartTimes(time)}
-                                                                        />
-                                                                    );
-                                                                })()}
-                                                            </View>
-                                                        </Collapse>
-                                                    </View>
-                                                    <View className="items-start gap-2">
-                                                        <Collapse title="End Time" textClassName="text-xl">
-                                                            <View className="gap-2 w-full">
-                                                                {(() => {
-                                                                    const firstDateKey = formData.dates?.[0];
-                                                                    const endTimeString = firstDateKey ? (formData.endTimes?.[firstDateKey] || '17:00') : '17:00';
-                                                                    return (
-                                                                        <TimePicker
-                                                                            minuteInterval={15}
-                                                                            className="w-full"
-                                                                            selectedTime={convertTimeToISOString(endTimeString)}
-                                                                            onTimeSelect={(time) => setAllEndTimes(time)}
-                                                                        />
-                                                                    );
-                                                                })()}
-                                                            </View>
-                                                        </Collapse>
-                                                    </View>
-                                                </View>
-                                            )}
-                                        </>
-                                    )}
-
-                                    <View className="gap-2">
-                                        <Text variant="h5">Location</Text>
-                                        <View className="gap-2 w-full">
-                                            <DropdownPicker
-                                                options={locationData.map((location: Locations) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                                value={formData.location?.id ?? formData.location?.place_id ?? undefined}
-                                                onValueChange={(value: string) => setFormData({ ...formData, location: locationData.find(l => l.id === value || l.place_id === value) || undefined })}
-                                                placeholder="Select location"
-                                                modalTitle="Select Location"
-                                            />
-                                        </View>
-                                        <Button variant="outline" onPress={() => setOpenTempLocationModal(true)}>
-                                            <Text variant='h5'>Add Temporary Location</Text>
-                                            <Icon as={Plus} size={20} />
-                                        </Button>
-                                    </View>
-
-                                    <View className="gap-2">
-                                        <Text variant="h5">Notes</Text>
-                                        <Textarea
-                                            placeholder="Project Notes"
-                                            className="min-h-28"
-                                            value={formData.notes}
-                                            onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                <View className="gap-2">
+                                    <Text variant="h5">Location</Text>
+                                    <View className="gap-2 w-full">
+                                        <DropdownPicker
+                                            options={locationData.map((location: Locations) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
+                                            value={formData.location?.id ?? formData.location?.place_id ?? undefined}
+                                            onValueChange={(value: string) => setFormData({ ...formData, location: locationData.find(l => l.id === value || l.place_id === value) || undefined })}
+                                            placeholder="Select location"
+                                            modalTitle="Select Location"
                                         />
                                     </View>
-
-                                    <Button onPress={handleSave} size="lg" disabled={loading}>
-                                        <Text variant='h5'>{loading ? 'Adding...' : 'Add to Calendar'}</Text>
+                                    <Button variant="outline" onPress={() => setOpenTempLocationModal(true)}>
+                                        <Text variant='h5'>Add Temporary Location</Text>
+                                        <Icon as={Plus} size={20} />
                                     </Button>
                                 </View>
+
+                                <View className="gap-2">
+                                    <Text variant="h5">Notes</Text>
+                                    <Textarea
+                                        placeholder="Project Notes"
+                                        className="min-h-28"
+                                        value={formData.notes}
+                                        onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                    />
+                                </View>
+
+                                <Button onPress={handleSave} size="lg" disabled={loading}>
+                                    <Text variant='h5'>{loading ? 'Adding...' : 'Add to Calendar'}</Text>
+                                </Button>
                             </View>
-                        </KeyboardAwareScrollView>
-                    </View>
-                </StableGestureWrapper >
+                        </View>
+                    </KeyboardAwareScrollView>
+                </View>
 
                 <LocationModal
                     visible={openTempLocationModal}

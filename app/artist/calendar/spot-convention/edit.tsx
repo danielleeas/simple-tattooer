@@ -236,7 +236,7 @@ export default function EditSpotConventionPage() {
             }
 
             toast({ variant: 'success', title: 'Spot Convention Updated!', duration: 3000 });
-            router.back();
+            router.dismissTo('/artist/calendar');
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to save spot convention', description: error instanceof Error ? error.message : 'Unknown error' });
             return;

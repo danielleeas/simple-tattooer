@@ -542,12 +542,6 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
 
             {brandingData.watermarkEnabled && (
                 <>
-                    <View>
-                        <Button variant="outline" onPress={() => handleWatermarkPreview(brandingData.profilePhoto)}>
-                            <Text>Watermark Preview</Text>
-                        </Button>
-                    </View>
-
                     <View className="gap-2">
                         <View className='flex-row gap-2 items-center'>
                             <Text variant="h5">Upload watermark image</Text>
@@ -618,6 +612,12 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                                 modalTitle="Select Opacity"
                             />
                         </View>
+                    </View>
+
+                    <View>
+                        <Button variant="outline" onPress={() => handleWatermarkPreview(brandingData.profilePhoto)}>
+                            <Text>Watermark Preview</Text>
+                        </Button>
                     </View>
                 </>
             )}

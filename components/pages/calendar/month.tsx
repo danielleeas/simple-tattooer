@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, View, ViewStyle } from "react-native";
 import { Text } from "@/components/ui/text";
 import { CalendarDay, dayNames, toLocalDateString, getEventColorClass } from "./utils";
 import { toYmd, parseYmdFromDb } from "@/lib/utils";
-import { useAuth } from "@/lib/contexts/auth-context";
-import { getEventsInRange, type CalendarEvent } from "@/lib/services/calendar-service";
-import { useFocusEffect } from "@react-navigation/native";
+import { type CalendarEvent } from "@/lib/services/calendar-service";
+import { router } from "expo-router";
 
 type MonthViewProps = {
     currentDate: Date;
     onDatePress: (dateString: string) => void;
+    events: Record<string, CalendarEvent[]>;
 };
 
-export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
-    const { artist } = useAuth();
-    const [eventsByDay, setEventsByDay] = useState<Record<string, CalendarEvent[]>>({});
+export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) => {
+    const [weekRowWidths, setWeekRowWidths] = useState<number[]>([0, 0, 0, 0, 0, 0]);
 
     const isSameDay = (a: Date, b: Date) =>
         a.getDate() === b.getDate() &&
@@ -23,6 +22,41 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
 
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
     const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+    const handleEventClick = (source: string, source_id: string) => {
+        console.log("source", source)
+        console.log("source_id", source_id)
+        if (source === 'block_time') {
+            router.push({
+                pathname: '/artist/calendar/event-block-time/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'spot_convention') {
+            router.push({
+                pathname: '/artist/calendar/spot-convention/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'temp_change') {
+            router.push({
+                pathname: '/artist/calendar/temp-change/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'book_off') {
+            router.push({
+                pathname: '/artist/calendar/off-days/[id]',
+                params: { id: source_id }
+            });
+        }
+        else if (source === 'session') {
+            router.push({
+                pathname: '/artist/clients/detail-session',
+                params: { client_id: null, project_id: null, session_id: source_id }
+            });
+        }
+    }
 
     const calendarDays: CalendarDay[] = useMemo(() => {
         const today = new Date();
@@ -47,65 +81,39 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
         return days;
     }, [currentDate]);
 
-    const getMonthGridRange = useMemo(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const firstDayOfWeek = firstDay.getDay();
-        const start = new Date(firstDay);
-        start.setDate(start.getDate() - firstDayOfWeek);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 41); // 6*7 - 1
-        return { start, end };
-    }, [currentDate]);
-
-    const loadEvents = useCallback(async () => {
-        if (!artist?.id) return;
-        try {
-            const { start, end } = getMonthGridRange;
-            const res = await getEventsInRange({
-                artistId: artist.id,
-                start: start,
-                end: end,
-            });
-            const events = res.events || [];
-
-            const visibleStart = new Date(calendarDays[0].date.getFullYear(), calendarDays[0].date.getMonth(), calendarDays[0].date.getDate(), 12);
-            const last = calendarDays[calendarDays.length - 1].date;
-            const visibleEnd = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 12);
-
-            // Map DB rows to Calendar's expected shape
-            const map: Record<string, CalendarEvent[]> = {};
-            for (const ev of events) {
-                const evStart = parseYmdFromDb(ev.start_date);
-                const evEnd = parseYmdFromDb(ev.end_date);
-
-                const rangeStart = evStart < visibleStart ? visibleStart : evStart;
-                const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
-                const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
-                while (cursor <= rangeEnd) {
-                    const key = toYmd(cursor);
-                    if (!map[key]) map[key] = [];
-                    map[key].push(ev);
-                    cursor.setDate(cursor.getDate() + 1);
+    // Build consolidated background spans per week so each multi-day event renders only once per week
+    const backgroundSpansByWeek = useMemo(() => {
+        type Span = { id: string; source: string; source_id: string; title: string; color: string; startIdx: number; endIdx: number };
+        const byWeek: Span[][] = [];
+        for (let w = 0; w < 6; w++) {
+            const weekDays = calendarDays.slice(w * 7, (w + 1) * 7);
+            const dayKeys = weekDays.map(d => toYmd(d.date));
+            const merged = new Map<string, Span>();
+            for (let di = 0; di < 7; di++) {
+                const key = dayKeys[di];
+                const bgs = (events[key] || []).filter(ev => ev.type === 'background');
+                for (const ev of bgs) {
+                    const existing = merged.get(ev.id);
+                    if (!existing) {
+                        merged.set(ev.id, {
+                            id: ev.id,
+                            source: ev.source,
+                            source_id: ev.source_id,
+                            title: ev.title,
+                            color: ev.color,
+                            startIdx: di,
+                            endIdx: di
+                        });
+                    } else {
+                        if (di < existing.startIdx) existing.startIdx = di;
+                        if (di > existing.endIdx) existing.endIdx = di;
+                    }
                 }
             }
-            setEventsByDay(map);
-        } catch (e) {
-            setEventsByDay({});
+            byWeek.push(Array.from(merged.values()));
         }
-    }, [artist?.id, getMonthGridRange]);
-
-    // Fetch events for the visible 6x7 grid range
-    useEffect(() => {
-        loadEvents();
-    }, [loadEvents]);
-
-    useFocusEffect(
-        useCallback(() => {
-            loadEvents();
-        }, [loadEvents])
-    );
+        return byWeek;
+    }, [calendarDays, events]);
 
     return (
         <View className="flex-1 gap-0">
@@ -127,19 +135,28 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                 {Array.from({ length: 6 }, (_, weekIndex) => (
                     <View
                         key={weekIndex}
-                        className="flex-row flex-1 border-border-secondary"
+                        className="flex-row flex-1 border-border-secondary relative"
                         style={{ borderLeftWidth: 1 }}
+                        onLayout={(e) => {
+                            const w = e.nativeEvent.layout.width;
+                            setWeekRowWidths(prev => {
+                                if (prev[weekIndex] === w) return prev;
+                                const next = [...prev];
+                                next[weekIndex] = w;
+                                return next;
+                            });
+                        }}
                     >
                         {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => {
                             const showToday = day.isToday;
                             const bubbleClasses = showToday ? "border border-primary" : "";
 
                             return (
-                                <Pressable
+                                <View
                                     key={`${weekIndex}-${dayIndex}`}
-                                    onPress={() => onDatePress(toLocalDateString(day.date))}
-                                    className="flex-1 items-center pt-2 justify-start border-border-secondary border-r border-b relative"
+                                    className="flex-1 items-center pt-4 justify-start border-border-secondary border-r border-b relative"
                                 >
+
                                     <View className={`rounded-full relative items-center justify-center ${bubbleClasses}`} style={{ width: 24, height: 24 }}>
                                         <Text
                                             className={`text-xs ${showToday ? 'text-primary' : 'text-foreground'}`}
@@ -148,37 +165,11 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                             {day.date.getDate()}
                                         </Text>
                                     </View>
+                                    <Pressable
+                                        onPress={() => onDatePress(toLocalDateString(day.date))}
+                                        className="absolute top-0 left-0 right-0 bottom-0 w-full items-center justify-center py-2" />
 
-                                    {/* Background day shading */}
-                                    {(() => {
-                                        const key = toYmd(day.date);
-                                        const bgs = (eventsByDay[key] || []).filter(ev => ev.type === 'background');
-                                        if (bgs.length === 0) return null;
-                                        return bgs.map((bg, i4) => {
-                                            const source = bg.source;
-                                            const style: Partial<ViewStyle> = {
-                                                height: "25%",
-                                                bottom: '50%',
-                                                right: -1,
-                                                left: 0
-                                            };
-                                            if (source === 'temp_change') {
-                                                style.bottom = '25%';
-                                            } else if (source === 'book_off') {
-                                                style.bottom = '0%';
-                                            }
-                                            return (
-                                                <View
-                                                    key={`mo-bg-${weekIndex}-${dayIndex}-${i4}`}
-                                                    pointerEvents="none"
-                                                    style={{ opacity: 0.5, ...style as ViewStyle }}
-                                                    className={`absolute ${getEventColorClass(bg.color)}`}
-                                                />
-                                            );
-                                        });
-                                    })()}
-
-                                    
+                                    {/* Background per-day shading removed in favor of a single week-level span */}
 
                                     {/* Single-day timed items (show a few pills) */}
                                     <View className="w-full px-1 mt-1 gap-1">
@@ -186,7 +177,7 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                             const dStart = startOfDay(day.date);
                                             const dEnd = endOfDay(day.date);
                                             const key = toYmd(day.date);
-                                            const singles = (eventsByDay[key] || []).filter(e => {
+                                            const singles = (events[key] || []).filter(e => {
                                                 if (e.type !== 'item' || e.allday) return false;
                                                 const evStart = parseYmdFromDb(e.start_date);
                                                 return evStart >= dStart && evStart <= dEnd;
@@ -196,9 +187,9 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                             return (
                                                 <>
                                                     {visibleSingles.map((e, i) => (
-                                                        <View key={`sd-${weekIndex}-${dayIndex}-${i}`} className={`w-full h-4 rounded px-1 justify-center ${getEventColorClass(e.color)}`}>
+                                                        <Pressable key={`sd-${weekIndex}-${dayIndex}-${i}`} onPress={() => handleEventClick(e.source, e.source_id)} className={`w-full h-4 rounded px-1 justify-center ${getEventColorClass(e.color)}`}>
                                                             <Text className="text-[9px] text-foreground" numberOfLines={1}>{e.title}</Text>
-                                                        </View>
+                                                        </Pressable>
                                                     ))}
                                                     {hasMoreSingles && (
                                                         <View className="w-full h-4 rounded px-1 justify-center border border-border-secondary">
@@ -209,9 +200,42 @@ export const MonthView = ({ currentDate, onDatePress }: MonthViewProps) => {
                                             )
                                         })()}
                                     </View>
-                                </Pressable>
+                                </View>
                             );
                         })}
+
+                        {/* Week-level background bars (one per multi-day event in this week) */}
+                        {(() => {
+                            const spans = backgroundSpansByWeek[weekIndex] || [];
+                            const rowWidth = weekRowWidths[weekIndex] || 0;
+                            const cellWidth = rowWidth > 0 ? (rowWidth / 7) : 0;
+                            if (rowWidth <= 0 || spans.length === 0) return null;
+                            return (
+                                <View style={{ position: 'absolute', top: 1, left: 0, right: 0, height: 16 }}>
+                                    {spans.map((span, i) => {
+                                        const left = span.startIdx * cellWidth;
+                                        const width = (span.endIdx - span.startIdx + 1) * cellWidth;
+                                        return (
+                                            <Pressable
+                                                key={`wk-bg-${weekIndex}-${span.id}-${i}`}
+                                                onPress={() => handleEventClick(span.source, span.source_id)}
+                                                className={`absolute ${getEventColorClass(span.color)}`}
+                                                style={{
+                                                    left,
+                                                    width,
+                                                    height: 16,
+                                                    opacity: 0.7,
+                                                    justifyContent: 'center',
+                                                    paddingHorizontal: 4,
+                                                } as ViewStyle}
+                                            >
+                                                <Text className="text-[9px] text-foreground" numberOfLines={1}>{span.title}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            );
+                        })()}
                     </View>
                 ))}
             </View>

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, ScrollView, Pressable, Modal, TouchableOpacity } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack } from "expo-router";
-import { formatYmd } from "@/lib/utils";
+import { router, Stack, useFocusEffect } from "expo-router";
+import { formatYmd, parseYmdFromDb, toYmd } from "@/lib/utils";
 
 import Header from "@/components/lib/Header";
 import { Icon } from "@/components/ui/icon";
@@ -15,6 +15,8 @@ import { DayView } from "@/components/pages/calendar/day";
 import { WeekView } from "@/components/pages/calendar/week";
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import { CalendarEvent, getEventsInRange } from "@/lib/services/calendar-service";
+import { useAuth } from "@/lib/contexts/auth-context";
 
 const Toggle = ({ label, active, onPress }: { label: string; active: boolean; onPress?: () => void }) => (
     <Pressable
@@ -27,11 +29,70 @@ const Toggle = ({ label, active, onPress }: { label: string; active: boolean; on
 );
 
 export default function CalendarPage() {
-
+    const { artist } = useAuth();
     const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
     const [isDayMenuOpen, setIsDayMenuOpen] = useState(false);
+    const [events, setEvents] = useState<Record<string, CalendarEvent[]>>({});
+
+    const getMonthGridRange = useMemo(() => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const firstDayOfWeek = firstDay.getDay();
+        const start = new Date(firstDay);
+        start.setDate(start.getDate() - firstDayOfWeek);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 41); // 6*7 - 1
+        return { start, end };
+    }, [currentDate]);
+
+    const loadEvents = useCallback(async () => {
+        if (!artist?.id) return;
+        try {
+            const { start, end } = getMonthGridRange;
+            const res = await getEventsInRange({
+                artistId: artist.id,
+                start: start,
+                end: end,
+            });
+            const events = res.events || [];
+
+            const visibleStart = new Date(getMonthGridRange.start.getFullYear(), getMonthGridRange.start.getMonth(), getMonthGridRange.start.getDate(), 12);
+            const visibleEnd = new Date(getMonthGridRange.end.getFullYear(), getMonthGridRange.end.getMonth(), getMonthGridRange.end.getDate(), 12);
+
+            // Map DB rows to Calendar's expected shape
+            const map: Record<string, CalendarEvent[]> = {};
+            for (const ev of events) {
+                const evStart = parseYmdFromDb(ev.start_date);
+                const evEnd = parseYmdFromDb(ev.end_date);
+
+                const rangeStart = evStart < visibleStart ? visibleStart : evStart;
+                const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
+                const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
+                while (cursor <= rangeEnd) {
+                    const key = toYmd(cursor);
+                    if (!map[key]) map[key] = [];
+                    map[key].push(ev);
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+            }
+            setEvents(map);
+        } catch (e) {
+            setEvents({});
+        }
+    }, [artist?.id, getMonthGridRange]);
+
+    useEffect(() => {
+        loadEvents();
+    }, [loadEvents]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadEvents();
+        }, [loadEvents])
+    );
 
     const goPrev = () => {
         setCurrentDate((prev) => {
@@ -60,12 +121,10 @@ export default function CalendarPage() {
     };
 
     const onDatePress = (dateString: string) => {
-        router.push({
-            pathname: '/artist/calendar/day-click',
-            params: { date: dateString },
-        });
+        setViewMode('day');
+        setCurrentDate(parseYmdFromDb(dateString));
     };
-    
+
     const openActionModal = () => {
         if (viewMode === 'month' || viewMode === 'week') {
             setIsMonthMenuOpen(true);
@@ -140,19 +199,21 @@ export default function CalendarPage() {
                             </Pressable>
                         </View>
                         <View className="flex-1 w-full">
-                            {viewMode === 'day' && <DayView currentDate={currentDate} />}
-                            {viewMode === 'month' && <MonthView currentDate={currentDate} onDatePress={onDatePress} />}
-                            {viewMode === 'week' && <WeekView currentDate={currentDate} />}
+                            {viewMode === 'day' && <DayView currentDate={currentDate} events={events} />}
+                            {viewMode === 'month' && <MonthView currentDate={currentDate} onDatePress={onDatePress} events={events} />}
+                            {viewMode === 'week' && <WeekView currentDate={currentDate} events={events} />}
                         </View>
 
-                        <Pressable
-                            onPress={openActionModal}
-                            accessibilityRole="button"
-                            accessibilityLabel="Add"
-                            className="absolute right-6 bottom-6 w-14 h-14 rounded-full bg-foreground items-center justify-center"
-                        >
-                            <Icon as={Plus} size={32} strokeWidth={2} className="text-background" />
-                        </Pressable>
+                        {(!isMonthMenuOpen && !isDayMenuOpen) && (
+                            <Pressable
+                                onPress={openActionModal}
+                                accessibilityRole="button"
+                                accessibilityLabel="Add"
+                                className="absolute right-6 bottom-6 w-14 h-14 rounded-full bg-foreground items-center justify-center"
+                            >
+                                <Icon as={Plus} size={32} strokeWidth={2} className="text-background" />
+                            </Pressable>
+                        )}
                     </View>
                 </StableGestureWrapper>
 
@@ -170,7 +231,7 @@ export default function CalendarPage() {
                         <TouchableOpacity
                             activeOpacity={1}
                             onPress={(e) => e.stopPropagation()}
-                            className="w-full max-w-md bg-background-secondary rounded-xl border border-border p-4 gap-4"
+                            className="w-full max-w-[300px] bg-background-secondary rounded-xl border border-border p-4 gap-6"
                         >
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
@@ -180,7 +241,7 @@ export default function CalendarPage() {
                             >
                                 <View className="h-4 w-4 rounded-xl bg-orange-500" />
                                 <View className="flex-1">
-                                    <Text className="leading-4">Add Guest Spot/ Convention</Text>
+                                    <Text className="leading-5 text-sm">Add Guest Spot/ Convention</Text>
                                 </View>
                                 <Icon as={ChevronRight} strokeWidth={1} size={24} />
                             </Pressable>
@@ -193,11 +254,8 @@ export default function CalendarPage() {
                             >
                                 <View className="h-4 w-4 rounded-xl bg-purple" />
                                 <View className="flex-1 gap-1">
-                                    <Text className="leading-5" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                    <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                                         Temporarily Change Your Work Days
-                                    </Text>
-                                    <Text className="text-sm text-text-secondary leading-4" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                                        This will also change your consult availability.
                                     </Text>
                                 </View>
                                 <Icon as={ChevronRight} strokeWidth={1} size={24} />
@@ -211,10 +269,7 @@ export default function CalendarPage() {
                             >
                                 <View className="h-4 w-4 rounded-xl bg-blue-500" />
                                 <View className="flex-1 gap-1">
-                                    <Text className="leading-5">Book Off Multiple Days In A Row</Text>
-                                    <Text className="text-sm text-text-secondary leading-4">
-                                        Make these days unavailable for auto booking and consults.
-                                    </Text>
+                                    <Text className="leading-5 text-sm">Book Off Multiple Days In A Row</Text>
                                 </View>
                                 <Icon as={ChevronRight} strokeWidth={1} size={24} />
                             </Pressable>
@@ -236,7 +291,7 @@ export default function CalendarPage() {
                         <TouchableOpacity
                             activeOpacity={1}
                             onPress={(e) => e.stopPropagation()}
-                            className="w-full max-w-md bg-background-secondary rounded-xl border border-border p-4 gap-4"
+                            className="w-full max-w-[300px] bg-background-secondary rounded-xl border border-border p-4 gap-6"
                         >
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
@@ -246,11 +301,8 @@ export default function CalendarPage() {
                             >
                                 <View className="h-4 w-4 rounded-xl" style={{ backgroundColor: '#64748B' }} />
                                 <View className="flex-1 gap-1">
-                                    <Text className="leading-5" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                    <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                                         Quick Add Appointment
-                                    </Text>
-                                    <Text className="text-xs text-text-secondary leading-4">
-                                        Fast Add for Conventions & Walk-Ins. Save the client, skip the emails.
                                     </Text>
                                 </View>
                                 <Icon as={ChevronRight} strokeWidth={1} size={24} />
@@ -264,10 +316,7 @@ export default function CalendarPage() {
                             >
                                 <View className="h-4 w-4 rounded-xl bg-green" />
                                 <View className="flex-1 gap-1">
-                                    <Text className="leading-5">Add Event/ Block Time</Text>
-                                    <Text className="text-xs text-text-secondary leading-4">
-                                        Add personal events and coffee dates, or turn off auto booking & consults for the day
-                                    </Text>
+                                    <Text className="leading-5 text-sm">Add Event/ Block Time</Text>
                                 </View>
                                 <Icon as={ChevronRight} strokeWidth={1} size={24} />
                             </Pressable>
