@@ -279,6 +279,83 @@ export default function AddEventBlockTimePage() {
                                     </View>
                                 </View>
 
+                                <View className="flex-row items-start gap-4">
+                                    <View className="h-6 w-6 rounded-xl bg-blue-500" />
+                                    <Text variant="h4" className="leading-8 flex-1">Mark Day as Unavailable</Text>
+                                </View>
+
+                                <View className="gap-6">
+                                    <View className="flex-row items-start gap-1">
+                                        <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, off_booking_enabled: !formData.off_booking_enabled })}>
+                                            <Text variant="h5" className="w-[310px]">Turn off auto-booking and consults for the day?</Text>
+                                        </Pressable>
+                                        <View>
+                                            <Switch
+                                                checked={formData.off_booking_enabled}
+                                                onCheckedChange={() => setFormData({ ...formData, off_booking_enabled: !formData.off_booking_enabled })}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View className="gap-2">
+                                        <View className="flex-row items-start gap-1">
+                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, off_booking_repeatable: !formData.off_booking_repeatable })}>
+                                                <Text variant="h5" className="w-[310px]">Repeat?</Text>
+                                            </Pressable>
+                                            <View>
+                                                <Switch
+                                                    checked={!!formData.off_booking_repeatable}
+                                                    onCheckedChange={() => setFormData({ ...formData, off_booking_repeatable: !formData.off_booking_repeatable })}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        {formData.off_booking_repeatable && (
+                                            <View className="gap-2">
+                                                <View className="flex-row items-center gap-2">
+                                                    <Button onPress={() => setFormData({ ...formData, off_booking_repeat_type: 'daily' })} variant={formData.off_booking_repeat_type === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Daily</Text>
+                                                    </Button>
+                                                    <Button onPress={() => setFormData({ ...formData, off_booking_repeat_type: 'weekly' })} variant={formData.off_booking_repeat_type === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Weekly</Text>
+                                                    </Button>
+                                                    <Button onPress={() => setFormData({ ...formData, off_booking_repeat_type: 'monthly' })} variant={formData.off_booking_repeat_type === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Monthly</Text>
+                                                    </Button>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {formData.off_booking_repeatable && (
+                                        <View className="gap-2">
+                                            <Collapse title="How long do you want this to repeat for?">
+                                                <View className="gap-2 w-full">
+                                                    <DurationPicker
+                                                        selectedDuration={formData.off_booking_repeat_duration != null && !!formData.off_booking_repeat_duration_unit
+                                                            ? { value: formData.off_booking_repeat_duration, unit: formData.off_booking_repeat_duration_unit }
+                                                            : undefined}
+                                                        onDurationSelect={(duration) => setFormData({ ...formData, off_booking_repeat_duration: duration.value, off_booking_repeat_duration_unit: duration.unit })}
+                                                        maxValue={12}
+                                                        modalTitle="Select Repeat Duration"
+                                                        disabledUnits={formData.off_booking_repeat_type === 'monthly' ? ['weeks'] : undefined}
+                                                    />
+                                                </View>
+                                            </Collapse>
+                                        </View>
+                                    )}
+
+                                    <View className="gap-2">
+                                        <Text variant="h5">Notes</Text>
+                                        <Textarea
+                                            placeholder="Project Notes"
+                                            className="min-h-28"
+                                            value={formData.off_booking_notes || ''}
+                                            onChangeText={(text) => setFormData({ ...formData, off_booking_notes: text })}
+                                        />
+                                    </View>
+                                </View>
+
                                 <View className="flex-row gap-3">
                                     <View className="flex-1">
                                         <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>

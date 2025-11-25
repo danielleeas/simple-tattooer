@@ -236,7 +236,7 @@ export default function CalendarPage() {
                         <TouchableOpacity
                             activeOpacity={1}
                             onPress={(e) => e.stopPropagation()}
-                            className="w-full max-w-[300px] bg-background-secondary rounded-xl border border-border p-4 gap-6"
+                            className="w-full max-w-[300px] bg-background-secondary rounded-xl border border-border p-4 gap-4"
                         >
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
@@ -296,8 +296,21 @@ export default function CalendarPage() {
                         <TouchableOpacity
                             activeOpacity={1}
                             onPress={(e) => e.stopPropagation()}
-                            className="w-full max-w-[300px] bg-background-secondary rounded-xl border border-border p-4 gap-6"
+                            className="w-full max-w-[300px] bg-background-secondary rounded-xl border border-border p-4 gap-4"
                         >
+                            <Pressable
+                                className="flex-row items-start justify-between gap-2"
+                                onPress={openEventBlockTimeAdd}
+                                accessibilityRole="button"
+                                accessibilityLabel="Add Event/ Block Time"
+                            >
+                                <View className="h-4 w-4 rounded-xl bg-green" />
+                                <View className="flex-1 gap-1">
+                                    <Text className="leading-5 text-sm">Add Event/ Block Time</Text>
+                                </View>
+                                <Icon as={ChevronRight} strokeWidth={1} size={24} />
+                            </Pressable>
+
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
                                 onPress={closeActionModal}
@@ -315,16 +328,19 @@ export default function CalendarPage() {
 
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
-                                onPress={openEventBlockTimeAdd}
+                                onPress={closeActionModal}
                                 accessibilityRole="button"
-                                accessibilityLabel="Add Event/ Block Time"
+                                accessibilityLabel="Quick Add Appointment"
                             >
-                                <View className="h-4 w-4 rounded-xl bg-green" />
+                                <View className="h-4 w-4 rounded-xl bg-blue-500"/>
                                 <View className="flex-1 gap-1">
-                                    <Text className="leading-5 text-sm">Add Event/ Block Time</Text>
+                                    <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                        Mark Day as Unavailable
+                                    </Text>
                                 </View>
                                 <Icon as={ChevronRight} strokeWidth={1} size={24} />
                             </Pressable>
+
                         </TouchableOpacity>
                     </TouchableOpacity>
                 </Modal>

@@ -1207,14 +1207,6 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
 		const resolvedDuration = params.repeatDuration ?? 1;
 
-		const offEnabled = !!params.offBookingEnabled;
-		const offRepeatable = offEnabled && !!params.offBookingRepeatable;
-		const offRepeatType: 'daily' | 'weekly' | 'monthly' =
-			(params.offBookingRepeatType ?? 'daily');
-		const offUnit: 'weeks' | 'months' | 'years' =
-			(params.offBookingRepeatDurationUnit ?? (offRepeatType === 'monthly' ? 'months' : 'weeks'));
-		const offDuration = params.offBookingRepeatDuration ?? 1;
-
 		const insertPayload = {
 			artist_id: params.artistId,
 			title: params.title.trim(),
@@ -1226,12 +1218,6 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 			repeat_duration: resolvedDuration,
 			repeat_duration_unit: resolvedUnit,
 			notes: params.notes?.trim() || null,
-			off_booking_enabled: offEnabled,
-			off_booking_repeatable: offRepeatable,
-			off_booking_repeat_type: offRepeatType,
-			off_booking_repeat_duration: offDuration,
-			off_booking_repeat_duration_unit: offUnit,
-			off_booking_notes: params.offBookingNotes?.trim() || null,
 		};
 
 		const { data: blockRow, error: blockErr } = await supabase

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Pressable, Image } from "react-native";
+import { View, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -20,7 +20,6 @@ import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from 
 import { Collapse } from "@/components/lib/collapse";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
-import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 
 type EventBlockTimeData = {
     title: string;
@@ -30,6 +29,11 @@ type EventBlockTimeData = {
     repeatType: 'daily' | 'weekly' | 'monthly';
     repeatDuration?: { value: number; unit: 'weeks' | 'months' | 'years' };
     eventNotes: string;
+    turnOffAutoBooking: boolean;
+    isOffRepeat: boolean;
+    offDaysRepeatType: 'daily' | 'weekly' | 'monthly';
+    offDaysRepeatDuration?: { value: number; unit: 'weeks' | 'months' | 'years' };
+    offNotes: string;
 };
 
 export default function AddEventBlockTimePage() {
@@ -49,6 +53,11 @@ export default function AddEventBlockTimePage() {
         repeatType: 'daily',
         repeatDuration: undefined,
         eventNotes: '',
+        turnOffAutoBooking: false,
+        isOffRepeat: false,
+        offDaysRepeatType: 'daily',
+        offDaysRepeatDuration: undefined,
+        offNotes: '',
     });
 
     const handleBack = () => {
@@ -56,82 +65,94 @@ export default function AddEventBlockTimePage() {
     };
 
     const handleSave = async () => {
-        // Basic validations (mirror off-days add flow)
-        if (!artist?.id) {
-            toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
-            return;
-        }
-        if (!formData.title?.trim()) {
-            toast({ variant: 'error', title: 'Title is required', duration: 2500 });
-            return;
-        }
-        if (!formData.startTime || !formData.endTime) {
-            toast({ variant: 'error', title: 'Start and End time are required', duration: 2500 });
-            return;
-        }
-        // Optional: ensure end time is after start time
-        if (formData.startTime && formData.endTime) {
-            const [sh, sm] = formData.startTime.split(':').map(n => parseInt(n, 10));
-            const [eh, em] = formData.endTime.split(':').map(n => parseInt(n, 10));
-            const startMinutes = sh * 60 + sm;
-            const endMinutes = eh * 60 + em;
-            if (endMinutes <= startMinutes) {
-                toast({ variant: 'error', title: 'End time must be after start time', duration: 2500 });
-                return;
-            }
-        }
-        if (formData.isRepeat && (!formData.repeatDuration || !formData.repeatDuration.value || formData.repeatDuration.value <= 0)) {
-            toast({ variant: 'error', title: 'Select repeat duration', duration: 2500 });
-            return;
-        }
+		// Basic validations (mirror off-days add flow)
+		if (!artist?.id) {
+			toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
+		 return;
+		}
+		if (!formData.title?.trim()) {
+			toast({ variant: 'error', title: 'Title is required', duration: 2500 });
+			return;
+		}
+		if (!formData.startTime || !formData.endTime) {
+			toast({ variant: 'error', title: 'Start and End time are required', duration: 2500 });
+			return;
+		}
+		// Optional: ensure end time is after start time
+		if (formData.startTime && formData.endTime) {
+			const [sh, sm] = formData.startTime.split(':').map(n => parseInt(n, 10));
+			const [eh, em] = formData.endTime.split(':').map(n => parseInt(n, 10));
+			const startMinutes = sh * 60 + sm;
+			const endMinutes = eh * 60 + em;
+			if (endMinutes <= startMinutes) {
+				toast({ variant: 'error', title: 'End time must be after start time', duration: 2500 });
+				return;
+			}
+		}
+		if (formData.isRepeat && (!formData.repeatDuration || !formData.repeatDuration.value || formData.repeatDuration.value <= 0)) {
+			toast({ variant: 'error', title: 'Select repeat duration', duration: 2500 });
+			return;
+		}
+		if (formData.turnOffAutoBooking && formData.isOffRepeat && (!formData.offDaysRepeatDuration || !formData.offDaysRepeatDuration.value || formData.offDaysRepeatDuration.value <= 0)) {
+			toast({ variant: 'error', title: 'Select off-booking repeat duration', duration: 2500 });
+			return;
+		}
 
-        // Derive YYYY-MM-DD directly from the input without timezone conversions
-        const dateStr = (() => {
-            const pad = (n: number) => String(n).padStart(2, '0');
-            if (date) {
-                try {
-                    const d = parseYmdFromDb(String(date));
-                    if (!isNaN(d.getTime())) {
-                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                    }
-                } catch { /* noop */ }
-                // Fallback: if string starts with YYYY-MM-DD, take that portion
-                const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date));
-                if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-            }
-            const now = new Date();
-            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        })();
+		// Derive YYYY-MM-DD directly from the input without timezone conversions
+		const dateStr = (() => {
+			const pad = (n: number) => String(n).padStart(2, '0');
+			if (date) {
+				try {
+					const d = parseYmdFromDb(String(date));
+					if (!isNaN(d.getTime())) {
+						return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+					}
+				} catch { /* noop */ }
+				// Fallback: if string starts with YYYY-MM-DD, take that portion
+				const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date));
+				if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+			}
+			const now = new Date();
+			return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+		})();
 
-        try {
-            setLoading(true);
-            const result = await createEventBlockTime({
-                artistId: artist.id,
-                date: dateStr,
-                title: formData.title.trim(),
-                startTime: formData.startTime,
-                endTime: formData.endTime,
-                repeatable: formData.isRepeat,
-                repeatType: formData.isRepeat ? formData.repeatType : undefined,
-                repeatDuration: formData.isRepeat ? (formData.repeatDuration?.value ?? 1) : undefined,
-                repeatDurationUnit: formData.isRepeat
-                    ? (formData.repeatDuration?.unit ?? (formData.repeatType === 'monthly' ? 'months' : 'weeks'))
-                    : undefined,
-                notes: formData.eventNotes?.trim() || undefined,
-            });
+		try {
+			setLoading(true);
+			const result = await createEventBlockTime({
+				artistId: artist.id,
+				date: dateStr,
+				title: formData.title.trim(),
+				startTime: formData.startTime,
+				endTime: formData.endTime,
+				repeatable: formData.isRepeat,
+				repeatType: formData.isRepeat ? formData.repeatType : undefined,
+				repeatDuration: formData.isRepeat ? (formData.repeatDuration?.value ?? 1) : undefined,
+				repeatDurationUnit: formData.isRepeat
+					? (formData.repeatDuration?.unit ?? (formData.repeatType === 'monthly' ? 'months' : 'weeks'))
+					: undefined,
+				notes: formData.eventNotes?.trim() || undefined,
+				offBookingEnabled: !!formData.turnOffAutoBooking,
+				offBookingRepeatable: formData.turnOffAutoBooking ? !!formData.isOffRepeat : undefined,
+				offBookingRepeatType: formData.turnOffAutoBooking && formData.isOffRepeat ? formData.offDaysRepeatType : undefined,
+				offBookingRepeatDuration: formData.turnOffAutoBooking && formData.isOffRepeat ? (formData.offDaysRepeatDuration?.value ?? 1) : undefined,
+				offBookingRepeatDurationUnit: formData.turnOffAutoBooking && formData.isOffRepeat
+					? (formData.offDaysRepeatDuration?.unit ?? (formData.offDaysRepeatType === 'monthly' ? 'months' : 'weeks'))
+					: undefined,
+				offBookingNotes: formData.turnOffAutoBooking ? (formData.offNotes?.trim() || undefined) : undefined,
+			});
 
-            if (!result.success) {
-                toast({ variant: 'error', title: result.error || 'Failed to save event', duration: 3000 });
-                return;
-            }
+			if (!result.success) {
+				toast({ variant: 'error', title: result.error || 'Failed to save event', duration: 3000 });
+				return;
+			}
 
-            toast({ variant: 'success', title: 'New Event Added!', duration: 3000 });
-            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
-        } catch (e) {
-            toast({ variant: 'error', title: e instanceof Error ? e.message : 'Unexpected error', duration: 3000 });
-        } finally {
-            setLoading(false);
-        }
+			toast({ variant: 'success', title: 'New Event Added!', duration: 3000 });
+			router.dismissTo('/artist/calendar');
+		} catch (e) {
+			toast({ variant: 'error', title: e instanceof Error ? e.message : 'Unexpected error', duration: 3000 });
+		} finally {
+			setLoading(false);
+		}
     };
 
     return (
@@ -154,14 +175,9 @@ export default function AddEventBlockTimePage() {
                             keyboardShouldPersistTaps="handled"
                         >
                             <View className="gap-6 pb-6">
-                                <View className="items-center justify-center pb-9">
-                                    <Image
-                                        source={APPOINTMENT_IMAGE}
-                                        style={{ width: 56, height: 56 }}
-                                        resizeMode="contain"
-                                    />
-                                    <Text variant="h6" className="text-center uppercase">Add Event/</Text>
-                                    <Text variant="h6" className="text-center uppercase leading-none">Block Time</Text>
+                                <View className="flex-row items-start gap-4">
+                                    <View className="h-6 w-6 rounded-xl bg-green" />
+                                    <Text variant="h4" className="leading-8 flex-1">Add Event/Block Time</Text>
                                 </View>
 
                                 {/* Form Fields */}
@@ -261,8 +277,83 @@ export default function AddEventBlockTimePage() {
                                     </View>
                                 </View>
 
+                                <View className="flex-row items-start gap-4">
+                                    <View className="h-6 w-6 rounded-xl bg-blue-500" />
+                                    <Text variant="h4" className="leading-8 flex-1">Mark Day as Unavailable</Text>
+                                </View>
+
+                                <View className="gap-6">
+                                    <View className="flex-row items-start gap-1">
+                                        <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, turnOffAutoBooking: !formData.turnOffAutoBooking })}>
+                                            <Text variant="h5" className="w-[310px]">Turn off auto-booking and consults for the day?</Text>
+                                        </Pressable>
+                                        <View>
+                                            <Switch
+                                                checked={formData.turnOffAutoBooking}
+                                                onCheckedChange={() => setFormData({ ...formData, turnOffAutoBooking: !formData.turnOffAutoBooking })}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View className="gap-2">
+                                        <View className="flex-row items-start gap-1">
+                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isOffRepeat: !formData.isOffRepeat })}>
+                                                <Text variant="h5" className="w-[310px]">Repeat?</Text>
+                                            </Pressable>
+                                            <View>
+                                                <Switch
+                                                    checked={formData.isOffRepeat}
+                                                    onCheckedChange={() => setFormData({ ...formData, isOffRepeat: !formData.isOffRepeat })}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        {formData.isOffRepeat && (
+                                            <View className="gap-2">
+                                                <View className="flex-row items-center gap-2">
+                                                    <Button onPress={() => setFormData({ ...formData, offDaysRepeatType: 'daily' })} variant={formData.offDaysRepeatType === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Daily</Text>
+                                                    </Button>
+                                                    <Button onPress={() => setFormData({ ...formData, offDaysRepeatType: 'weekly' })} variant={formData.offDaysRepeatType === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Weekly</Text>
+                                                    </Button>
+                                                    <Button onPress={() => setFormData({ ...formData, offDaysRepeatType: 'monthly' })} variant={formData.offDaysRepeatType === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
+                                                        <Text variant='small'>Monthly</Text>
+                                                    </Button>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {formData.isOffRepeat && (
+                                        <View className="gap-2">
+                                            <Collapse title="How long do you want this to repeat for?">
+                                                <View className="gap-2 w-full">
+                                                    <DurationPicker
+                                                        selectedDuration={formData.offDaysRepeatDuration}
+                                                        onDurationSelect={(duration) => setFormData({ ...formData, offDaysRepeatDuration: duration })}
+                                                        maxValue={12}
+                                                        modalTitle="Select Repeat Duration"
+                                                        disabledUnits={formData.offDaysRepeatType === 'monthly' ? ['weeks'] : undefined}
+                                                    />
+                                                </View>
+                                            </Collapse>
+                                        </View>
+                                    )}
+
+                                    <View className="gap-2">
+                                        <Text variant="h5">Notes</Text>
+                                        <Textarea
+                                            placeholder="Project Notes"
+                                            className="min-h-28"
+                                            value={formData.offNotes}
+                                            onChangeText={(text) => setFormData({ ...formData, offNotes: text })}
+                                        />
+                                    </View>
+                                </View>
+
                                 <Button onPress={handleSave} size="lg" disabled={loading}>
-                                    <Text variant='h5'>{loading ? 'Saving...' : 'Add To Calendar'}</Text>
+                                    <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
                                 </Button>
                             </View>
                         </KeyboardAwareScrollView>

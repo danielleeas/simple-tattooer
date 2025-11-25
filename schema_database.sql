@@ -443,16 +443,10 @@ CREATE TABLE IF NOT EXISTS event_block_times (
   start_time TEXT NOT NULL,
   end_time TEXT NOT NULL,
   repeatable BOOLEAN NOT NULL DEFAULT FALSE,
-  repeat_type TEXT NOT NULL DEFAULT 'daily',
+  repeat_type TEXT NOT NULL DEFAULT 'daily',7
   repeat_duration INTEGER NOT NULL DEFAULT 1,
   repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
   notes TEXT NULL,
-  off_booking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  off_booking_repeatable BOOLEAN NOT NULL DEFAULT FALSE,
-  off_booking_repeat_type TEXT NOT NULL DEFAULT 'daily',
-  off_booking_repeat_duration INTEGER NOT NULL DEFAULT 1,
-  off_booking_repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
-  off_booking_notes TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -468,14 +462,6 @@ CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_type ON event_block_time
 CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_duration ON event_block_times(repeat_duration);
 CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_duration_unit ON event_block_times(repeat_duration_unit);
 CREATE INDEX IF NOT EXISTS idx_event_block_times_notes ON event_block_times(notes);
-CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_enabled ON event_block_times(off_booking_enabled) WHERE off_booking_enabled = true;
-CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeatable ON event_block_times(off_booking_repeatable) WHERE off_booking_repeatable = true;
-CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeat_type ON event_block_times(off_booking_repeat_type);
-CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeat_duration ON event_block_times(off_booking_repeat_duration);
-CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_repeat_duration_unit ON event_block_times(off_booking_repeat_duration_unit);
-CREATE INDEX IF NOT EXISTS idx_event_block_times_off_booking_notes ON event_block_times(off_booking_notes);
-CREATE INDEX IF NOT EXISTS idx_event_block_times_created_at ON event_block_times(created_at);
-CREATE INDEX IF NOT EXISTS idx_event_block_times_updated_at ON event_block_times(updated_at);
 
 -- events table for storing events
 CREATE TABLE IF NOT EXISTS events (
@@ -558,6 +544,7 @@ CREATE TABLE IF NOT EXISTS projects (
   deposit_paid_date TEXT NULL,
   deposit_payment_method TEXT NULL,
   waiver_signed BOOLEAN NOT NULL DEFAULT FALSE,
+  waiver_url TEXT NULL,
   notes TEXT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -603,6 +590,33 @@ CREATE INDEX IF NOT EXISTS idx_sessions_session_rate ON sessions(session_rate);
 CREATE INDEX IF NOT EXISTS idx_sessions_tip ON sessions(tip);
 CREATE INDEX IF NOT EXISTS idx_sessions_payment_method ON sessions(payment_method);
 CREATE INDEX IF NOT EXISTS idx_sessions_notes ON sessions(notes);
+
+-- sessions table for storing sessions
+CREATE TABLE IF NOT EXISTS quick_appointments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  date TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for quick appointments
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_artist_id ON quick_appointments(artist_id);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_full_name ON quick_appointments(full_name);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_email ON quick_appointments(email);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_phone_number ON quick_appointments(phone_number);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_date ON quick_appointments(date);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_start_time ON quick_appointments(start_time);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_end_time ON quick_appointments(end_time);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_notes ON quick_appointments(notes);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_created_at ON quick_appointments(created_at);
+CREATE INDEX IF NOT EXISTS idx_quick_appointments_updated_at ON quick_appointments(updated_at);
 
 -- drawings table for storing drawings
 CREATE TABLE IF NOT EXISTS drawings (
