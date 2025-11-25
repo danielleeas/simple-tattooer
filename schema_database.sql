@@ -600,7 +600,7 @@ CREATE TABLE IF NOT EXISTS quick_appointments (
   phone_number TEXT,
   date TEXT NOT NULL,
   start_time TEXT NOT NULL,
-  end_time TEXT NOT NULL,
+  session_length INTEGER NOT NULL,
   notes TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
