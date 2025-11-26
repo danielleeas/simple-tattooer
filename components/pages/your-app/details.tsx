@@ -532,7 +532,7 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                     <Text className="text-xl leading-none">
                         Apply watermark
                     </Text>
-                    <Text className="text-text-secondary text-sm leading-5">When uploading drawings or photos — uses your saved settings automatically.</Text>
+                    <Text className="text-text-secondary text-sm leading-5">When uploading drawings or flash-uses your saved settings automatically.</Text>
                 </Pressable>
                 <Switch
                     checked={brandingData.watermarkEnabled}

@@ -67,7 +67,7 @@ export default function Menu() {
     };
 
     const handleClientView = () => {
-        // router.push('/production/clients/view');
+        router.push('/artist/clients/view');
     };
 
     const handleSettings = () => {

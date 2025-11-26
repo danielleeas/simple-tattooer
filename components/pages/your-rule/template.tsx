@@ -187,7 +187,7 @@ export const Template = ({ templateData, updateTemplateData }: TemplateProps) =>
                     </View>
 
                     <View className="gap-2">
-                        <Text variant="h5" className="tracking-tight">Deposit Keep on file</Text>
+                        <Text variant="h5" className="tracking-tight">Deposit Kept on File</Text>
                         <Text variant="small">Subject</Text>
                         <Input
                             value={templateData.depositKeepSubject || ''}

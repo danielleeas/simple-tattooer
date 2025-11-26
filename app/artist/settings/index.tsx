@@ -1,7 +1,7 @@
 import { router, Stack } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "@/components/lib/Header";
-import { View, Image, Pressable } from "react-native";
+import { View, Image, Pressable, Linking } from "react-native";
 import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
 import { Text } from "@/components/ui/text";
 
@@ -31,6 +31,14 @@ export default function MakeItYours() {
 
     const handleYourApp = () => {
         router.push('/artist/settings/app');
+    }
+
+    const handlePrivacyPolicy = () => {
+        Linking.openURL('https://simpletattooer.com/privacy');
+    }
+
+    const handleTermsAndConditions = () => {
+        Linking.openURL('https://simpletattooer.com/terms');
     }
 
     return (
@@ -100,11 +108,11 @@ export default function MakeItYours() {
                             </Pressable>
                             <View className="flex-row gap-1">
                                 <Text variant="small">Read</Text>
-                                <Pressable>
+                                <Pressable onPress={handlePrivacyPolicy}>
                                     <Text variant="small" className="underline">Privacy Policy</Text>
                                 </Pressable>
                                 <Text variant="small">and</Text>
-                                <Pressable>
+                                <Pressable onPress={handleTermsAndConditions}>
                                     <Text variant="small" className="underline">Terms and Conditions</Text>
                                 </Pressable>
                             </View>

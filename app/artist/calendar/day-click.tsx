@@ -38,29 +38,17 @@ export default function SingleDate() {
                 pathname: '/artist/calendar/event-block-time/[id]',
                 params: { id: source_id }
             });
-        } 
-        else if (source === 'spot_convention') {
-            router.push({
-                pathname: '/artist/calendar/spot-convention/[id]',
-                params: { id: source_id }
-            });
-        }
-        else if (source === 'temp_change') {
-            router.push({
-                pathname: '/artist/calendar/temp-change/[id]',
-                params: { id: source_id }
-            });
-        }
-        else if (source === 'book_off') {
-            router.push({
-                pathname: '/artist/calendar/off-days/[id]',
-                params: { id: source_id }
-            });
         }
         else if (source === 'session') {
             router.push({
                 pathname: '/artist/clients/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
+            });
+        }
+        else if (source === 'quick_appointment') {
+            router.push({
+                pathname: '/artist/calendar/quick-appointment/[id]',
+                params: { id: source_id }
             });
         }
     }
@@ -76,7 +64,8 @@ export default function SingleDate() {
                 start: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0, 0),
                 end: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999),
             });
-            setEvents(res.events || []);
+            const itemEvents = res?.events?.filter((ev: any) => ev.type !== 'background') || [];
+            setEvents(itemEvents);
         } catch {
             setEvents([]);
         }
@@ -112,17 +101,17 @@ export default function SingleDate() {
 
     return (
         <>
-            <Stack.Screen options={{headerShown: false, animation: 'slide_from_right'}} />
+            <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
             <SafeAreaView className='flex-1 bg-background'>
                 <Header leftButtonImage={BACK_IMAGE} leftButtonTitle="Back" onLeftButtonPress={handleBack} />
                 <StableGestureWrapper onSwipeRight={handleBack} threshold={80} enabled={true}>
                     <View className="flex-1 bg-background px-4 pt-2 pb-4 gap-6">
                         <Text variant="h3">{getHeaderTitle()}</Text>
-                        <View className="flex-row items-center gap-3">
+                        <View className="flex-row items-center gap-2">
                             <Image source={APPOINTMENT_IMAGE} style={ICON_STYLE} />
                             <View>
-                                <Text variant='h4'>Appointments</Text>
-                                <Text variant='small' className="text-text-secondary">Tap a name open appointment details.</Text>
+                                <Text className="leading-none">Tap to see the details</Text>
+                                <Text className="leading-none">and enjoy your day!</Text>
                             </View>
                         </View>
                         <View className="flex-1">

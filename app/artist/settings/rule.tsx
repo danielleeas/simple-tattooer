@@ -59,7 +59,7 @@ export default function YourRules() {
     const dispatch = useAppDispatch();
 
     const [saving, setSaving] = useState(false);
-	const [saveMessage, setSaveMessage] = useState<string>('Starting...');
+    const [saveMessage, setSaveMessage] = useState<string>('Starting...');
     const [depositData, setDepositData] = useState<DepositDataProps>(defaultDepositData);
     const [policyData, setPolicyData] = useState<PolicyDataProps>(defaultPolicyData);
     const [templateData, setTemplateData] = useState<TemplateDataProps>(defaultTemplateData);
@@ -229,23 +229,23 @@ export default function YourRules() {
         }
 
         setSaving(true);
-		setSaveMessage('Starting...');
+        setSaveMessage('Starting...');
 
-		try {
-			if (!initialDepositData || !initialPolicyData || !initialTemplateData) {
-				throw new Error('Initial data not ready');
-			}
+        try {
+            if (!initialDepositData || !initialPolicyData || !initialTemplateData) {
+                throw new Error('Initial data not ready');
+            }
 
             const result = await saveRuleSettings(
-				artist.id,
-				{ deposit: depositData, policy: policyData, template: templateData },
-				{ deposit: initialDepositData, policy: initialPolicyData, template: initialTemplateData },
-				(p, label) => {
-					if (label) setSaveMessage(label);
-				}
-			);
+                artist.id,
+                { deposit: depositData, policy: policyData, template: templateData },
+                { deposit: initialDepositData, policy: initialPolicyData, template: initialTemplateData },
+                (p, label) => {
+                    if (label) setSaveMessage(label);
+                }
+            );
 
-			if (result.success) {
+            if (result.success) {
                 // If file URLs were uploaded, reflect them locally
                 const mergedPolicyData: PolicyDataProps = {
                     ...policyData,
@@ -256,95 +256,95 @@ export default function YourRules() {
 
                 // Update local state and initial snapshots
                 setPolicyData(mergedPolicyData);
-				setInitialDepositData(depositData);
-				setInitialPolicyData(mergedPolicyData);
-				setInitialTemplateData(templateData);
+                setInitialDepositData(depositData);
+                setInitialPolicyData(mergedPolicyData);
+                setInitialTemplateData(templateData);
 
-				// Optimistically update store
-				const updatedRule = {
-					...(artist.rule || {}),
-					deposit_amount: depositData.depositAmount,
-					deposit_hold_time: depositData.depositHoldTime,
-					deposit_remind_time: depositData.depositRemindTime,
-					paypal_enabled: depositData.paypalEnabled,
-					paypal_method: depositData.paypalMethod,
-					etransfer_enabled: depositData.etransferEnabled,
-					etransfer_method: depositData.etransferMethod,
-					creditcard_enabled: depositData.creditcardEnabled,
-					creditcard_method: depositData.creditcardMethod,
-					venmo_enabled: depositData.venmoEnabled,
-					venmo_method: depositData.venmoMethod,
-					deposit_policy: mergedPolicyData.depositPolicy,
-					cancellation_policy: mergedPolicyData.cancellationPolicy,
-					reschedule_policy: mergedPolicyData.reschedulePolicy,
-					question_one: mergedPolicyData.questionOne,
-					question_two: mergedPolicyData.questionTwo,
-					waiver_text: mergedPolicyData.waiverText,
-					privacy_policy: mergedPolicyData.privacyPolicy,
-					terms_of_condition: mergedPolicyData.termsOfCondition,
-				};
+                // Optimistically update store
+                const updatedRule = {
+                    ...(artist.rule || {}),
+                    deposit_amount: depositData.depositAmount,
+                    deposit_hold_time: depositData.depositHoldTime,
+                    deposit_remind_time: depositData.depositRemindTime,
+                    paypal_enabled: depositData.paypalEnabled,
+                    paypal_method: depositData.paypalMethod,
+                    etransfer_enabled: depositData.etransferEnabled,
+                    etransfer_method: depositData.etransferMethod,
+                    creditcard_enabled: depositData.creditcardEnabled,
+                    creditcard_method: depositData.creditcardMethod,
+                    venmo_enabled: depositData.venmoEnabled,
+                    venmo_method: depositData.venmoMethod,
+                    deposit_policy: mergedPolicyData.depositPolicy,
+                    cancellation_policy: mergedPolicyData.cancellationPolicy,
+                    reschedule_policy: mergedPolicyData.reschedulePolicy,
+                    question_one: mergedPolicyData.questionOne,
+                    question_two: mergedPolicyData.questionTwo,
+                    waiver_text: mergedPolicyData.waiverText,
+                    privacy_policy: mergedPolicyData.privacyPolicy,
+                    terms_of_condition: mergedPolicyData.termsOfCondition,
+                };
 
-				const updatedTemplate = {
-					...(artist.template || {}),
-					new_booking_request_received_subject: templateData.newBookingRequestReceivedSubject,
-					new_booking_request_received_body: templateData.newBookingRequestReceivedBody,
-					booking_request_approved_auto_subject: templateData.bookingRequestApprovedAutoSubject,
-					booking_request_approved_auto_body: templateData.bookingRequestApprovedAutoBody,
-					booking_request_approved_manual_subject: templateData.bookingRequestApprovedManualSubject,
-					booking_request_approved_manual_body: templateData.bookingRequestApprovedManualBody,
-					declined_booking_request_subject: templateData.declinedBookingRequestSubject,
-					declined_booking_request_body: templateData.declinedBookingRequestBody,
-					deposit_payment_reminder_subject: templateData.depositPaymentReminderSubject,
-					deposit_payment_reminder_body: templateData.depositPaymentReminderBody,
-					deposit_forfeit_subject: templateData.depositForfeitSubject,
-					deposit_forfeit_body: templateData.depositForfeitBody,
-					deposit_keep_subject: templateData.depositKeepSubject,
-					deposit_keep_body: templateData.depositKeepBody,
-					consult_confirmation_subject: templateData.consultConfirmationSubject,
-					consult_confirmation_body: templateData.consultConfirmationBody,
-					consult_reminder_subject: templateData.consultReminderSubject,
-					consult_reminder_body: templateData.consultReminderBody,
-					consult_declined_subject: templateData.consultDeclinedSubject,
-					consult_declined_body: templateData.consultDeclinedBody,
-					appointment_confirmation_no_profile_subject: templateData.appointmentConfirmationNoProfileSubject,
-					appointment_confirmation_no_profile_body: templateData.appointmentConfirmationNoProfileBody,
-					appointment_confirmation_with_profile_subject: templateData.appointmentConfirmationWithProfileSubject,
-					appointment_confirmation_with_profile_body: templateData.appointmentConfirmationWithProfileBody,
-					appointment_final_confirmation_subject: templateData.appointmentFinalConfirmationSubject,
-					appointment_final_confirmation_body: templateData.appointmentFinalConfirmationBody,
-					waiver_reminder_subject: templateData.waiverReminderSubject,
-					waiver_reminder_body: templateData.waiverReminderBody,
-					healing_check_in_subject: templateData.healingCheckInSubject,
-					healing_check_in_body: templateData.healingCheckInBody,
-					cancellation_notification_subject: templateData.cancellationNotificationSubject,
-					cancellation_notification_body: templateData.cancellationNotificationBody,
-				};
+                const updatedTemplate = {
+                    ...(artist.template || {}),
+                    new_booking_request_received_subject: templateData.newBookingRequestReceivedSubject,
+                    new_booking_request_received_body: templateData.newBookingRequestReceivedBody,
+                    booking_request_approved_auto_subject: templateData.bookingRequestApprovedAutoSubject,
+                    booking_request_approved_auto_body: templateData.bookingRequestApprovedAutoBody,
+                    booking_request_approved_manual_subject: templateData.bookingRequestApprovedManualSubject,
+                    booking_request_approved_manual_body: templateData.bookingRequestApprovedManualBody,
+                    declined_booking_request_subject: templateData.declinedBookingRequestSubject,
+                    declined_booking_request_body: templateData.declinedBookingRequestBody,
+                    deposit_payment_reminder_subject: templateData.depositPaymentReminderSubject,
+                    deposit_payment_reminder_body: templateData.depositPaymentReminderBody,
+                    deposit_forfeit_subject: templateData.depositForfeitSubject,
+                    deposit_forfeit_body: templateData.depositForfeitBody,
+                    deposit_keep_subject: templateData.depositKeepSubject,
+                    deposit_keep_body: templateData.depositKeepBody,
+                    consult_confirmation_subject: templateData.consultConfirmationSubject,
+                    consult_confirmation_body: templateData.consultConfirmationBody,
+                    consult_reminder_subject: templateData.consultReminderSubject,
+                    consult_reminder_body: templateData.consultReminderBody,
+                    consult_declined_subject: templateData.consultDeclinedSubject,
+                    consult_declined_body: templateData.consultDeclinedBody,
+                    appointment_confirmation_no_profile_subject: templateData.appointmentConfirmationNoProfileSubject,
+                    appointment_confirmation_no_profile_body: templateData.appointmentConfirmationNoProfileBody,
+                    appointment_confirmation_with_profile_subject: templateData.appointmentConfirmationWithProfileSubject,
+                    appointment_confirmation_with_profile_body: templateData.appointmentConfirmationWithProfileBody,
+                    appointment_final_confirmation_subject: templateData.appointmentFinalConfirmationSubject,
+                    appointment_final_confirmation_body: templateData.appointmentFinalConfirmationBody,
+                    waiver_reminder_subject: templateData.waiverReminderSubject,
+                    waiver_reminder_body: templateData.waiverReminderBody,
+                    healing_check_in_subject: templateData.healingCheckInSubject,
+                    healing_check_in_body: templateData.healingCheckInBody,
+                    cancellation_notification_subject: templateData.cancellationNotificationSubject,
+                    cancellation_notification_body: templateData.cancellationNotificationBody,
+                };
 
-				dispatch(updateArtistRules(updatedRule as any));
-				dispatch(updateArtistTemplates(updatedTemplate as any));
+                dispatch(updateArtistRules(updatedRule as any));
+                dispatch(updateArtistTemplates(updatedTemplate as any));
 
-				toast({
-					variant: 'success',
-					title: 'Changes saved successfully',
-					duration: 2500,
-				});
-			} else {
-				toast({
-					variant: 'error',
-					title: result.error || 'Failed to save changes',
-					duration: 3000,
-				});
-			}
-		} catch (error) {
-			console.error('Error saving rule changes:', error);
-			toast({
-				variant: 'error',
-				title: 'An unexpected error occurred',
-				duration: 3000,
-			});
-		} finally {
-			setSaving(false);
-		}
+                toast({
+                    variant: 'success',
+                    title: 'Changes saved successfully',
+                    duration: 2500,
+                });
+            } else {
+                toast({
+                    variant: 'error',
+                    title: result.error || 'Failed to save changes',
+                    duration: 3000,
+                });
+            }
+        } catch (error) {
+            console.error('Error saving rule changes:', error);
+            toast({
+                variant: 'error',
+                title: 'An unexpected error occurred',
+                duration: 3000,
+            });
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -427,16 +427,18 @@ export default function YourRules() {
                             }}
                         >
                             <View className="px-4 py-4 bg-background flex-row gap-4">
-                                <View className="flex-1">
-                                    <Button
-                                        variant="outline"
-                                        onPress={handleResetTemplateToDefault}
-                                        disabled={saving || !hasTemplateChanges}
-                                        className="w-full"
-                                    >
-                                        <Text className="text-white font-semibold">Restore to Default</Text>
-                                    </Button>
-                                </View>
+                                {hasTemplateChanges &&
+                                    <View className="flex-1">
+                                        <Button
+                                            variant="outline"
+                                            onPress={handleResetTemplateToDefault}
+                                            disabled={saving || !hasTemplateChanges}
+                                            className="w-full"
+                                        >
+                                            <Text className="text-white font-semibold">Restore to Default</Text>
+                                        </Button>
+                                    </View>
+                                }
                                 <View className="flex-1">
                                     <Button
                                         variant="outline"
@@ -455,11 +457,11 @@ export default function YourRules() {
                 </StableGestureWrapper>
             </SafeAreaView>
 
-			<LoadingOverlay
-				visible={saving}
-				title="Saving changes"
-				subtitle={saveMessage}
-			/>
+            <LoadingOverlay
+                visible={saving}
+                title="Saving changes"
+                subtitle={saveMessage}
+            />
         </>
     );
 }

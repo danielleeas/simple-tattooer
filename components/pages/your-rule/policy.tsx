@@ -15,6 +15,8 @@ import { FilePicker } from "@/components/lib/file-picker";
 import PLUS_THIN_IMAGE from "@/assets/images/icons/plus_thin.png";
 import { useAuth, useToast } from "@/lib/contexts";
 import { updateBookingQuestions } from "@/lib/services/setting-service";
+import { useDispatch } from "react-redux";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 import { Collapse } from "@/components/lib/collapse";
 
 interface PolicyProps {
@@ -28,6 +30,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
     const [updatingQuestions, setUpdatingQuestions] = useState(false);
     const { artist } = useAuth();
     const { toast } = useToast();
+    const dispatch = useDispatch();
 
     const handleUpdateQuestions = async () => {
         setUpdatingQuestions(true);
@@ -43,6 +46,18 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
 
             if (!result.success) {
                 throw new Error(result.error || 'Failed to update questions');
+            }
+
+            // Update artist state with new questions
+            if (artist) {
+                dispatch(setArtist({
+                    ...artist,
+                    rule: {
+                        ...artist.rule,
+                        question_one: policyData.questionOne,
+                        question_two: policyData.questionTwo,
+                    },
+                }));
             }
 
             setIsModalOpen(false);
@@ -99,22 +114,6 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                         className='min-h-28'
                         value={policyData.cancellationPolicy || ''}
                         onChangeText={(text) => updatePolicyData({ cancellationPolicy: text })}
-                        placeholder="Type your message here."
-                    />
-                </Collapse>
-            </View>
-
-            <View className="gap-2">
-                <Collapse title="Reschedule policy text for emails" textClassName="text-xl">
-                    <Textarea
-                        spellCheck={false}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                        autoComplete="off"
-                        autoFocus={false}
-                        className='min-h-28'
-                        value={policyData.reschedulePolicy || ''}
-                        onChangeText={(text) => updatePolicyData({ reschedulePolicy: text })}
                         placeholder="Type your message here."
                     />
                 </Collapse>
@@ -214,7 +213,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                                         </View>
 
                                         <View className="gap-3">
-                                            <Button size="lg" onPress={handleUpdateQuestions} disabled={updatingQuestions}>
+                                            <Button variant='outline' onPress={handleUpdateQuestions} disabled={updatingQuestions}>
                                                 <Text variant='h5'>{updatingQuestions ? "Updating..." : "Add to Booking Form"}</Text>
                                             </Button>
                                         </View>

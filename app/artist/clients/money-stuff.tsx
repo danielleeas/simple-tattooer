@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { View, Image, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +28,7 @@ const PAYMENT_METHODS = [
     // Only methods controlled by enabled flags
     { label: "PayPal", value: "paypal" },
     { label: "E-Transfer", value: "e_transfer" },
-    { label: "Credit Card", value: "credit_card" },
+    { label: "Credit Card", value: "credit-card" },
     { label: "Venmo", value: "venmo" },
 ];
 
@@ -259,15 +259,15 @@ export default function ClientMoneyStuff() {
 		}
     };
 
-    const enabledPaymentValues = (() => {
-        const rules = (artist as any)?.rules || {};
+    const enabledPaymentValues = useMemo(() => {
+        const rule = (artist as any)?.rule || {};
         const enabled: string[] = [];
-        if (rules.paypal_enabled) enabled.push('paypal');
-        if (rules.etransfer_enabled) enabled.push('e_transfer');
-        if (rules.credit_card_enabled) enabled.push('credit_card');
-        if (rules.venmo_enabled) enabled.push('venmo');
+        if (rule.paypal_enabled) enabled.push('paypal');
+        if (rule.etransfer_enabled) enabled.push('e_transfer');
+        if (rule.creditcard_enabled) enabled.push('credit-card');
+        if (rule.venmo_enabled) enabled.push('venmo');
         return enabled;
-    })();
+    }, [artist]);
 
     const enabledPaymentOptions = PAYMENT_METHODS.filter(opt => enabledPaymentValues.includes(opt.value));
 
@@ -452,8 +452,6 @@ export default function ClientMoneyStuff() {
             </>
         );
     }
-
-    console.log('projects', projects);
 
     return (
         <>
