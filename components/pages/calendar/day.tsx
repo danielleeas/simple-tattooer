@@ -147,6 +147,12 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
                 params: { client_id: null, project_id: null, session_id: source_id }
             });
         }
+        else if (source === 'mark_unavailable') {
+            router.push({
+                pathname: '/artist/calendar/unavailable',
+                params: { id: source_id }
+            });
+        }
     }
 
     return (

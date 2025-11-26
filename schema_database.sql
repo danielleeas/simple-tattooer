@@ -443,7 +443,7 @@ CREATE TABLE IF NOT EXISTS event_block_times (
   start_time TEXT NOT NULL,
   end_time TEXT NOT NULL,
   repeatable BOOLEAN NOT NULL DEFAULT FALSE,
-  repeat_type TEXT NOT NULL DEFAULT 'daily',7
+  repeat_type TEXT NOT NULL DEFAULT 'daily',
   repeat_duration INTEGER NOT NULL DEFAULT 1,
   repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
   notes TEXT NULL,
@@ -462,6 +462,31 @@ CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_type ON event_block_time
 CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_duration ON event_block_times(repeat_duration);
 CREATE INDEX IF NOT EXISTS idx_event_block_times_repeat_duration_unit ON event_block_times(repeat_duration_unit);
 CREATE INDEX IF NOT EXISTS idx_event_block_times_notes ON event_block_times(notes);
+
+-- mark unavailables table for storing mark unavailables
+CREATE TABLE IF NOT EXISTS mark_unavailables (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  repeatable BOOLEAN NOT NULL DEFAULT FALSE,
+  repeat_type TEXT NOT NULL DEFAULT 'daily',
+  repeat_duration INTEGER NOT NULL DEFAULT 1,
+  repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
+  notes TEXT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for mark unavailables
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_artist_id ON mark_unavailables(artist_id);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_date ON mark_unavailables(date);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_repeatable ON mark_unavailables(repeatable) WHERE repeatable = true;
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_repeat_type ON mark_unavailables(repeat_type);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_repeat_duration ON mark_unavailables(repeat_duration);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_repeat_duration_unit ON mark_unavailables(repeat_duration_unit);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_notes ON mark_unavailables(notes);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_created_at ON mark_unavailables(created_at);
+CREATE INDEX IF NOT EXISTS idx_mark_unavailables_updated_at ON mark_unavailables(updated_at);
 
 -- events table for storing events
 CREATE TABLE IF NOT EXISTS events (

@@ -174,6 +174,14 @@ export default function CalendarPage() {
         closeActionModal();
     }
 
+    const openMarkUnavailableAdd = () => {
+        router.push({
+            pathname: '/artist/calendar/unavailable',
+            params: { date: formatYmd(currentDate) },
+        });
+        closeActionModal();
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -336,7 +344,7 @@ export default function CalendarPage() {
 
                             <Pressable
                                 className="flex-row items-start justify-between gap-2"
-                                onPress={closeActionModal}
+                                onPress={openMarkUnavailableAdd}
                                 accessibilityRole="button"
                                 accessibilityLabel="Quick Add Appointment"
                             >

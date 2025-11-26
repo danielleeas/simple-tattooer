@@ -1792,3 +1792,343 @@ export async function deleteQuickAppointment(id: string): Promise<{ success: boo
 		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mark Unavailable
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CreateMarkUnavailableParams {
+	artistId: string;
+	date: string;
+	repeatable?: boolean;
+	repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+	repeatDuration?: number;
+	repeatDurationUnit?: 'days' | 'weeks' | 'months' | 'years';
+	notes?: string;
+}
+
+export interface CreateMarkUnavailableResult {
+	success: boolean;
+	error?: string;
+}
+
+export async function createMarkUnavailable(params: CreateMarkUnavailableParams): Promise<CreateMarkUnavailableResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.date) {
+			return { success: false, error: 'Date is required' };
+		}
+
+		const isRepeat = !!params.repeatable;
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' | 'yearly' = params.repeatType ?? 'daily';
+		const resolvedUnit: 'days' | 'weeks' | 'months' | 'years' =
+			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
+		const resolvedDuration = params.repeatDuration ?? 1;
+
+		const insertPayload = {
+			artist_id: params.artistId,
+			date: params.date,
+			repeatable: isRepeat,
+			repeat_type: resolvedRepeatType,
+			repeat_duration: resolvedDuration,
+			repeat_duration_unit: resolvedUnit,
+			notes: params.notes?.trim() || null,
+		};
+
+		const { data: row, error: insertErr } = await supabase
+			.from('mark_unavailables')
+			.insert([insertPayload])
+			.select('id')
+			.single();
+
+		if (insertErr) {
+			return { success: false, error: insertErr.message || 'Failed to mark unavailable' };
+		}
+
+		// Helpers for date math
+		function parseYmd(ymd: string): Date {
+			return new Date(`${ymd}T12:00:00`);
+		}
+		function addDays(d: Date, days: number): Date {
+			const nd = new Date(d);
+			nd.setDate(nd.getDate() + days);
+			return nd;
+		}
+		function addWeeks(d: Date, weeks: number): Date {
+			return addDays(d, weeks * 7);
+		}
+		function addMonths(d: Date, months: number): Date {
+			const nd = new Date(d);
+			nd.setMonth(nd.getMonth() + months);
+			return nd;
+		}
+		function addYears(d: Date, years: number): Date {
+			const nd = new Date(d);
+			nd.setFullYear(nd.getFullYear() + years);
+			return nd;
+		}
+		function formatYmd(d: Date): string {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${y}-${m}-${day}`;
+		}
+
+		// Build occurrences
+		const baseDate = parseYmd(params.date);
+		let windowEndExclusive: Date | null = null;
+		if (isRepeat) {
+			if (resolvedUnit === 'days') {
+				windowEndExclusive = addDays(baseDate, resolvedDuration);
+			} else if (resolvedUnit === 'weeks') {
+				windowEndExclusive = addWeeks(baseDate, resolvedDuration);
+			} else if (resolvedUnit === 'months') {
+				windowEndExclusive = addMonths(baseDate, resolvedDuration);
+			} else {
+				windowEndExclusive = addYears(baseDate, resolvedDuration);
+			}
+		}
+
+		const occurrences: Date[] = [];
+
+		if (!isRepeat) {
+			occurrences.push(baseDate);
+		} else {
+			let cursor = new Date(baseDate);
+			if (resolvedRepeatType === 'daily') {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addDays(cursor, 1);
+				}
+			} else if (resolvedRepeatType === 'weekly') {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addWeeks(cursor, 1);
+				}
+			} else if (resolvedRepeatType === 'monthly') {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addMonths(cursor, 1);
+				}
+			} else {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addYears(cursor, 1);
+				}
+			}
+		}
+
+		// Create all-day events for each occurrence
+		for (const occ of occurrences) {
+			const dateStr = formatYmd(occ);
+			await createEvent({
+				artistId: params.artistId,
+				title: 'Unavailable',
+				startDate: `${dateStr} 00:00`,
+				endDate: `${dateStr} 23:59`,
+				allDay: true,
+				color: 'blue',
+				type: 'background',
+				source: 'mark_unavailable',
+				sourceId: row.id,
+			});
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export interface MarkUnavailableRecord {
+	id: string;
+	artist_id: string;
+	date: string;
+	repeatable: boolean;
+	repeat_type: 'daily' | 'weekly' | 'monthly' | 'yearly';
+	repeat_duration: number;
+	repeat_duration_unit: 'days' | 'weeks' | 'months' | 'years';
+	notes: string | null;
+}
+
+export async function getMarkUnavailableById(id: string): Promise<{ success: boolean; data?: MarkUnavailableRecord; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		const { data, error } = await supabase
+			.from('mark_unavailables')
+			.select('*')
+			.eq('id', id)
+			.single();
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load mark unavailable' };
+		}
+		return { success: true, data: data as MarkUnavailableRecord };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function updateMarkUnavailable(id: string, params: Partial<CreateMarkUnavailableParams>): Promise<CreateMarkUnavailableResult> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const { data: existing, error: fetchErr } = await supabase
+			.from('mark_unavailables')
+			.select('*')
+			.eq('id', id)
+			.single();
+
+		if (fetchErr || !existing) {
+			return { success: false, error: fetchErr?.message || 'Record not found' };
+		}
+
+		const isRepeat = params.repeatable ?? existing.repeatable;
+		const resolvedRepeatType = params.repeatType ?? existing.repeat_type;
+		const resolvedUnit = params.repeatDurationUnit ?? existing.repeat_duration_unit;
+		const resolvedDuration = params.repeatDuration ?? existing.repeat_duration;
+		const dateStr = params.date ?? existing.date;
+		const artistId = params.artistId ?? existing.artist_id;
+
+		const updatePayload = {
+			date: dateStr,
+			repeatable: isRepeat,
+			repeat_type: resolvedRepeatType,
+			repeat_duration: resolvedDuration,
+			repeat_duration_unit: resolvedUnit,
+			notes: params.notes?.trim() || null,
+		};
+
+		const { error: updateErr } = await supabase
+			.from('mark_unavailables')
+			.update(updatePayload)
+			.eq('id', id);
+
+		if (updateErr) {
+			return { success: false, error: updateErr.message || 'Failed to update' };
+		}
+
+		// Delete old events and recreate
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'mark_unavailable')
+			.eq('source_id', id);
+
+		// Helpers for date math
+		function parseYmd(ymd: string): Date {
+			return new Date(`${ymd}T12:00:00`);
+		}
+		function addDays(d: Date, days: number): Date {
+			const nd = new Date(d);
+			nd.setDate(nd.getDate() + days);
+			return nd;
+		}
+		function addWeeks(d: Date, weeks: number): Date {
+			return addDays(d, weeks * 7);
+		}
+		function addMonths(d: Date, months: number): Date {
+			const nd = new Date(d);
+			nd.setMonth(nd.getMonth() + months);
+			return nd;
+		}
+		function addYears(d: Date, years: number): Date {
+			const nd = new Date(d);
+			nd.setFullYear(nd.getFullYear() + years);
+			return nd;
+		}
+		function formatYmd(d: Date): string {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${y}-${m}-${day}`;
+		}
+
+		const baseDate = parseYmd(dateStr);
+		let windowEndExclusive: Date | null = null;
+		if (isRepeat) {
+			if (resolvedUnit === 'days') {
+				windowEndExclusive = addDays(baseDate, resolvedDuration);
+			} else if (resolvedUnit === 'weeks') {
+				windowEndExclusive = addWeeks(baseDate, resolvedDuration);
+			} else if (resolvedUnit === 'months') {
+				windowEndExclusive = addMonths(baseDate, resolvedDuration);
+			} else {
+				windowEndExclusive = addYears(baseDate, resolvedDuration);
+			}
+		}
+
+		const occurrences: Date[] = [];
+		if (!isRepeat) {
+			occurrences.push(baseDate);
+		} else {
+			let cursor = new Date(baseDate);
+			if (resolvedRepeatType === 'daily') {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addDays(cursor, 1);
+				}
+			} else if (resolvedRepeatType === 'weekly') {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addWeeks(cursor, 1);
+				}
+			} else if (resolvedRepeatType === 'monthly') {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addMonths(cursor, 1);
+				}
+			} else {
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addYears(cursor, 1);
+				}
+			}
+		}
+
+		for (const occ of occurrences) {
+			const occDateStr = formatYmd(occ);
+			await createEvent({
+				artistId,
+				title: 'Unavailable',
+				startDate: `${occDateStr} 00:00`,
+				endDate: `${occDateStr} 23:59`,
+				allDay: true,
+				color: 'blue',
+				type: 'background',
+				source: 'mark_unavailable',
+				sourceId: id,
+			});
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function deleteMarkUnavailable(id: string): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		const { error } = await supabase
+			.from('mark_unavailables')
+			.delete()
+			.eq('id', id);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to delete' };
+		}
+
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'mark_unavailable')
+			.eq('source_id', id);
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
