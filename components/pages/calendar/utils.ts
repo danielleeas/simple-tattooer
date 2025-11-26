@@ -61,6 +61,8 @@ export const getEventColorClass = (color: string) => {
             return 'bg-orange-500';
         case 'purple':
             return 'bg-purple';
+        case 'grey':
+            return 'bg-gray-600';
         default:
             return 'bg-primary';
     }

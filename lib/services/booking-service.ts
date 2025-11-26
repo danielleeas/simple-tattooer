@@ -223,6 +223,8 @@ export interface CreateManualBookingInput {
     sessionRate: number;
     notes?: string;
     waiverSigned?: boolean;
+    source?: string;
+    sourceId?: string;
 }
 
 export interface CreateManualBookingResult {
@@ -278,6 +280,8 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
                 location_id: input.locationId,
                 session_rate: input.sessionRate,
                 notes: input.notes ?? null,
+                source: input.source || 'manual',
+                source_id: input.sourceId || '',
             }])
             .select('id')
             .single();

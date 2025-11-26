@@ -22,6 +22,9 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
+import { createClientWithAuth } from '@/lib/services/clients-service';
+import { createQuickAppointment } from '@/lib/services/calendar-service';
+import { createManualBooking } from "@/lib/services/booking-service";
 
 type QuickAppointmentData = {
     fullName: string;
@@ -60,7 +63,7 @@ export default function QuickAppointmentAddPage() {
         email: '',
         phoneNumber: '',
         date: '',
-        startTime: '',
+        startTime: '09:00',
         sessionLength: '',
         notes: '',
         waiverSigned: false,
@@ -110,18 +113,81 @@ export default function QuickAppointmentAddPage() {
             return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         })();
 
-        const crateData = {
+        const result = await createQuickAppointment({
             artistId: artist.id,
             date: dateStr,
             fullName: formData.fullName,
             email: formData.email,
             phoneNumber: formData.phoneNumber,
             startTime: formData.startTime,
-            sessionLength: formData.sessionLength,
+            sessionLength: parseInt(formData.sessionLength),
             notes: formData.notes,
+        });
+
+        if (!result.success) {
+            toast({ variant: 'error', title: result.error || 'Failed to create appointment', duration: 2500 });
+            return;
         }
 
-        console.log(crateData);
+        const created = await createClientWithAuth({
+            full_name: formData.fullName.trim(),
+            email: formData.email.trim(),
+            phone_number: formData.phoneNumber?.trim() || '',
+            project_notes: formData.notes ? formData.notes : null,
+            artist_id: artist.id,
+        });
+        if (!created?.success || !created?.client?.id) {
+            toast({
+                variant: 'error',
+                title: 'Failed to create client',
+                duration: 3000,
+            });
+            return;
+        }
+        const clientId: string = created.client.id as string;
+
+        const locations = Array.isArray(artist?.locations) ? artist.locations : [];
+        const mainLocation = locations.find((l: any) => (l as any)?.is_main_studio);
+        const fallbackLocation = locations[0];
+        const locationId = String((mainLocation?.id || fallbackLocation?.id || ''));
+
+        if (!locationId) {
+            toast({
+                variant: 'error',
+                title: 'Missing location',
+                duration: 3000,
+            });
+            return;
+        }
+
+        const bookingResult = await createManualBooking({
+            artistId: artist.id,
+            clientId,
+            title: formData.fullName?.trim() || 'Appointment',
+            sessionLengthMinutes: parseInt(formData.sessionLength) || 0,
+            locationId,
+            date: new Date(dateStr),
+            startTimeDisplay: formData.startTime,
+            depositAmount: 0,
+            sessionRate: 0,
+            notes: formData.notes || '',
+            waiverSigned: formData.waiverSigned,
+            source: 'quick_appointment',
+            sourceId: result.id,
+        });
+
+        if (!bookingResult.success) {
+            toast({
+                variant: 'error',
+                title: 'Failed to create booking',
+                description: result.error || 'Please try again',
+                duration: 3000,
+            });
+            return;
+        }
+
+        toast({ variant: 'success', title: 'Quick appointment created', duration: 2500 });
+        router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
     };
 
     return (

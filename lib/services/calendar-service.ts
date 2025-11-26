@@ -1570,3 +1570,158 @@ export async function updateEventBlockTime(
 		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quick Appointments
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CreateQuickAppointmentParams {
+	artistId: string;
+	date: string; // "YYYY-MM-DD"
+	fullName: string;
+	email: string;
+	phoneNumber?: string;
+	startTime: string; // "HH:mm"
+	sessionLength: number; // minutes
+	notes?: string;
+}
+
+export interface CreateQuickAppointmentResult {
+	success: boolean;
+	id?: string;
+	error?: string;
+}
+
+export async function createQuickAppointment(params: CreateQuickAppointmentParams): Promise<CreateQuickAppointmentResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.fullName?.trim()) {
+			return { success: false, error: 'Full name is required' };
+		}
+		if (!params.email?.trim()) {
+			return { success: false, error: 'Email is required' };
+		}
+		if (!params.date) {
+			return { success: false, error: 'Date is required' };
+		}
+		if (!params.startTime) {
+			return { success: false, error: 'Start time is required' };
+		}
+		if (!params.sessionLength || params.sessionLength <= 0) {
+			return { success: false, error: 'Session length is required' };
+		}
+
+		const payload = {
+			artist_id: params.artistId,
+			full_name: params.fullName.trim(),
+			email: params.email.trim(),
+			phone_number: params.phoneNumber?.trim() || null,
+			date: params.date,
+			start_time: params.startTime,
+			session_length: params.sessionLength,
+			notes: params.notes?.trim() || null,
+		};
+
+		const { data, error } = await supabase
+			.from('quick_appointments')
+			.insert([payload])
+			.select('id')
+			.single();
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to create quick appointment' };
+		}
+
+		const quickAppointmentId = data?.id as string;
+
+		// Calculate end time
+		const [hours, minutes] = params.startTime.split(':').map(Number);
+		const startMinutes = hours * 60 + minutes;
+		const endMinutes = startMinutes + params.sessionLength;
+		const endHours = Math.floor(endMinutes / 60) % 24;
+		const endMins = endMinutes % 60;
+		const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+		// Create event with grey color
+		const ev = await createEvent({
+			artistId: params.artistId,
+			title: params.fullName.trim(),
+			startDate: `${params.date} ${params.startTime}`,
+			endDate: `${params.date} ${endTime}`,
+			allDay: false,
+			color: 'grey',
+			type: 'item',
+			source: 'quick_appointment',
+			sourceId: quickAppointmentId,
+		});
+
+		if (!ev.success) {
+			// Rollback: delete the quick_appointment record
+			await supabase.from('quick_appointments').delete().eq('id', quickAppointmentId);
+			return { success: false, error: ev.error || 'Failed to create event' };
+		}
+
+		return { success: true, id: quickAppointmentId };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export interface QuickAppointmentRecord {
+	id: string;
+	artist_id: string;
+	full_name: string;
+	email: string;
+	phone_number: string | null;
+	date: string;
+	start_time: string;
+	session_length: number;
+	notes: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export async function getQuickAppointmentById(id: string): Promise<{ success: boolean; data?: QuickAppointmentRecord; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		const { data, error } = await supabase
+			.from('quick_appointments')
+			.select('*')
+			.eq('id', id)
+			.single();
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load quick appointment' };
+		}
+		return { success: true, data: data as QuickAppointmentRecord };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
+export async function deleteQuickAppointment(id: string): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		
+		// Delete the quick_appointment (events with source='quick_appointment' will need separate cleanup or cascade)
+		const { error } = await supabase
+			.from('quick_appointments')
+			.delete()
+			.eq('id', id);
+		if (error) {
+			return { success: false, error: error.message || 'Failed to delete quick appointment' };
+		}
+		
+		// Delete associated event
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'quick_appointment')
+			.eq('source_id', id);
+		
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}

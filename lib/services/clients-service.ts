@@ -430,7 +430,7 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 			// Fetch sessions for the project
 			const { data: sessions, error: sessionsErr } = await supabase
 				.from('sessions')
-				.select('id, date, start_time, duration')
+				.select('id, date, start_time, duration, source, source_id')
 				.eq('project_id', projectId);
 
 			if (sessionsErr) {
@@ -452,7 +452,7 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 				const existingSet = new Set<string>((existing || []).map((e: any) => e.source_id));
 
 				const rowsToInsert = sessions
-					.filter((s: any) => !!s?.id && !!s?.date && !existingSet.has(s.id))
+					.filter((s: any) => !!s?.id && !!s?.date && !existingSet.has(s.id) && s.source !== 'quick_appointment')
 					.map((s: any) => {
 						const rawStart = String(s?.start_time ?? '00:00').padStart(5, '0');
 						const startTime = /^\d{2}:\d{2}$/.test(rawStart) ? rawStart : '00:00';
