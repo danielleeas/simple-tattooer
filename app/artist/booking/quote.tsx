@@ -205,6 +205,8 @@ export default function QuoteBooking() {
                 resolvedClientId = created.client.id;
             }
 
+            console.log('resolvedClientId', resolvedClientId);
+
             const result = await createManualBooking({
                 artistId: artist.id,
                 clientId: resolvedClientId,
@@ -219,9 +221,10 @@ export default function QuoteBooking() {
             });
 
             if (!result.success) {
+                console.log('result', result.error);
                 toast({
                     variant: 'error',
-                    title: 'Failed to create booking',
+                    title: 'Failed to create booking111',
                     description: result.error || 'Please try again',
                     duration: 3000,
                 });

@@ -414,18 +414,18 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 	// 3) On deposit paid, create calendar events for all sessions of this project
 	if (isPaid) {
 		try {
-			// Get project title for event title
-			const { data: projectRow, error: fetchProjectErr } = await supabase
-				.from('projects')
-				.select('title')
-				.eq('id', projectId)
+			// Get client name for event title
+			const { data: clientRow, error: fetchClientErr } = await supabase
+				.from('clients')
+				.select('full_name')
+				.eq('id', clientId)
 				.single();
 
-			if (fetchProjectErr) {
-				console.warn('Unable to fetch project title for session events:', fetchProjectErr);
+			if (fetchClientErr) {
+				console.warn('Unable to fetch client name for session events:', fetchClientErr);
 			}
 
-			const eventTitle = projectRow?.title || 'Session';
+			const eventTitle = clientRow?.full_name || 'Session';
 
 			// Fetch sessions for the project
 			const { data: sessions, error: sessionsErr } = await supabase

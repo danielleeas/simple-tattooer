@@ -281,7 +281,7 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
                 session_rate: input.sessionRate,
                 notes: input.notes ?? null,
                 source: input.source || 'manual',
-                source_id: input.sourceId || '',
+                source_id: input.sourceId || null,
             }])
             .select('id')
             .single();
