@@ -413,9 +413,8 @@ CREATE TABLE IF NOT EXISTS off_days (
   start_date TEXT NOT NULL,
   end_date TEXT NOT NULL,
   is_repeat BOOLEAN NOT NULL DEFAULT FALSE,
-  repeat_type TEXT NOT NULL DEFAULT 'daily',
-  repeat_duration INTEGER NOT NULL DEFAULT 1,
-  repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
+  repeat_length INTEGER NOT NULL DEFAULT 1,
+  repeat_unit TEXT NOT NULL DEFAULT 'days',
   notes TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -427,9 +426,8 @@ CREATE INDEX IF NOT EXISTS idx_off_days_title ON off_days(title);
 CREATE INDEX IF NOT EXISTS idx_off_days_start_date ON off_days(start_date);
 CREATE INDEX IF NOT EXISTS idx_off_days_end_date ON off_days(end_date);
 CREATE INDEX IF NOT EXISTS idx_off_days_is_repeat ON off_days(is_repeat) WHERE is_repeat = true;
-CREATE INDEX IF NOT EXISTS idx_off_days_repeat_type ON off_days(repeat_type);
-CREATE INDEX IF NOT EXISTS idx_off_days_repeat_duration ON off_days(repeat_duration);
-CREATE INDEX IF NOT EXISTS idx_off_days_repeat_duration_unit ON off_days(repeat_duration_unit);
+CREATE INDEX IF NOT EXISTS idx_off_days_repeat_length ON off_days(repeat_length);
+CREATE INDEX IF NOT EXISTS idx_off_days_repeat_unit ON off_days(repeat_unit);
 CREATE INDEX IF NOT EXISTS idx_off_days_notes ON off_days(notes);
 CREATE INDEX IF NOT EXISTS idx_off_days_created_at ON off_days(created_at);
 CREATE INDEX IF NOT EXISTS idx_off_days_updated_at ON off_days(updated_at);

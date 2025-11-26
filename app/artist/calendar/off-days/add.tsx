@@ -25,8 +25,8 @@ type OffDaysFormData = {
     startDate: string;
     endDate: string;
     isRepeat: boolean;
-    repeatType: 'daily' | 'weekly' | 'monthly';
-    repeatDuration?: { value: number; unit: 'weeks' | 'months' | 'years' };
+    repeatLength?: number;
+    repeatUnit?: 'days' | 'weeks' | 'months' | 'years';
     notes: string;
 };
 
@@ -42,8 +42,8 @@ export default function AddOffDaysPage() {
         startDate: '',
         endDate: '',
         isRepeat: false,
-        repeatType: 'daily',
-        repeatDuration: undefined,
+        repeatLength: undefined,
+        repeatUnit: 'days',
         notes: '',
     });
 
@@ -77,29 +77,55 @@ export default function AddOffDaysPage() {
         setFormData((prev: OffDaysFormData) => ({ ...prev, startDate: start, endDate: end }));
     };
 
-    // Disable repeat types depending on the selected range
-    const rangeLength = (formData.startDate && formData.endDate)
-        ? buildRangeDates(formData.startDate, formData.endDate).length
-        : 0;
-    const disableDaily = rangeLength > 1;
-    const disableWeekly = rangeLength > 7;
+    const repeatDuration = (length?: number, unit?: 'days' | 'weeks' | 'months' | 'years'): { value: number; unit: 'days' | 'weeks' | 'months' | 'years' } | undefined => {
+        if (!length || !unit) return undefined;
+        if (length <= 0) return undefined;
+        return { value: length, unit };
+    };
 
-    // Auto-correct repeatType if it becomes invalid for the current range
-    useEffect(() => {
-        if (!formData.isRepeat) return;
-        setFormData(prev => {
-            if (disableDaily && prev.repeatType === 'daily') {
-                const nextType = disableWeekly ? 'monthly' : 'weekly';
-                return { ...prev, repeatType: nextType };
-            }
-            if (disableWeekly && prev.repeatType === 'weekly') {
-                const nextType = disableDaily ? 'monthly' : 'daily';
-                return { ...prev, repeatType: nextType };
-            }
-            return prev;
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [disableDaily, disableWeekly, formData.isRepeat, formData.startDate, formData.endDate]);
+    const getDisableUnits = (start: string, end: string): ('days' | 'weeks' | 'months' | 'years')[] => {
+        if (!start || !end) return ['days', 'weeks', 'months', 'years'];
+        
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        // Räkna kalenderveckor (vecka börjar måndag)
+        const getWeekNumber = (date: Date) => {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+            const yearStart = new Date(d.getFullYear(), 0, 1);
+            return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        };
+        
+        const startWeek = getWeekNumber(startDate);
+        const endWeek = getWeekNumber(endDate);
+        const startMonth = startDate.getMonth();
+        const endMonth = endDate.getMonth();
+        const startYear = startDate.getFullYear();
+        const endYear = endDate.getFullYear();
+        
+        const spansMultipleWeeks = endWeek !== startWeek || endYear !== startYear;
+        const spansMultipleMonths = endMonth !== startMonth || endYear !== startYear;
+        const spansMultipleYears = endYear !== startYear;
+        
+        const disabled: ('days' | 'weeks' | 'months' | 'years')[] = ['days'];
+        
+        if (spansMultipleWeeks) disabled.push('weeks');
+        if (spansMultipleMonths) disabled.push('months');
+        if (spansMultipleYears) disabled.push('years');
+        
+        return disabled;
+    }
+
+    const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
+        if (!unit) return 'daily';
+        if (unit === 'days') return 'daily';
+        if (unit === 'weeks') return 'weekly';
+        if (unit === 'months') return 'monthly';
+        if (unit === 'years') return 'yearly';
+        return 'daily';
+    };
 
     const handleBack = () => {
         router.back();
@@ -126,19 +152,8 @@ export default function AddOffDaysPage() {
             toast({ variant: 'error', title: 'End date must be after start date' });
             return;
         }
-        if (formData.isRepeat && (!formData.repeatDuration || !formData.repeatDuration.value || formData.repeatDuration.value <= 0)) {
+        if (formData.isRepeat && (!formData.repeatLength || formData.repeatLength <= 0)) {
             toast({ variant: 'error', title: 'Select repeat duration' });
-            return;
-        }
-
-        // Enforce repeat-type constraints based on selected range length
-        const rangeLen = buildRangeDates(formData.startDate, formData.endDate).length;
-        if (formData.isRepeat && formData.repeatType === 'daily' && rangeLen > 1) {
-            toast({ variant: 'error', title: 'Daily repeat is not allowed for a multi-day range' });
-            return;
-        }
-        if (formData.isRepeat && formData.repeatType === 'weekly' && rangeLen > 7) {
-            toast({ variant: 'error', title: 'Weekly repeat is not allowed for ranges longer than one week' });
             return;
         }
 
@@ -150,11 +165,9 @@ export default function AddOffDaysPage() {
                 startDate: formData.startDate,
                 endDate: formData.endDate,
                 isRepeat: formData.isRepeat,
-                repeatType: formData.repeatType,
-                repeatDuration: formData.isRepeat ? (formData.repeatDuration?.value ?? 1) : undefined,
-                repeatDurationUnit: formData.isRepeat
-                    ? (formData.repeatDuration?.unit ?? (formData.repeatType === 'monthly' ? 'months' : 'weeks'))
-                    : undefined,
+                repeatType: getRepeatType(formData.repeatUnit),
+                repeatDuration: formData.isRepeat ? (formData.repeatLength ?? 1) : undefined,
+                repeatDurationUnit: formData.isRepeat ? formData.repeatUnit : undefined,
                 notes: formData.notes?.trim() || undefined,
             });
             if (!result.success) {
@@ -163,7 +176,7 @@ export default function AddOffDaysPage() {
             }
 
             toast({ variant: 'success', title: 'New Event Added!', duration: 3000 });
-            router.dismissTo('/artist/calendar');
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to add off days', description: error instanceof Error ? error.message : 'Unknown error' });
         } finally {
@@ -189,7 +202,7 @@ export default function AddOffDaysPage() {
                         <View className="gap-6 pb-6">
                             <View className="flex-row items-center gap-4">
                                 <View className="h-6 w-6 rounded-xl bg-blue-500" />
-                                <Text variant="h4" className="leading-8 flex-1">Book Off Multiple Days In A Row</Text>
+                                <Text variant="h4" className="leading-8 flex-1">Book Multiple Days Off</Text>
                             </View>
 
                             {/* Form Fields */}
@@ -198,6 +211,10 @@ export default function AddOffDaysPage() {
                                 <View className="gap-2">
                                     <Text variant="h5">Title</Text>
                                     <Input
+                                        spellCheck={false}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        autoComplete="off"
                                         placeholder="Enter title"
                                         value={formData.title}
                                         onChangeText={(text) => setFormData({ ...formData, title: text })}
@@ -216,34 +233,17 @@ export default function AddOffDaysPage() {
                                         className="border border-border rounded-sm p-2"
                                     />
                                 </View>
-                                <View className="gap-2">
-                                    <View className="flex-row items-start gap-1">
-                                        <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
-                                            <Text variant="h5" className="w-[310px]">Repeat?</Text>
-                                        </Pressable>
-                                        <View>
-                                            <Switch
-                                                checked={formData.isRepeat}
-                                                onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
-                                            />
-                                        </View>
+                                
+                                <View className="flex-row items-start gap-1">
+                                    <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
+                                        <Text variant="h5" className="w-[310px]">Repeat?</Text>
+                                    </Pressable>
+                                    <View>
+                                        <Switch
+                                            checked={formData.isRepeat}
+                                            onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
+                                        />
                                     </View>
-
-                                    {formData.isRepeat && (
-                                        <View className="gap-2">
-                                            <View className="flex-row items-center gap-2">
-                                                <Button disabled={disableDaily} onPress={() => setFormData({ ...formData, repeatType: 'daily' })} variant={formData.repeatType === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                    <Text variant='small'>Daily</Text>
-                                                </Button>
-                                                <Button disabled={disableWeekly} onPress={() => setFormData({ ...formData, repeatType: 'weekly' })} variant={formData.repeatType === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                    <Text variant='small'>Weekly</Text>
-                                                </Button>
-                                                <Button onPress={() => setFormData({ ...formData, repeatType: 'monthly' })} variant={formData.repeatType === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                    <Text variant='small'>Monthly</Text>
-                                                </Button>
-                                            </View>
-                                        </View>
-                                    )}
                                 </View>
 
                                 {formData.isRepeat && (
@@ -251,11 +251,11 @@ export default function AddOffDaysPage() {
                                         <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
                                             <View className="gap-2 w-full">
                                                 <DurationPicker
-                                                    selectedDuration={formData.repeatDuration}
-                                                    onDurationSelect={(duration) => setFormData({ ...formData, repeatDuration: duration })}
+                                                    selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
+                                                    onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
                                                     maxValue={12}
                                                     modalTitle="Select Repeat Duration"
-                                                    disabledUnits={formData.repeatType === 'monthly' ? ['weeks'] : undefined}
+                                                    disabledUnits={getDisableUnits(formData.startDate, formData.endDate)}
                                                 />
                                             </View>
                                         </Collapse>
