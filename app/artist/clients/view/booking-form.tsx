@@ -152,7 +152,7 @@ export default function BookingFormScreen() {
                                 </View>
 
                                 <View className="flex-row items-center justify-start gap-4">
-                                    <Text variant="h5">Upload Reference Photos (Max 3)</Text>
+                                    <Text variant="h5">Upload Reference Photos (Max 5)</Text>
                                     <Image source={require('@/assets/images/icons/camera.png')} style={{ width: 32, height: 32 }} />
                                 </View>
 
@@ -198,7 +198,7 @@ export default function BookingFormScreen() {
                                             className='flex-1 tracking-wider'
                                             onPress={() => setIsDepositNonRefundable(!isDepositNonRefundable)}
                                         >
-                                            I agree to the studio’s Terms & Conditions and Privacy Policy.
+                                            I agree to the studio's Artist's Policies and Privacy Policy.
                                         </Text>
                                     </View>
                                 </View>
