@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { View, Pressable, Image } from "react-native";
+import { useState, useEffect, useCallback } from "react";
+import { View, Pressable, Image, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { router } from "expo-router";
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from "@/lib/utils";
+import { convertTimeToISOString, convertTimeToHHMMString } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
@@ -22,9 +22,7 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
-import { createClientWithAuth } from '@/lib/services/clients-service';
-import { createQuickAppointment } from '@/lib/services/calendar-service';
-import { createManualBooking } from "@/lib/services/booking-service";
+import { getQuickAppointmentById, updateQuickAppointment } from '@/lib/services/calendar-service';
 
 type QuickAppointmentData = {
     fullName: string;
@@ -38,11 +36,12 @@ type QuickAppointmentData = {
     waiverUrl?: string;
 };
 
-export default function QuickAppointmentAddPage() {
+export default function QuickAppointmentEditPage() {
     const { toast } = useToast();
     const { artist } = useAuth();
     const [loading, setLoading] = useState(false);
-    const { date } = useLocalSearchParams<{ date?: string }>();
+    const [saving, setSaving] = useState(false);
+    const { id } = useLocalSearchParams<{ id: string }>();
 
     const getFileNameFromUrl = (inputUrl: string): string => {
         if (!inputUrl) return '';
@@ -69,14 +68,51 @@ export default function QuickAppointmentAddPage() {
         waiverSigned: false,
     });
 
+    const loadAppointment = useCallback(async () => {
+        if (!id) return;
+        try {
+            setLoading(true);
+            const res = await getQuickAppointmentById(id);
+            if (res.success && res.data) {
+                setFormData({
+                    fullName: res.data.full_name || '',
+                    email: res.data.email || '',
+                    phoneNumber: res.data.phone_number || '',
+                    date: res.data.date || '',
+                    startTime: res.data.start_time || '09:00',
+                    sessionLength: res.data.session_length ? String(res.data.session_length) : '',
+                    notes: res.data.notes || '',
+                    waiverSigned: false,
+                });
+            }
+        } catch (e) {
+            toast({ variant: 'error', title: 'Failed to load appointment', duration: 2500 });
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
+
+    useEffect(() => {
+        loadAppointment();
+    }, [loadAppointment]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadAppointment();
+        }, [loadAppointment])
+    );
+
     const handleBack = () => {
         router.back();
     };
 
     const handleSave = async () => {
-        // Basic validations (mirror off-days add flow)
         if (!artist?.id) {
             toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
+            return;
+        }
+        if (!id) {
+            toast({ variant: 'error', title: 'Missing appointment ID', duration: 2500 });
             return;
         }
         if (!formData.fullName?.trim()) {
@@ -96,106 +132,46 @@ export default function QuickAppointmentAddPage() {
             return;
         }
 
-        const dateStr = (() => {
-            const pad = (n: number) => String(n).padStart(2, '0');
-            if (date) {
-                try {
-                    const d = parseYmdFromDb(String(date));
-                    if (!isNaN(d.getTime())) {
-                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                    }
-                } catch { /* noop */ }
-                // Fallback: if string starts with YYYY-MM-DD, take that portion
-                const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date));
-                if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-            }
-            const now = new Date();
-            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        })();
-
-        setLoading(true);
+        setSaving(true);
         try {
-            const result = await createQuickAppointment({
-                artistId: artist.id,
-                date: dateStr,
-                fullName: formData.fullName,
-                email: formData.email,
-                phoneNumber: formData.phoneNumber,
+            const result = await updateQuickAppointment(id, artist.id, {
+                fullName: formData.fullName.trim(),
+                email: formData.email.trim(),
+                phoneNumber: formData.phoneNumber?.trim(),
+                date: formData.date,
                 startTime: formData.startTime,
                 sessionLength: parseInt(formData.sessionLength),
                 notes: formData.notes,
             });
 
             if (!result.success) {
-                toast({ variant: 'error', title: result.error || 'Failed to create appointment', duration: 2500 });
+                toast({ variant: 'error', title: result.error || 'Failed to update appointment', duration: 2500 });
                 return;
             }
 
-            const created = await createClientWithAuth({
-                full_name: formData.fullName.trim(),
-                email: formData.email.trim(),
-                phone_number: formData.phoneNumber?.trim() || '',
-                project_notes: formData.notes ? formData.notes : null,
-                artist_id: artist.id,
-            });
-            if (!created?.success || !created?.client?.id) {
-                toast({
-                    variant: 'error',
-                    title: 'Failed to create client',
-                    duration: 3000,
-                });
-                return;
-            }
-            const clientId: string = created.client.id as string;
-
-            const locations = Array.isArray(artist?.locations) ? artist.locations : [];
-            const mainLocation = locations.find((l: any) => (l as any)?.is_main_studio);
-            const fallbackLocation = locations[0];
-            const locationId = String((mainLocation?.id || fallbackLocation?.id || ''));
-
-            if (!locationId) {
-                toast({
-                    variant: 'error',
-                    title: 'Missing location',
-                    duration: 3000,
-                });
-                return;
-            }
-
-            const bookingResult = await createManualBooking({
-                artistId: artist.id,
-                clientId,
-                title: formData.fullName?.trim() || 'Appointment',
-                sessionLengthMinutes: parseInt(formData.sessionLength) || 0,
-                locationId,
-                date: new Date(dateStr),
-                startTimeDisplay: formData.startTime,
-                depositAmount: 0,
-                sessionRate: 0,
-                notes: formData.notes || '',
-                waiverSigned: formData.waiverSigned,
-                source: 'quick_appointment',
-                sourceId: result.id,
-            });
-
-            if (!bookingResult.success) {
-                toast({
-                    variant: 'error',
-                    title: 'Failed to create booking',
-                    description: result.error || 'Please try again',
-                    duration: 3000,
-                });
-                return;
-            }
-
-            toast({ variant: 'success', title: 'Quick appointment created', duration: 2500 });
+            toast({ variant: 'success', title: 'Appointment updated', duration: 2500 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
-        } catch (error) {
-            toast({ variant: 'error', title: 'Failed to create appointment', duration: 2500 });
+        } catch (e) {
+            toast({ variant: 'error', title: 'Failed to update appointment', duration: 2500 });
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
+
+    const handleCancel = () => {
+        router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
+    };
+
+    if (loading) {
+        return (
+            <>
+                <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                <SafeAreaView className='flex-1 bg-background items-center justify-center'>
+                    <ActivityIndicator size="large" color="#fff" />
+                </SafeAreaView>
+            </>
+        );
+    }
 
     return (
         <>
@@ -223,14 +199,13 @@ export default function QuickAppointmentAddPage() {
                                         style={{ width: 56, height: 56 }}
                                         resizeMode="contain"
                                     />
-                                    <Text variant="h6" className="text-center uppercase">Add Quick</Text>
-                                    <Text variant="h6" className="text-center uppercase leading-none">Appointment</Text>
-                                    <Text className="text-center mt-2 text-text-secondary max-w-[300px] leading-5">Create a same-day appointment without sending a quote or emails</Text>
+                                    <Text variant="h6" className="text-center uppercase">Edit Quick</Text>
+                                    <Text variant="h6" className="text-center uppercase leading-none">Add Appointment</Text>
                                 </View>
 
                                 {/* Form Fields */}
                                 <View className="gap-6">
-                                    {/* Event Name */}
+                                    {/* Full Name */}
                                     <View className="gap-2">
                                         <Text variant="h5">Full Name</Text>
                                         <Input
@@ -339,9 +314,19 @@ export default function QuickAppointmentAddPage() {
                                     </Pressable>
                                 </View>
 
-                                <Button onPress={handleSave} size="lg" disabled={loading}>
-                                    <Text variant='h5'>{loading ? 'Saving...' : 'Add To Calendar'}</Text>
-                                </Button>
+                                <View className="flex-row gap-3">
+                                    <View className="flex-1">
+                                        <Button onPress={handleCancel} size="lg" variant="outline" disabled={saving}>
+                                            <Text variant='h5'>Cancel</Text>
+                                        </Button>
+                                    </View>
+
+                                    <View className="flex-1">
+                                        <Button onPress={handleSave} size="lg" disabled={saving}>
+                                            <Text variant='h5'>{saving ? 'Saving...' : 'Save'}</Text>
+                                        </Button>
+                                    </View>
+                                </View>
                             </View>
                         </KeyboardAwareScrollView>
                     </View>

@@ -129,10 +129,22 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
                 params: { id: source_id }
             });
         }
+        else if (source === 'quick_appointment') {
+            router.push({
+                pathname: '/artist/calendar/quick-appointment/[id]',
+                params: { id: source_id }
+            });
+        }
         else if (source === 'book_off') {
             router.push({
                 pathname: '/artist/calendar/off-days/[id]',
                 params: { id: source_id }
+            });
+        }
+        else if (source === 'session') {
+            router.push({
+                pathname: '/artist/clients/detail-session',
+                params: { client_id: null, project_id: null, session_id: source_id }
             });
         }
     }

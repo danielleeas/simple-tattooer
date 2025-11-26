@@ -64,8 +64,8 @@ export default function QuickAppointmentDetailPage() {
 
     const handleEdit = () => {
         router.push({
-            pathname: '/artist/calendar/quick-appointment/add',
-            params: { id, mode: 'edit' }
+            pathname: '/artist/calendar/quick-appointment/edit',
+            params: { id }
         });
     }
 
@@ -109,13 +109,14 @@ export default function QuickAppointmentDetailPage() {
                         <View className="flex-1">
                             <ScrollView contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
                                 <View className="gap-6">
-                                    <View className="items-center justify-center pb-9">
+                                    <View className="items-center justify-center pb-4">
                                         <Image
                                             source={APPOINTMENT_IMAGE}
                                             style={{ width: 56, height: 56 }}
                                             resizeMode="contain"
                                         />
-                                        <Text variant="h6" className="text-center uppercase">Quick Appointment</Text>
+                                        <Text variant="h6" className="text-center uppercase">Quick Add</Text>
+                                        <Text variant="h6" className="text-center uppercase leading-none">Appointment Detail</Text>
                                     </View>
                                     {loading && (
                                         <View className="flex-1 items-center justify-center">

@@ -1700,6 +1700,73 @@ export async function getQuickAppointmentById(id: string): Promise<{ success: bo
 	}
 }
 
+export async function updateQuickAppointment(
+	id: string,
+	artistId: string,
+	data: {
+		fullName: string;
+		email: string;
+		phoneNumber?: string;
+		date: string;
+		startTime: string;
+		sessionLength: number;
+		notes?: string;
+	}
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+		
+		// 1) Update quick_appointments table
+		const { error } = await supabase
+			.from('quick_appointments')
+			.update({
+				full_name: data.fullName,
+				email: data.email,
+				phone_number: data.phoneNumber || null,
+				date: data.date,
+				start_time: data.startTime,
+				session_length: data.sessionLength,
+				notes: data.notes || null,
+				updated_at: new Date().toISOString(),
+			})
+			.eq('id', id);
+		if (error) {
+			return { success: false, error: error.message || 'Failed to update quick appointment' };
+		}
+
+		// 2) Delete old event and create new one
+		await supabase
+			.from('events')
+			.delete()
+			.eq('source', 'quick_appointment')
+			.eq('source_id', id);
+
+		const start = composeDateTime(data.date, data.startTime, '09:00');
+		// Calculate end time by adding sessionLength minutes
+		const [hh, mm] = data.startTime.split(':').map(Number);
+		const totalMinutes = hh * 60 + mm + data.sessionLength;
+		const endHH = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+		const endMM = String(totalMinutes % 60).padStart(2, '0');
+		const end = composeDateTime(data.date, `${endHH}:${endMM}`, '17:00');
+
+		await createEvent({
+			artistId,
+			title: data.fullName,
+			startDate: start,
+			endDate: end,
+			allDay: false,
+			color: 'grey',
+			type: 'item',
+			source: 'quick_appointment',
+			sourceId: id,
+		});
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
 export async function deleteQuickAppointment(id: string): Promise<{ success: boolean; error?: string }> {
 	try {
 		if (!id) return { success: false, error: 'Missing id' };
