@@ -257,13 +257,13 @@ export default function MarkUnavailablePage() {
                                 <View className="flex-row gap-3">
                                     {isEdit && (
                                         <View className="flex-1">
-                                            <Button onPress={() => setIsDeleteModalOpen(true)} size="lg" variant="outline" disabled={loading || deleting}>
+                                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" disabled={loading || deleting}>
                                                 <Text variant='h5'>Delete</Text>
                                             </Button>
                                         </View>
                                     )}
                                     <View className="flex-1">
-                                        <Button onPress={handleSave} size="lg" disabled={loading || deleting}>
+                                        <Button onPress={handleSave} variant="outline" disabled={loading || deleting}>
                                             <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
                                         </Button>
                                     </View>

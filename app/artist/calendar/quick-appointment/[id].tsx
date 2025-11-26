@@ -180,11 +180,11 @@ export default function QuickAppointmentDetailPage() {
                             </ScrollView>
                         </View>
                         <View className="flex-row gap-3">
-                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" size="lg" className="flex-1">
+                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" className="flex-1">
                                 <Text variant='h5'>Delete</Text>
                                 <Image source={DELETE_IMAGE} style={BUTTON_ICON_STYLE} />
                             </Button>
-                            <Button onPress={handleEdit} variant="outline" size="lg" className="flex-1">
+                            <Button onPress={handleEdit} variant="outline" className="flex-1">
                                 <Text variant='h5'>Edit</Text>
                                 <Image source={PENCIL_SIMPLE} style={BUTTON_ICON_STYLE} />
                             </Button>

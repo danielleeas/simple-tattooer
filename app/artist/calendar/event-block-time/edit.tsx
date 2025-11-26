@@ -193,8 +193,7 @@ export default function AddEventBlockTimePage() {
                                         style={{ width: 56, height: 56 }}
                                         resizeMode="contain"
                                     />
-                                    <Text variant="h6" className="text-center uppercase">Edit Event/</Text>
-                                    <Text variant="h6" className="text-center uppercase leading-none">Block Time</Text>
+                                    <Text variant="h6" className="text-center uppercase">Edit Event</Text>
                                 </View>
 
                                 {/* Form Fields */}
@@ -280,13 +279,13 @@ export default function AddEventBlockTimePage() {
 
                                 <View className="flex-row gap-3">
                                     <View className="flex-1">
-                                        <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                        <Button onPress={handleCancel} variant="outline" disabled={loading}>
                                             <Text variant='h5'>Cancel</Text>
                                         </Button>
                                     </View>
 
                                     <View className="flex-1">
-                                        <Button onPress={handleSave} size="lg" disabled={loading || !hasChanges}>
+                                        <Button onPress={handleSave} variant="outline" disabled={loading || !hasChanges}>
                                             <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
                                         </Button>
                                     </View>

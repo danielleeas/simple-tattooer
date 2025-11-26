@@ -302,8 +302,8 @@ export default function ClientEditSession() {
                                             style={{ width: 56, height: 56 }}
                                             resizeMode="contain"
                                         />
-                                        <Text variant="h6" className="text-center uppercase">Session</Text>
-                                        <Text variant="h6" className="text-center uppercase leading-none">Edit Page</Text>
+                                        <Text variant="h6" className="text-center uppercase">Edit Session</Text>
+                                        <Text variant="h6" className="text-center uppercase leading-none">Detail</Text>
                                     </View>
 
                                     <View className="items-start gap-2">

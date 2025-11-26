@@ -223,7 +223,7 @@ export default function QuickAppointmentAddPage() {
                                         style={{ width: 56, height: 56 }}
                                         resizeMode="contain"
                                     />
-                                    <Text variant="h6" className="text-center uppercase">Add Quick</Text>
+                                    <Text variant="h6" className="text-center uppercase">Quick Add</Text>
                                     <Text variant="h6" className="text-center uppercase leading-none">Appointment</Text>
                                     <Text className="text-center mt-2 text-text-secondary max-w-[300px] leading-5">Create a same-day appointment without sending a quote or emails</Text>
                                 </View>
@@ -339,7 +339,7 @@ export default function QuickAppointmentAddPage() {
                                     </Pressable>
                                 </View>
 
-                                <Button onPress={handleSave} size="lg" disabled={loading}>
+                                <Button onPress={handleSave} variant="outline" disabled={loading}>
                                     <Text variant='h5'>{loading ? 'Saving...' : 'Add To Calendar'}</Text>
                                 </Button>
                             </View>

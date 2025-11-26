@@ -320,7 +320,7 @@ export default function EditTempChangePage() {
                         <View className="gap-6 pb-6">
                             <View className="flex-row items-start gap-4">
                                 <View className="h-6 w-6 rounded-xl bg-purple" />
-                                <Text variant="h4" className="leading-8">Edit Temporary Work Days</Text>
+                                <Text variant="h4" className="leading-8">Edit Temporary Days</Text>
                             </View>
 
                             {/* Form Fields */}
@@ -536,12 +536,12 @@ export default function EditTempChangePage() {
 
                                 <View className="flex-row gap-3">
                                     <View className="flex-1">
-                                        <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                        <Button onPress={handleCancel} variant="outline" disabled={loading}>
                                             <Text variant='h5'>Cancel</Text>
                                         </Button>
                                     </View>
                                     <View className="flex-1">
-                                        <Button onPress={handleSave} size="lg" disabled={loading}>
+                                        <Button onPress={handleSave} variant="outline" disabled={loading}>
                                             <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
                                         </Button>
                                     </View>

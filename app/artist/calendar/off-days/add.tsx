@@ -272,7 +272,7 @@ export default function AddOffDaysPage() {
                                     />
                                 </View>
 
-                                <Button onPress={handleSave} size="lg" disabled={loading}>
+                                <Button onPress={handleSave} variant="outline" disabled={loading}>
                                     <Text variant='h5'>{loading ? 'Adding...' : 'Add to Calendar'}</Text>
                                 </Button>
                             </View>

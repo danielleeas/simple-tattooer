@@ -316,13 +316,13 @@ export default function QuickAppointmentEditPage() {
 
                                 <View className="flex-row gap-3">
                                     <View className="flex-1">
-                                        <Button onPress={handleCancel} size="lg" variant="outline" disabled={saving}>
+                                        <Button onPress={handleCancel} variant="outline" disabled={saving}>
                                             <Text variant='h5'>Cancel</Text>
                                         </Button>
                                     </View>
 
                                     <View className="flex-1">
-                                        <Button onPress={handleSave} size="lg" disabled={saving}>
+                                        <Button onPress={handleSave} variant="outline" disabled={saving}>
                                             <Text variant='h5'>{saving ? 'Saving...' : 'Save'}</Text>
                                         </Button>
                                     </View>

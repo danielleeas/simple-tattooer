@@ -859,7 +859,7 @@ const NativeCalendarPicker = ({
                                             style={{
                                                 height: config.daySize,
                                                 width: '100%',
-                                                backgroundColor: THEME.dark.backgroundTertiary,
+                                                backgroundColor: THEME.dark.borderSecondary,
                                                 borderTopLeftRadius: day.isRangeStart ? config.daySize / 2 : 0,
                                                 borderBottomLeftRadius: day.isRangeStart ? config.daySize / 2 : 0,
                                                 borderTopRightRadius: day.isRangeEnd ? config.daySize / 2 : 0,

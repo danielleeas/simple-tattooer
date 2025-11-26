@@ -109,7 +109,7 @@ export default function TempChangeDetailPage() {
                                             style={{ width: 56, height: 56 }}
                                             resizeMode="contain"
                                         />
-                                        <Text variant="h6" className="text-center uppercase">Temporary Change</Text>
+                                        <Text variant="h6" className="text-center uppercase">Temporary Days</Text>
                                         <Text variant="h6" className="text-center uppercase">detail</Text>
                                     </View>
                                     {loading && (
@@ -134,45 +134,46 @@ export default function TempChangeDetailPage() {
                                                 <Text className="text-text-secondary">End Date:</Text>
                                                 <Text variant='h5'>{formatDate(tempChange?.end_date || '', false, true)}</Text>
                                             </View>
-                                            <View className="gap-2">
-                                                <Text className="text-text-secondary">Work Days:</Text>
-                                                <Text variant='h5'>{tempChange?.work_days.map((day: string) => day.charAt(0).toUpperCase() + day.slice(1)).join(', ')}</Text>
-                                            </View>
-                                            <View className="gap-2">
-                                                <Text className="text-text-secondary">Different Time Enabled:</Text>
-                                                <Text variant='h5'>{tempChange?.different_time_enabled ? 'Yes' : 'No'}</Text>
-                                            </View>
+
+
                                             {tempChange?.different_time_enabled ? (
-                                                <>
+                                                <View className="gap-2">
+                                                    <Text className="text-text-secondary">Work Days:</Text>
                                                     {tempChange.work_days.map((day: string) => (
-                                                        <View key={day} className="gap-2 flex-row items-start justify-between">
+                                                        <View key={day} className="gap-2 items-start justify-between">
                                                             <View className="w-[80px]">
-                                                                <Text className="text-text-secondary">{day.charAt(0).toUpperCase() + day.slice(1)}:</Text>
+                                                                <Text variant='h5'>{day.charAt(0).toUpperCase() + day.slice(1)}:</Text>
                                                             </View>
-                                                            <View className="flex-1 gap-2">
-                                                                <View>
+                                                            <View className="flex-1 gap-2 flex-row">
+                                                                <View className="flex-row gap-2">
                                                                     <Text className="text-text-secondary">Start Time:</Text>
                                                                     <Text variant='h5'>{formatTime(tempChange?.start_times?.[day] ?? '')}</Text>
                                                                 </View>
-                                                                <View>
+                                                                <View className="flex-row gap-2">
                                                                     <Text className="text-text-secondary">End Time:</Text>
                                                                     <Text variant='h5'>{formatTime(tempChange?.end_times?.[day] ?? '')}</Text>
                                                                 </View>
                                                             </View>
                                                         </View>
                                                     ))}
-                                                </>
-                                            ) : (
-                                                <View className="gap-2">
-                                                    <View className="gap-2">
-                                                        <Text className="text-text-secondary">Start Time:</Text>
-                                                        <Text variant='h5'>{formatTime(tempChange?.start_times?.[tempChange?.work_days[0] ?? ''] ?? '')}</Text>
-                                                    </View>
-                                                    <View className="gap-2">
-                                                        <Text className="text-text-secondary">End Time:</Text>
-                                                        <Text variant='h5'>{formatTime(tempChange?.end_times?.[tempChange?.work_days[0] ?? ''] ?? '')}</Text>
-                                                    </View>
                                                 </View>
+                                            ) : (
+                                                <>
+                                                    <View className="gap-2">
+                                                        <Text className="text-text-secondary">Work Days:</Text>
+                                                        <Text variant='h5'>{tempChange?.work_days.map((day: string) => day.charAt(0).toUpperCase() + day.slice(1)).join(', ')}</Text>
+                                                    </View>
+                                                    <View className="gap-2">
+                                                        <View className="gap-2 flex-row">
+                                                            <Text className="text-text-secondary">Start Time:</Text>
+                                                            <Text variant='h5'>{formatTime(tempChange?.start_times?.[tempChange?.work_days[0] ?? ''] ?? '')}</Text>
+                                                        </View>
+                                                        <View className="gap-2 flex-row">
+                                                            <Text className="text-text-secondary">End Time:</Text>
+                                                            <Text variant='h5'>{formatTime(tempChange?.end_times?.[tempChange?.work_days[0] ?? ''] ?? '')}</Text>
+                                                        </View>
+                                                    </View>
+                                                </>
                                             )}
 
                                             {tempChange.location && (
@@ -197,11 +198,11 @@ export default function TempChangeDetailPage() {
                             </ScrollView>
                         </View>
                         <View className="flex-row gap-3">
-                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" size="lg" className="flex-1">
+                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" className="flex-1">
                                 <Text variant='h5'>Delete</Text>
                                 <Image source={DELETE_IMAGE} style={BUTTON_ICON_STYLE} />
                             </Button>
-                            <Button onPress={handleEdit} variant="outline" size="lg" className="flex-1">
+                            <Button onPress={handleEdit} variant="outline" className="flex-1">
                                 <Text variant='h5'>Edit</Text>
                                 <Image source={PENCIL_SIMPLE} style={BUTTON_ICON_STYLE} />
                             </Button>

@@ -166,6 +166,8 @@ export default function ClientDetailSession() {
     };
 
     const handleEditSession = () => {
+
+        console.log(project_id, session_id)
         router.push({
             pathname: '/artist/clients/edit-session',
             params: { projectId: project_id, sessionId: session_id }

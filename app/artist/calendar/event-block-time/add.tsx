@@ -173,8 +173,7 @@ export default function AddEventBlockTimePage() {
                                         style={{ width: 56, height: 56 }}
                                         resizeMode="contain"
                                     />
-                                    <Text variant="h6" className="text-center uppercase">Add Event/</Text>
-                                    <Text variant="h6" className="text-center uppercase leading-none">Block Time</Text>
+                                    <Text variant="h6" className="text-center uppercase">Add Event</Text>
                                 </View>
 
                                 {/* Form Fields */}
@@ -258,7 +257,7 @@ export default function AddEventBlockTimePage() {
                                     </View>
                                 </View>
 
-                                <Button onPress={handleSave} size="lg" disabled={loading}>
+                                <Button onPress={handleSave} variant="outline" disabled={loading}>
                                     <Text variant='h5'>{loading ? 'Saving...' : 'Add To Calendar'}</Text>
                                 </Button>
                             </View>

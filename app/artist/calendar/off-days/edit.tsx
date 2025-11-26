@@ -315,12 +315,12 @@ export default function EditOffDaysPage() {
                                     </View>
                                     <View className="flex-row gap-3">
                                         <View className="flex-1">
-                                            <Button onPress={handleCancel} size="lg" variant="outline" disabled={loading}>
+                                            <Button onPress={handleCancel} variant="outline" disabled={loading}>
                                                 <Text variant='h5'>Cancel</Text>
                                             </Button>
                                         </View>
                                         <View className="flex-1">
-                                            <Button onPress={handleSave} size="lg" disabled={loading}>
+                                            <Button onPress={handleSave} variant="outline" disabled={loading}>
                                                 <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
                                             </Button>
                                         </View>
