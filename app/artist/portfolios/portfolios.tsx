@@ -216,40 +216,32 @@ export default function UploadPortfolios() {
             });
 
             if (!result.canceled && result.assets.length > 0) {
-
-                // Initialize upload progress for each image
-                const initialUploadStates = result.assets.map((asset, index) => ({
-                    id: `upload_${Date.now()}_${index}`,
-                    progress: 0,
-                    status: 'uploading' as const,
-                    imageUri: asset.uri
+                // Create temporary portfolio entries immediately with local URIs
+                const tempPortfolios: ArtistPortfolio[] = result.assets.map((asset, index) => ({
+                    id: `temp_${Date.now()}_${index}`,
+                    artist_id: artist?.id as string,
+                    portfolio_name: '',
+                    portfolio_image: asset.uri, // Show local image instantly
+                    portfolio_description: '',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
                 }));
-                setUploadingImages(initialUploadStates);
 
-                // Process each image: compress, upload to Supabase, and save to database
-                const savedPortfolios = await Promise.all(result.assets.map(async (asset, index) => {
-                    const uploadId = initialUploadStates[index].id;
+                // Show images immediately
+                setPortfolios(prev => [...prev, ...tempPortfolios]);
+                setOriginalPortfolios(prev => [...prev, ...tempPortfolios]);
 
+                // Upload in background (don't await)
+                result.assets.forEach(async (asset, index) => {
+                    const tempId = tempPortfolios[index].id;
                     try {
-                        // Update progress: Starting compression
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 10 } : img
-                        ));
-
-                        // Compress the image first
                         const compressedImage = await compressImage(asset.uri, 0.6);
 
-                        // Update progress: Compression done, starting upload
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 30 } : img
-                        ));
-
-                        // Upload to Supabase storage
                         const fileUpload = {
                             uri: compressedImage,
                             name: `portfolio_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`,
                             type: 'image/jpeg',
-                            size: 0 // Will be calculated by storage service
+                            size: 0
                         };
 
                         const uploadResult = await uploadFileToStorage(fileUpload, 'artist-portfolios', artist?.id);
@@ -258,16 +250,10 @@ export default function UploadPortfolios() {
                             throw new Error(uploadResult.error || 'Failed to upload image');
                         }
 
-                        // Update progress: Upload done, starting database save
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 80 } : img
-                        ));
-
-                        // Create portfolio data and save to database
                         const portfolioData: CreatePortfolioData = {
-                            portfolio_name: '', // Default empty name, user can edit later
+                            portfolio_name: '',
                             portfolio_image: uploadResult.url,
-                            portfolio_description: '' // Default empty description, user can edit later
+                            portfolio_description: ''
                         };
 
                         const createResult = await createPortfolio(artist?.id as string, portfolioData);
@@ -276,43 +262,32 @@ export default function UploadPortfolios() {
                             throw new Error(createResult.error || 'Failed to create portfolio');
                         }
 
-                        // Update progress: Completed
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 100, status: 'completed' } : img
+                        // Only update the ID, keep local image URI visible
+                        setPortfolios(prev => prev.map(p =>
+                            p.id === tempId ? { ...p, id: createResult.data!.id } : p
                         ));
-
-                        return createResult.data;
+                        setOriginalPortfolios(prev => prev.map(p =>
+                            p.id === tempId ? { ...p, id: createResult.data!.id } : p
+                        ));
                     } catch (error) {
-                        console.error('Error processing image:', error);
-                        // Update progress: Error
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, status: 'error' } : img
-                        ));
-                        throw error;
+                        console.error('Error uploading portfolio:', error);
+                        // Remove failed temp portfolio
+                        setPortfolios(prev => prev.filter(p => p.id !== tempId));
+                        setOriginalPortfolios(prev => prev.filter(p => p.id !== tempId));
+                        toast({
+                            variant: 'error',
+                            title: 'Upload Failed',
+                            description: 'Failed to upload image.',
+                        });
                     }
-                }));
-
-                // Add all successfully saved portfolios to the main portfolios list
-                const newPortfolios = [...portfolios, ...savedPortfolios];
-                setPortfolios(newPortfolios);
-                setOriginalPortfolios(newPortfolios);
-                setUploadingImages([]);
-
-                toast({
-                    title: 'Success',
-                    description: `${savedPortfolios.length} portfolio image(s) uploaded and saved successfully!`,
-                    variant: 'success',
                 });
             }
         } catch (error) {
-            console.error('Error picking/uploading/saving images:', error);
+            console.error('Error picking images:', error);
             toast({
                 title: 'Error',
-                description: 'Failed to upload and save images. Please try again.',
-                variant: 'error',
+                description: 'Failed to pick images.',
             });
-            // Clear upload states on error
-            setUploadingImages([]);
         }
     };
 
@@ -507,6 +482,11 @@ export default function UploadPortfolios() {
                                                     />
                                                 </Pressable>
                                                 <Input
+                                                    spellCheck={false}
+                                                    autoComplete="off"
+                                                    textContentType="none"
+                                                    autoCapitalize="none"
+                                                    autoCorrect={false}
                                                     placeholder="Title"
                                                     className="border-0 h-6 p-0 text-md"
                                                     value={item.portfolio_name || ''}
@@ -518,6 +498,11 @@ export default function UploadPortfolios() {
                                                     }}
                                                 />
                                                 <Textarea
+                                                    spellCheck={false}
+                                                    autoComplete="off"
+                                                    textContentType="none"
+                                                    autoCapitalize="none"
+                                                    autoCorrect={false}
                                                     placeholder="Description (Optional)"
                                                     className="border-0 p-0 text-sm"
                                                     value={item.portfolio_description || ''}

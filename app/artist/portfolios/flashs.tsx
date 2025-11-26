@@ -1,12 +1,7 @@
-import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
 import { Text } from "@/components/ui/text";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router, Stack } from "expo-router";
-import Header from "@/components/lib/Header";
-import HOME_IMAGE from "@/assets/images/icons/home.png";
-import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import { router } from "expo-router";
 import { View, Image, Pressable, ActivityIndicator, Dimensions, Keyboard, Modal } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Icon } from "@/components/ui/icon";
@@ -15,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/lib/contexts/toast-context";
 import { useEffect, useMemo, useState } from "react";
 import { THEME } from "@/lib/theme";
-import { ArtistFlash, CreateFlashData, UpdateFlashData } from "@/lib/types";
+import { ArtistFlash, CreateFlashData } from "@/lib/types";
 import { useAuth } from "@/lib/contexts";
 import { createFlash, deleteFlash, getArtistFlashs, updateFlash, upsertFlashes } from "@/lib/services/flash-service";
 import * as ExpoImagePicker from 'expo-image-picker';
@@ -228,40 +223,33 @@ export default function UploadFlashs() {
             });
 
             if (!result.canceled && result.assets.length > 0) {
-
-                // Initialize upload progress for each image
-                const initialUploadStates = result.assets.map((asset, index) => ({
-                    id: `upload_${Date.now()}_${index}`,
-                    progress: 0,
-                    status: 'uploading' as const,
-                    imageUri: asset.uri
+                // Create temporary flash entries immediately with local URIs
+                const tempFlashs: ArtistFlash[] = result.assets.map((asset, index) => ({
+                    id: `temp_${Date.now()}_${index}`,
+                    artist_id: artist?.id as string,
+                    flash_name: '',
+                    flash_image: asset.uri, // Show local image instantly
+                    flash_price: 0,
+                    repeatable: false,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
                 }));
-                setUploadingImages(initialUploadStates);
 
-                // Process each image: compress, upload to Supabase, and save to database
-                const savedFlashs = await Promise.all(result.assets.map(async (asset, index) => {
-                    const uploadId = initialUploadStates[index].id;
+                // Show images immediately
+                setFlashs(prev => [...prev, ...tempFlashs]);
+                setOriginalFlashs(prev => [...prev, ...tempFlashs]);
 
+                // Upload in background (don't await)
+                result.assets.forEach(async (asset, index) => {
+                    const tempId = tempFlashs[index].id;
                     try {
-                        // Update progress: Starting compression
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 10 } : img
-                        ));
-
-                        // Compress the image first
                         const compressedImage = await compressImage(asset.uri, 0.6);
 
-                        // Update progress: Compression done, starting upload
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 30 } : img
-                        ));
-
-                        // Upload to Supabase storage
                         const fileUpload = {
                             uri: compressedImage,
                             name: `flash_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.jpg`,
                             type: 'image/jpeg',
-                            size: 0 // Will be calculated by storage service
+                            size: 0
                         };
 
                         const uploadResult = await uploadFileToStorage(fileUpload, 'artist-flashs', artist?.id);
@@ -270,17 +258,11 @@ export default function UploadFlashs() {
                             throw new Error(uploadResult.error || 'Failed to upload image');
                         }
 
-                        // Update progress: Upload done, starting database save
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 80 } : img
-                        ));
-
-                        // Create flash data and save to database
                         const flashData: CreateFlashData = {
-                            flash_name: '', // Default empty name, user can edit later
+                            flash_name: '',
                             flash_image: uploadResult.url,
-                            flash_price: 0, // Default price, user can edit later
-                            repeatable: false // Default repeatable setting
+                            flash_price: 0,
+                            repeatable: false
                         };
 
                         const createResult = await createFlash(artist?.id as string, flashData);
@@ -289,40 +271,29 @@ export default function UploadFlashs() {
                             throw new Error(createResult.error || 'Failed to create flash');
                         }
 
-                        // Update progress: Completed
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, progress: 100, status: 'completed' } : img
+                        // Only update the ID, keep local image URI visible
+                        setFlashs(prev => prev.map(f =>
+                            f.id === tempId ? { ...f, id: createResult.data!.id } : f
                         ));
-
-                        return createResult.data;
+                        setOriginalFlashs(prev => [...prev, { ...tempFlashs[index], id: createResult.data!.id }]);
                     } catch (error) {
-                        console.error('Error processing image:', error);
-                        // Update progress: Error
-                        setUploadingImages(prev => prev.map(img =>
-                            img.id === uploadId ? { ...img, status: 'error' } : img
-                        ));
-                        throw error;
+                        console.error('Error uploading flash:', error);
+                        // Remove failed temp flash
+                        setFlashs(prev => prev.filter(f => f.id !== tempId));
+                        toast({
+                            variant: 'error',
+                            title: 'Upload Failed',
+                            description: 'Failed to upload image.',
+                        });
                     }
-                }));
-
-                setUploadingImages([]);
-                setFlashs(prev => [...prev, ...savedFlashs]);
-                setOriginalFlashs(prev => [...prev, ...savedFlashs]);
-
-                toast({
-                    title: 'Success',
-                    description: `${savedFlashs.length} flash image(s) uploaded and saved successfully!`,
-                    variant: 'success',
                 });
             }
         } catch (error) {
-            console.error('Error picking/uploading/saving images:', error);
+            console.error('Error picking images:', error);
             toast({
                 title: 'Error',
-                description: 'Failed to upload and save images. Please try again.',
+                description: 'Failed to pick images.',
             });
-            // Clear upload states on error
-            setUploadingImages([]);
         }
     };
 
@@ -655,6 +626,11 @@ export default function UploadFlashs() {
                                                         {renderWatermark(((screenWidth - 32 - 16) / 2), 216, 50)}
                                                     </Pressable>
                                                     <Input
+                                                        spellCheck={false}
+                                                        autoComplete="off"
+                                                        textContentType="none"
+                                                        autoCapitalize="none"
+                                                        autoCorrect={false}
                                                         placeholder="Title"
                                                         className="border-0 h-6 p-0 text-md"
                                                         value={item.flash_name || ''}
@@ -666,25 +642,21 @@ export default function UploadFlashs() {
                                                         }}
                                                     />
                                                     <Input
+                                                        spellCheck={false}
+                                                        autoComplete="off"
+                                                        textContentType="none"
+                                                        autoCapitalize="none"
+                                                        autoCorrect={false}
                                                         placeholder="Price (Optional)"
                                                         className="border-0 h-6 py-0 pl-4 text-md"
                                                         leftIcon={DollarSign}
                                                         leftIconClassName="left-0"
-                                                        value={priceInputs[item.id as string] ?? (item.flash_price?.toString() || '')}
+                                                        value={item.flash_price?.toString() === '0' ? '' : item.flash_price?.toString() || ''}
                                                         onChangeText={(text) => {
-                                                            // Update the input state
-                                                            setPriceInputs(prev => ({
-                                                                ...prev,
-                                                                [item.id as string]: text
-                                                            }));
-
-                                                            // Update flash price only if it's a valid number
                                                             const price = text.trim() === '' ? 0 : parseFloat(text);
-                                                            if (!isNaN(price)) {
-                                                                setFlashs(flashs.map(flash =>
-                                                                    flash.id === item.id ? { ...flash, flash_price: price } : flash
-                                                                ));
-                                                            }
+                                                            setFlashs(flashs.map(flash =>
+                                                                flash.id === item.id ? { ...flash, flash_price: price } : flash
+                                                            ));
                                                         }}
                                                     />
                                                     <View className="flex-row items-center justify-between">
@@ -780,7 +752,7 @@ export default function UploadFlashs() {
                 <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
                     <Pressable style={{ flex: 1 }} onPress={() => setIsDeleteModalOpen(false)} />
                     <View className="bg-background-secondary" style={{ borderTopLeftRadius: 40, borderTopRightRadius: 40 }}>
-                        <View className="w-full px-4 pb-4 pt-6 gap-6">
+                        <View className="w-full px-4 pb-8 pt-6 gap-6">
                             <View className="gap-6 items-center">
                                 <Image source={require('@/assets/images/icons/warning_circle.png')} style={{ width: 80, height: 80 }} />
                                 <Text variant="h3" className="text-center">Delete Flash</Text>

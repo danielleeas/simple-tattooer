@@ -1,6 +1,7 @@
 import { Text } from '@/components/ui/text';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { type ImageStyle, View, Pressable, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Splash from '@/components/lib/Splash';
 import Welcome from '@/components/lib/welcome';
@@ -27,6 +28,15 @@ const ICON_STYLE: ImageStyle = {
 export default function ProductionHome() {
     const { showSplash, showWelcome } = useAppSelector((state: RootState) => state.ui);
     const { artist, mode } = useAuth();
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    useEffect(() => {
+        AsyncStorage.getItem('today_tooltip_dismissed').then((value) => {
+            if (value !== 'true') {
+                setShowTooltip(true);
+            }
+        });
+    }, []);
 
     const welcomeEnabled = useMemo(() => {
         const artistPhoto = artist?.photo;
@@ -49,6 +59,13 @@ export default function ProductionHome() {
             pathname: '/artist/calendar/day-click',
             params: { date: dateString },
         });
+
+        setTimeout(() => {
+            if (showTooltip) {
+                setShowTooltip(false);
+                AsyncStorage.setItem('today_tooltip_dismissed', 'true');
+            }
+        }, 1000);
     };
 
     const handleAlert = () => {
@@ -104,10 +121,12 @@ export default function ProductionHome() {
                         <Pressable onPress={handleToday} className='gap-1 items-center justify-center'>
                             <Text variant="h1" >Today</Text>
                             <Text variant="h5" >Chase Your Dreams</Text>
-                            <Button onPress={handleToday} size='sm' className='items-center justify-center py-2 h-8 px-3 gap-2 mt-3 border border-border rounded-lg bg-background-secondary'>
-                                <Image source={require('@/assets/images/icons/info_circle.png')} style={{ width: 16, height: 16 }} resizeMode="contain" />
-                                <Text className='text-xs text-text-secondary'>Tap "Today" to see your schedule</Text>
-                            </Button>
+                            {showTooltip && (
+                                <Button onPress={handleToday} size='sm' className='items-center justify-center py-2 h-8 px-3 gap-2 mt-3 border border-border rounded-lg bg-background-secondary'>
+                                    <Image source={require('@/assets/images/icons/info_circle.png')} style={{ width: 16, height: 16 }} resizeMode="contain" />
+                                    <Text className='text-xs text-text-secondary'>Tap "Today" to see your schedule</Text>
+                                </Button>
+                            )}
                         </Pressable>
                     </View>
 
