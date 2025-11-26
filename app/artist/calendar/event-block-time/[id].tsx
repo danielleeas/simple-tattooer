@@ -147,49 +147,9 @@ export default function EventBlockTimeDetailPage() {
                                                     className="min-h-28"
                                                 />
                                             </View>
-
-                                            <View className="gap-3">
-                                                <Text className="text-text-secondary">Repeatable</Text>
-                                                <Text variant='h5'>{event?.repeatable ? 'Yes' : 'No'}</Text>
-                                            </View>
                                             {event?.repeatable && (
-                                                <>
-                                                    <View className="gap-3">
-                                                        <Text className="text-text-secondary">Repeat Type</Text>
-                                                        <Text variant='h5'>{event?.repeat_type || ''}</Text>
-                                                    </View>
-                                                    <View className="gap-3">
-                                                        <Text className="text-text-secondary">Repeat Duration</Text>
-                                                        <Text variant='h5'>{event?.repeat_duration || ''} {event?.repeat_duration_unit || ''}</Text>
-                                                    </View>
-                                                </>
-                                            )}
-                                            <View className="gap-3">
-                                                <Text className="text-text-secondary">Off Booking Enabled</Text>
-                                                <Text variant='h5'>{event?.off_booking_enabled ? 'Yes' : 'No'}</Text>
-                                            </View>
-
-                                            {event?.off_booking_enabled && (
-                                                <>
-                                                    <View className="gap-3">
-                                                        <Text className="text-text-secondary">Off Booking Repeat Type</Text>
-                                                        <Text variant='h5'>{event?.off_booking_repeat_type || ''}</Text>
-                                                    </View>
-                                                    <View className="gap-3">
-                                                        <Text className="text-text-secondary">Off Booking Repeat Duration</Text>
-                                                        <Text variant='h5'>{event?.off_booking_repeat_duration || ''} {event?.off_booking_repeat_duration_unit || ''}</Text>
-                                                    </View>
-                                                </>
-                                            )}
-
-                                            {event?.off_booking_notes && (
                                                 <View className="gap-3">
-                                                    <Text className="text-text-secondary">Notes</Text>
-                                                    <Textarea
-                                                        readOnly
-                                                        value={event?.off_booking_notes}
-                                                        className="min-h-28"
-                                                    />
+                                                    <Text>Repeat {event?.repeat_type} for {event?.repeat_duration} {event?.repeat_duration_unit}</Text>
                                                 </View>
                                             )}
                                         </>

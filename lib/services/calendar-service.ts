@@ -1158,9 +1158,9 @@ export interface CreateEventBlockTimeParams {
 	startTime?: string; // "HH:mm"
 	endTime?: string;   // "HH:mm"
 	repeatable?: boolean;
-	repeatType?: 'daily' | 'weekly' | 'monthly';
+	repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
 	repeatDuration?: number;
-	repeatDurationUnit?: 'weeks' | 'months' | 'years';
+	repeatDurationUnit?: 'days' | 'weeks' | 'months' | 'years';
 	notes?: string;
 }
 
@@ -1195,8 +1195,8 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 
 		// Insert primary block-time record
 		const isRepeat = !!params.repeatable;
-		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' = params.repeatType ?? 'daily';
-		const resolvedUnit: 'weeks' | 'months' | 'years' =
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' | 'yearly' = params.repeatType ?? 'daily';
+		const resolvedUnit: 'days' | 'weeks' | 'months' | 'years' =
 			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
 		const resolvedDuration = params.repeatDuration ?? 1;
 
@@ -1331,9 +1331,9 @@ export interface EventBlockTimeRecord {
 	start_time: string;
 	end_time: string;
 	repeatable: boolean;
-	repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
+	repeat_type?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
 	repeat_duration?: number | null;
-	repeat_duration_unit?: 'weeks' | 'months' | 'years' | null;
+	repeat_duration_unit?: 'days' | 'weeks' | 'months' | 'years' | null;
 	notes?: string | null;
 }
 
@@ -1412,10 +1412,10 @@ export async function updateEventBlockTime(
 
 		// Resolve repeat fields (never write nulls to NOT NULL columns)
 		const isRepeat = !!input.repeatable;
-		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' =
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' | 'yearly' =
 			input.repeat_type ?? 'daily';
-		const resolvedRepeatUnit: 'weeks' | 'months' | 'years' =
-			input.repeat_duration_unit ?? ((resolvedRepeatType === 'monthly') ? 'months' : 'weeks');
+		const resolvedRepeatUnit: 'days' | 'weeks' | 'months' | 'years' =
+			input.repeat_duration_unit ?? ((resolvedRepeatType === 'monthly') ? 'months' : (resolvedRepeatType === 'yearly') ? 'years' : 'weeks');
 		const resolvedRepeatDuration: number =
 			input.repeat_duration ?? 1;
 
@@ -1502,8 +1502,8 @@ export async function updateEventBlockTime(
 
 				let windowEndExclusive: Date | null = null;
 				if (isRepeatOcc) {
-					const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' = (input.repeat_type ?? 'daily');
-					const resolvedUnit: 'weeks' | 'months' | 'years' =
+					const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' | 'yearly' = (input.repeat_type ?? 'daily');
+					const resolvedUnit: 'days' | 'weeks' | 'months' | 'years' =
 						(input.repeat_duration_unit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks'));
 					const resolvedDuration = input.repeat_duration ?? 1;
 					if (resolvedUnit === 'weeks') {
@@ -1519,7 +1519,7 @@ export async function updateEventBlockTime(
 				if (!isRepeatOcc) {
 					occurrences.push(base);
 				} else {
-					const repeatType: 'daily' | 'weekly' | 'monthly' = (input.repeat_type ?? 'daily');
+					const repeatType: 'daily' | 'weekly' | 'monthly' | 'yearly' = (input.repeat_type ?? 'daily');
 					if (repeatType === 'daily') {
 						let cursor = new Date(base);
 						while (windowEndExclusive && cursor < windowEndExclusive) {

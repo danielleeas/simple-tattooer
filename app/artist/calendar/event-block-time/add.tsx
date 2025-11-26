@@ -27,9 +27,24 @@ type EventBlockTimeData = {
     startTime?: string;
     endTime?: string;
     isRepeat: boolean;
-    repeatType: 'daily' | 'weekly' | 'monthly';
-    repeatDuration?: { value: number; unit: 'weeks' | 'months' | 'years' };
+    repeatLength?: number;
+    repeatUnit?: 'days' | 'weeks' | 'months' | 'years';
     eventNotes: string;
+};
+
+const repeatDuration = (length?: number, unit?: 'days' | 'weeks' | 'months' | 'years'): { value: number; unit: 'days' | 'weeks' | 'months' | 'years' } | undefined => {
+    if (!length || !unit) return undefined;
+    if (length <= 0) return undefined;
+    return { value: length, unit };
+};
+
+const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
+    if (!unit) return 'daily';
+    if (unit === 'days') return 'daily';
+    if (unit === 'weeks') return 'weekly';
+    if (unit === 'months') return 'monthly';
+    if (unit === 'years') return 'yearly';
+    return 'daily';
 };
 
 export default function AddEventBlockTimePage() {
@@ -46,8 +61,8 @@ export default function AddEventBlockTimePage() {
         startTime: "08:00",
         endTime: "10:00",
         isRepeat: false,
-        repeatType: 'daily',
-        repeatDuration: undefined,
+        repeatLength: undefined,
+        repeatUnit: undefined,
         eventNotes: '',
     });
 
@@ -80,7 +95,7 @@ export default function AddEventBlockTimePage() {
                 return;
             }
         }
-        if (formData.isRepeat && (!formData.repeatDuration || !formData.repeatDuration.value || formData.repeatDuration.value <= 0)) {
+        if (formData.isRepeat && (!formData.repeatLength || formData.repeatLength <= 0)) {
             toast({ variant: 'error', title: 'Select repeat duration', duration: 2500 });
             return;
         }
@@ -112,11 +127,9 @@ export default function AddEventBlockTimePage() {
                 startTime: formData.startTime,
                 endTime: formData.endTime,
                 repeatable: formData.isRepeat,
-                repeatType: formData.isRepeat ? formData.repeatType : undefined,
-                repeatDuration: formData.isRepeat ? (formData.repeatDuration?.value ?? 1) : undefined,
-                repeatDurationUnit: formData.isRepeat
-                    ? (formData.repeatDuration?.unit ?? (formData.repeatType === 'monthly' ? 'months' : 'weeks'))
-                    : undefined,
+                repeatType: formData.isRepeat ? getRepeatType(formData.repeatUnit) : undefined,
+                repeatDuration: formData.isRepeat ? (formData.repeatLength ?? 1) : undefined,
+                repeatDurationUnit: formData.isRepeat ? formData.repeatUnit : undefined,
                 notes: formData.eventNotes?.trim() || undefined,
             });
 
@@ -217,33 +230,17 @@ export default function AddEventBlockTimePage() {
                                             </View>
                                         </View>
 
-                                        {formData.isRepeat && (
-                                            <View className="gap-2">
-                                                <View className="flex-row items-center gap-2">
-                                                    <Button onPress={() => setFormData({ ...formData, repeatType: 'daily' })} variant={formData.repeatType === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Daily</Text>
-                                                    </Button>
-                                                    <Button onPress={() => setFormData({ ...formData, repeatType: 'weekly' })} variant={formData.repeatType === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Weekly</Text>
-                                                    </Button>
-                                                    <Button onPress={() => setFormData({ ...formData, repeatType: 'monthly' })} variant={formData.repeatType === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Monthly</Text>
-                                                    </Button>
-                                                </View>
-                                            </View>
-                                        )}
-                                    </View>
+                                        </View>
 
                                     {formData.isRepeat && (
                                         <View className="gap-2">
                                             <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
                                                 <View className="gap-2 w-full">
                                                     <DurationPicker
-                                                        selectedDuration={formData.repeatDuration}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatDuration: duration })}
+                                                        selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
+                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
                                                         maxValue={12}
                                                         modalTitle="Select Repeat Duration"
-                                                        disabledUnits={formData.repeatType === 'monthly' ? ['weeks'] : undefined}
                                                     />
                                                 </View>
                                             </Collapse>

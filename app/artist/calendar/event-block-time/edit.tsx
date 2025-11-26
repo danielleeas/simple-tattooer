@@ -22,6 +22,33 @@ import { Collapse } from "@/components/lib/collapse";
 import X_IMAGE from "@/assets/images/icons/x.png";
 import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 
+type EventBlockTimeData = {
+    id: string;
+    date: string;
+    title: string;
+    startTime?: string;
+    endTime?: string;
+    isRepeat: boolean;
+    repeatLength?: number;
+    repeatUnit?: 'days' | 'weeks' | 'months' | 'years';
+    eventNotes: string;
+};
+
+const repeatDuration = (length?: number, unit?: 'days' | 'weeks' | 'months' | 'years'): { value: number; unit: 'days' | 'weeks' | 'months' | 'years' } | undefined => {
+    if (!length || !unit) return undefined;
+    if (length <= 0) return undefined;
+    return { value: length, unit };
+};
+
+const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
+    if (!unit) return 'daily';
+    if (unit === 'days') return 'daily';
+    if (unit === 'weeks') return 'weekly';
+    if (unit === 'months') return 'monthly';
+    if (unit === 'years') return 'yearly';
+    return 'daily';
+};
+
 export default function AddEventBlockTimePage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -29,24 +56,16 @@ export default function AddEventBlockTimePage() {
     const [loading, setLoading] = useState(false);
     const { id } = useLocalSearchParams<{ id: string }>();
     const [event, setEvent] = useState<EventBlockTimeRecord | null>(null);
-    const [formData, setFormData] = useState<EventBlockTimeRecord>({
+    const [formData, setFormData] = useState<EventBlockTimeData>({
         id: '',
-        artist_id: '',
-        title: '',
         date: '',
-        start_time: '',
-        end_time: '',
-        repeatable: false,
-        repeat_type: 'daily',
-        repeat_duration: 1,
-        repeat_duration_unit: 'weeks',
-        notes: '',
-        off_booking_enabled: false,
-        off_booking_repeatable: false,
-        off_booking_repeat_type: 'daily',
-        off_booking_repeat_duration: 1,
-        off_booking_repeat_duration_unit: 'weeks',
-        off_booking_notes: ''
+        title: '',
+        startTime: '',
+        endTime: '',
+        isRepeat: false,
+        repeatLength: undefined,
+        repeatUnit: undefined,
+        eventNotes: '',
     });
 
     const hasChanges = useMemo(() => {
@@ -78,7 +97,17 @@ export default function AddEventBlockTimePage() {
 
     useEffect(() => {
         if (event) {
-            setFormData(event);
+            setFormData({
+                id: event.id,
+                date: event.date,
+                title: event.title,
+                startTime: event.start_time,
+                endTime: event.end_time,
+                isRepeat: event.repeatable,
+                repeatLength: event.repeat_duration ?? undefined,
+                repeatUnit: event.repeat_duration_unit ?? undefined,
+                eventNotes: event.notes ?? '',
+            });
         }
     }, [event]);
 
@@ -99,34 +128,22 @@ export default function AddEventBlockTimePage() {
                 return;
             }
 
-            if (!formData.start_time || !formData.end_time) {
+            if (!formData.startTime || !formData.endTime) {
                 toast({ variant: 'error', title: 'Start and End time are required', duration: 2500 });
                 return;
             }
 
-            // Derive YYYY-MM-DD directly from the input without timezone conversions
-            const dateStr = (() => {
-                const pad = (n: number) => String(n).padStart(2, '0');
-                if (formData?.date) {
-                    try {
-                        const d = parseYmdFromDb(String(formData.date));
-                        if (!isNaN(d.getTime())) {
-                            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                        }
-                    } catch { /* noop */ }
-                    // Fallback: if string starts with YYYY-MM-DD, take that portion
-                    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(formData.date));
-                    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-                }
-                const now = new Date();
-                return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-            })();
-
             const data: UpdateEventBlockTimeInput = {
-                ...formData,
-                date: dateStr,
-                notes: formData.notes ?? undefined,
-                off_booking_notes: formData.off_booking_notes ?? undefined,
+                id: formData.id,
+                date: formData.date ?? undefined,
+                title: formData.title.trim(),
+                start_time: formData.startTime,
+                end_time: formData.endTime,
+                repeatable: formData.isRepeat,
+                repeat_type: getRepeatType(formData.repeatUnit),
+                repeat_duration: formData.repeatLength ?? undefined,
+                repeat_duration_unit: formData.repeatUnit as 'days' | 'weeks' | 'months' | 'years' | undefined,
+                notes: formData.eventNotes ?? undefined,
             };
 
             const result = await updateEventBlockTime(id, data);
@@ -200,8 +217,8 @@ export default function AddEventBlockTimePage() {
                                                     <TimePicker
                                                         minuteInterval={15}
                                                         className="w-full"
-                                                        selectedTime={formData.start_time ? convertTimeToISOString(formData.start_time) : undefined}
-                                                        onTimeSelect={(time) => setFormData({ ...formData, start_time: convertTimeToHHMMString(time) })}
+                                                        selectedTime={formData.startTime ? convertTimeToISOString(formData.startTime) : undefined}
+                                                        onTimeSelect={(time) => setFormData({ ...formData, startTime: convertTimeToHHMMString(time) })}
                                                     />
                                                 </View>
                                             </Collapse>
@@ -212,8 +229,8 @@ export default function AddEventBlockTimePage() {
                                                     <TimePicker
                                                         minuteInterval={15}
                                                         className="w-full"
-                                                        selectedTime={formData.end_time ? convertTimeToISOString(formData.end_time) : undefined}
-                                                        onTimeSelect={(time) => setFormData({ ...formData, end_time: convertTimeToHHMMString(time) })}
+                                                        selectedTime={formData.endTime ? convertTimeToISOString(formData.endTime) : undefined}
+                                                        onTimeSelect={(time) => setFormData({ ...formData, endTime: convertTimeToHHMMString(time) })}
                                                     />
                                                 </View>
                                             </Collapse>
@@ -222,46 +239,28 @@ export default function AddEventBlockTimePage() {
 
                                     <View className="gap-2">
                                         <View className="flex-row items-start gap-1">
-                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, repeatable: !formData.repeatable })}>
+                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
                                                 <Text variant="h5" className="w-[310px]">Repeat?</Text>
                                             </Pressable>
                                             <View>
                                                 <Switch
-                                                    checked={formData.repeatable}
-                                                    onCheckedChange={() => setFormData({ ...formData, repeatable: !formData.repeatable })}
+                                                    checked={formData.isRepeat}
+                                                    onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
                                                 />
                                             </View>
                                         </View>
 
-                                        {formData.repeatable && (
-                                            <View className="gap-2">
-                                                <View className="flex-row items-center gap-2">
-                                                    <Button onPress={() => setFormData({ ...formData, repeat_type: 'daily' })} variant={formData.repeat_type === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Daily</Text>
-                                                    </Button>
-                                                    <Button onPress={() => setFormData({ ...formData, repeat_type: 'weekly' })} variant={formData.repeat_type === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Weekly</Text>
-                                                    </Button>
-                                                    <Button onPress={() => setFormData({ ...formData, repeat_type: 'monthly' })} variant={formData.repeat_type === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Monthly</Text>
-                                                    </Button>
-                                                </View>
-                                            </View>
-                                        )}
                                     </View>
 
-                                    {formData.repeatable && (
+                                    {formData.isRepeat && (
                                         <View className="gap-2">
                                             <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
                                                 <View className="gap-2 w-full">
                                                     <DurationPicker
-                                                        selectedDuration={formData.repeat_duration != null && !!formData.repeat_duration_unit
-                                                            ? { value: formData.repeat_duration, unit: formData.repeat_duration_unit }
-                                                            : undefined}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeat_duration: duration.value, repeat_duration_unit: duration.unit })}
+                                                        selectedDuration={repeatDuration(formData.repeatLength ?? undefined, formData.repeatUnit ?? undefined)}
+                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit as 'days' | 'weeks' | 'months' | 'years' })}
                                                         maxValue={12}
                                                         modalTitle="Select Repeat Duration"
-                                                        disabledUnits={formData.repeat_type === 'monthly' ? ['weeks'] : undefined}
                                                     />
                                                 </View>
                                             </Collapse>
@@ -273,8 +272,8 @@ export default function AddEventBlockTimePage() {
                                         <Textarea
                                             placeholder="Project Notes"
                                             className="min-h-28"
-                                            value={formData.notes || ''}
-                                            onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                            value={formData.eventNotes || ''}
+                                            onChangeText={(text) => setFormData({ ...formData, eventNotes: text })}
                                         />
                                     </View>
                                 </View>
