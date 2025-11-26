@@ -33,8 +33,8 @@ export default function EditOffDaysPage() {
         startDate: string;
         endDate: string;
         isRepeat: boolean;
-        repeatType: 'daily' | 'weekly' | 'monthly';
-        repeatDuration?: { value: number; unit: 'weeks' | 'months' | 'years' };
+        repeatLength?: number;
+        repeatUnit?: 'days' | 'weeks' | 'months' | 'years';
         notes: string;
     };
     const [formData, setFormData] = useState<OffDaysFormData>({
@@ -42,8 +42,8 @@ export default function EditOffDaysPage() {
         startDate: '',
         endDate: '',
         isRepeat: false,
-        repeatType: 'daily',
-        repeatDuration: undefined,
+        repeatLength: undefined,
+        repeatUnit: undefined,
         notes: '',
     });
 
@@ -68,10 +68,8 @@ export default function EditOffDaysPage() {
                     startDate: od.start_date || '',
                     endDate: od.end_date || '',
                     isRepeat: Boolean(od.is_repeat),
-                    repeatType: (od.repeat_type ?? 'daily') as 'daily' | 'weekly' | 'monthly',
-                    repeatDuration: od.repeat_duration != null && !!od.repeat_duration_unit
-                        ? { value: Number(od.repeat_duration), unit: od.repeat_duration_unit as 'weeks' | 'months' | 'years' }
-                        : undefined,
+                    repeatLength: od.repeat_duration ?? 1,
+                    repeatUnit: od.repeat_duration_unit as 'days' | 'weeks' | 'months' | 'years' | undefined,
                     notes: od.notes || '',
                 });
             } catch (e) {
@@ -115,29 +113,54 @@ export default function EditOffDaysPage() {
         setFormData((prev: OffDaysFormData) => ({ ...prev, startDate: start, endDate: end }));
     };
 
-    // Disable repeat types depending on the selected range
-    const rangeLength = (formData.startDate && formData.endDate)
-        ? buildRangeDates(formData.startDate, formData.endDate).length
-        : 0;
-    const disableDaily = rangeLength > 1;
-    const disableWeekly = rangeLength > 7;
+    const repeatDuration = (length?: number, unit?: 'days' | 'weeks' | 'months' | 'years'): { value: number; unit: 'days' | 'weeks' | 'months' | 'years' } | undefined => {
+        if (!length || !unit) return undefined;
+        if (length <= 0) return undefined;
+        return { value: length, unit };
+    };
 
-    // Auto-correct repeatType if it becomes invalid for the current range
-    useEffect(() => {
-        if (!formData.isRepeat) return;
-        setFormData(prev => {
-            if (disableDaily && prev.repeatType === 'daily') {
-                const nextType = disableWeekly ? 'monthly' : 'weekly';
-                return { ...prev, repeatType: nextType };
-            }
-            if (disableWeekly && prev.repeatType === 'weekly') {
-                const nextType = disableDaily ? 'monthly' : 'daily';
-                return { ...prev, repeatType: nextType };
-            }
-            return prev;
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [disableDaily, disableWeekly, formData.isRepeat, formData.startDate, formData.endDate]);
+    const getDisableUnits = (start: string, end: string): ('days' | 'weeks' | 'months' | 'years')[] => {
+        if (!start || !end) return ['days', 'weeks', 'months', 'years'];
+        
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        const getWeekNumber = (date: Date) => {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+            const yearStart = new Date(d.getFullYear(), 0, 1);
+            return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        };
+        
+        const startWeek = getWeekNumber(startDate);
+        const endWeek = getWeekNumber(endDate);
+        const startMonth = startDate.getMonth();
+        const endMonth = endDate.getMonth();
+        const startYear = startDate.getFullYear();
+        const endYear = endDate.getFullYear();
+        
+        const spansMultipleWeeks = endWeek !== startWeek || endYear !== startYear;
+        const spansMultipleMonths = endMonth !== startMonth || endYear !== startYear;
+        const spansMultipleYears = endYear !== startYear;
+        
+        const disabled: ('days' | 'weeks' | 'months' | 'years')[] = ['days'];
+        
+        if (spansMultipleWeeks) disabled.push('weeks');
+        if (spansMultipleMonths) disabled.push('months');
+        if (spansMultipleYears) disabled.push('years');
+        
+        return disabled;
+    };
+
+    const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
+        if (!unit) return 'daily';
+        if (unit === 'days') return 'daily';
+        if (unit === 'weeks') return 'weekly';
+        if (unit === 'months') return 'monthly';
+        if (unit === 'years') return 'yearly';
+        return 'daily';
+    };
 
     const handleBack = () => {
         router.back();
@@ -160,19 +183,8 @@ export default function EditOffDaysPage() {
             toast({ variant: 'error', title: 'End date must be after start date' });
             return;
         }
-        if (formData.isRepeat && (!formData.repeatDuration || !formData.repeatDuration.value || formData.repeatDuration.value <= 0)) {
+        if (formData.isRepeat && (!formData.repeatLength || formData.repeatLength <= 0)) {
             toast({ variant: 'error', title: 'Select repeat duration' });
-            return;
-        }
-
-        // Enforce repeat-type constraints based on selected range length
-        const rangeLen = buildRangeDates(formData.startDate, formData.endDate).length;
-        if (formData.isRepeat && formData.repeatType === 'daily' && rangeLen > 1) {
-            toast({ variant: 'error', title: 'Daily repeat is not allowed for a multi-day range' });
-            return;
-        }
-        if (formData.isRepeat && formData.repeatType === 'weekly' && rangeLen > 7) {
-            toast({ variant: 'error', title: 'Weekly repeat is not allowed for ranges longer than one week' });
             return;
         }
 
@@ -184,11 +196,9 @@ export default function EditOffDaysPage() {
                 start_date: formData.startDate,
                 end_date: formData.endDate,
                 is_repeat: formData.isRepeat,
-                repeat_type: formData.repeatType,
-                repeat_duration: formData.isRepeat ? (formData.repeatDuration?.value ?? 1) : undefined,
-                repeat_duration_unit: formData.isRepeat
-                    ? (formData.repeatDuration?.unit ?? (formData.repeatType === 'monthly' ? 'months' : 'weeks'))
-                    : undefined,
+                repeat_type: getRepeatType(formData.repeatUnit),
+                repeat_duration: formData.isRepeat ? (formData.repeatLength ?? 1) : undefined,
+                repeat_duration_unit: formData.isRepeat ? formData.repeatUnit : undefined,
                 notes: formData.notes?.trim() || null,
             });
             if (!result.success) {
@@ -231,8 +241,8 @@ export default function EditOffDaysPage() {
                                     style={{ width: 56, height: 56 }}
                                     resizeMode="contain"
                                 />
-                                <Text variant="h6" className="text-center uppercase">Edit Book Off/</Text>
-                                <Text variant="h6" className="text-center uppercase leading-none">Multiple Days</Text>
+                                <Text variant="h6" className="text-center uppercase">Edit Multiple</Text>
+                                <Text variant="h6" className="text-center uppercase leading-none">Days Off</Text>
                             </View>
 
                             {/* Form Fields */}
@@ -276,22 +286,6 @@ export default function EditOffDaysPage() {
                                                 />
                                             </View>
                                         </View>
-
-                                        {formData.isRepeat && (
-                                            <View className="gap-2">
-                                                <View className="flex-row items-center gap-2">
-                                                    <Button disabled={disableDaily} onPress={() => setFormData({ ...formData, repeatType: 'daily' })} variant={formData.repeatType === 'daily' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Daily</Text>
-                                                    </Button>
-                                                    <Button disabled={disableWeekly} onPress={() => setFormData({ ...formData, repeatType: 'weekly' })} variant={formData.repeatType === 'weekly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Weekly</Text>
-                                                    </Button>
-                                                    <Button onPress={() => setFormData({ ...formData, repeatType: 'monthly' })} variant={formData.repeatType === 'monthly' ? 'default' : 'outline'} className="w-[78px] h-8 items-center justify-center px-0 py-0">
-                                                        <Text variant='small'>Monthly</Text>
-                                                    </Button>
-                                                </View>
-                                            </View>
-                                        )}
                                     </View>
 
                                     {formData.isRepeat && (
@@ -299,11 +293,11 @@ export default function EditOffDaysPage() {
                                             <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
                                                 <View className="gap-2 w-full">
                                                     <DurationPicker
-                                                        selectedDuration={formData.repeatDuration}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatDuration: duration })}
+                                                        selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
+                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
                                                         maxValue={12}
                                                         modalTitle="Select Repeat Duration"
-                                                        disabledUnits={formData.repeatType === 'monthly' ? ['weeks'] : undefined}
+                                                        disabledUnits={getDisableUnits(formData.startDate, formData.endDate)}
                                                     />
                                                 </View>
                                             </Collapse>

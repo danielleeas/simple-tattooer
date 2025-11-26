@@ -182,9 +182,9 @@ export interface CreateOffDaysParams {
 	startDate: string; // "YYYY-MM-DD"
 	endDate: string;   // "YYYY-MM-DD"
 	isRepeat?: boolean;
-	repeatType?: 'daily' | 'weekly' | 'monthly';
+	repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
 	repeatDuration?: number;
-	repeatDurationUnit?: 'weeks' | 'months' | 'years';
+	repeatDurationUnit?: 'days' | 'weeks' | 'months' | 'years';
 	notes?: string;
 }
 
@@ -212,8 +212,8 @@ export async function createOffDays(params: CreateOffDaysParams): Promise<Create
 		// Insert an off_days record to track the pattern
 		const isRepeat = !!params.isRepeat;
 		const resolvedRepeatType = params.repeatType ?? 'daily';
-		const resolvedUnit: 'weeks' | 'months' | 'years' =
-			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
+		const resolvedUnit: 'days' | 'weeks' | 'months' | 'years' =
+			params.repeatDurationUnit ?? (resolvedRepeatType === 'monthly' ? 'months' : resolvedRepeatType === 'yearly' ? 'years' : 'weeks');
 		const resolvedDuration = params.repeatDuration ?? 1;
 
 		const offDaysPayload = {
@@ -410,9 +410,9 @@ export type UpdateOffDayInput = {
 	start_date?: string; // "YYYY-MM-DD"
 	end_date?: string;   // "YYYY-MM-DD"
 	is_repeat?: boolean;
-	repeat_type?: 'daily' | 'weekly' | 'monthly';
+	repeat_type?: 'daily' | 'weekly' | 'monthly' | 'yearly';
 	repeat_duration?: number;
-	repeat_duration_unit?: 'weeks' | 'months' | 'years';
+	repeat_duration_unit?: 'days' | 'weeks' | 'months' | 'years';
 	notes?: string | null;
 };
 
@@ -430,8 +430,8 @@ export async function updateOffDay(
 
 		// Normalize repeat fields
 		const isRepeat = !!input.is_repeat;
-		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' = input.repeat_type ?? 'daily';
-		const resolvedRepeatUnit: 'weeks' | 'months' | 'years' =
+		const resolvedRepeatType: 'daily' | 'weekly' | 'monthly' | 'yearly' = input.repeat_type ?? 'daily';
+		const resolvedRepeatUnit: 'days' | 'weeks' | 'months' | 'years' =
 			input.repeat_duration_unit ?? (resolvedRepeatType === 'monthly' ? 'months' : 'weeks');
 		const resolvedRepeatDuration: number = input.repeat_duration ?? 1;
 

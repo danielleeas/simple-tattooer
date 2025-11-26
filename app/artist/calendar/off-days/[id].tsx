@@ -109,8 +109,8 @@ export default function OffDaysDetailPage() {
                                             style={{ width: 56, height: 56 }}
                                             resizeMode="contain"
                                         />
-                                        <Text variant="h6" className="text-center uppercase">Off days</Text>
-                                        <Text variant="h6" className="text-center uppercase">detail</Text>
+                                        <Text variant="h6" className="text-center uppercase">Multiple Days</Text>
+                                        <Text variant="h6" className="text-center uppercase">Off detail</Text>
                                     </View>
                                     {loading && (
                                         <View className="flex-1 items-center justify-center">
@@ -143,21 +143,10 @@ export default function OffDaysDetailPage() {
                                                 <Text variant='h5'>{formatDate(offDay?.end_date || '', false, true)}</Text>
                                             </View>
 
-                                            <View className="gap-3">
-                                                <Text className="text-text-secondary">Repeatable</Text>
-                                                <Text variant='h5'>{offDay?.is_repeat ? 'Yes' : 'No'}</Text>
-                                            </View>
                                             {offDay?.is_repeat && (
-                                                <>
-                                                    <View className="gap-3">
-                                                        <Text className="text-text-secondary">Repeat Type</Text>
-                                                        <Text variant='h5'>{offDay?.repeat_type || ''}</Text>
-                                                    </View>
-                                                    <View className="gap-3">
-                                                        <Text className="text-text-secondary">Repeat Duration</Text>
-                                                        <Text variant='h5'>{offDay?.repeat_duration || ''} {offDay?.repeat_duration_unit || ''}</Text>
-                                                    </View>
-                                                </>
+                                                <View className="gap-3">
+                                                    <Text >Repeat {offDay?.repeat_type} for {offDay?.repeat_duration} {offDay?.repeat_duration_unit}</Text>
+                                                </View>
                                             )}
 
                                             <View className="gap-3">
