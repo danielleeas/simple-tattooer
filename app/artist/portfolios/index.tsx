@@ -29,7 +29,7 @@ export default function PortFolioFlashPage() {
     };
 
     const handleMenu = () => {
-        // router.push('/production/menu');
+        router.push('/artist/menu');
     }
 
     const handleTabChange = (tab: 'portfolios' | 'flashs') => {

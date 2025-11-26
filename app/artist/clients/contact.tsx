@@ -162,17 +162,17 @@ export default function ClientContact() {
                                     <View className="gap-6">
                                         <View className="gap-2">
                                             <Text className="text-text-secondary">Name</Text>
-                                            <Input value={client.name} readOnly={true} />
+                                            <Input value={client.name} />
                                         </View>
 
                                         <View className="gap-2">
                                             <Text className="text-text-secondary">Email</Text>
-                                            <Input value={client.email} readOnly={true} />
+                                            <Input value={client.email} />
                                         </View>
 
                                         <View className="gap-2">
                                             <Text className="text-text-secondary">Phone Number</Text>
-                                            <Input value={client.phone_number} readOnly={true} />
+                                            <Input value={client.phone_number} />
                                             <View className="flex-row items-center gap-4">
                                                 <Pressable className="flex-row items-center gap-1" onPress={handleCall}>
                                                     <Image source={require('@/assets/images/icons/phone_thick.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
@@ -187,7 +187,7 @@ export default function ClientContact() {
 
                                         <View className="gap-2">
                                             <Text className="text-text-secondary">City/Country</Text>
-                                            <Input value={client.location} readOnly={true} />
+                                            <Input value={client.location} />
                                         </View>
 
                                         <View className="gap-2">
@@ -196,7 +196,6 @@ export default function ClientContact() {
                                                 placeholder="Enter notes"
                                                 className="min-h-28"
                                                 value={client.project_notes || ''}
-                                                readOnly={true}
                                             />
                                         </View>
 

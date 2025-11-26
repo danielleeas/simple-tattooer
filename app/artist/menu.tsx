@@ -33,10 +33,6 @@ export default function Menu() {
         router.dismissAll();
     };
 
-    const handleEvent = () => {
-        router.push('/artist/wizard');
-    };
-
     const handleImportClients = () => {
         // router.push('/preview/clients/import-clients');
     };
@@ -155,7 +151,7 @@ export default function Menu() {
 
                                     <View className="flex-row gap-3 items-start justify-between">
                                         <View className="flex-1">
-                                            <Pressable onPress={handleEvent} className='items-center justify-center gap-1'>
+                                            <Pressable onPress={handleCancellations} className='items-center justify-center gap-1'>
                                                 <Image source={RULE_IMAGE} style={ICON_STYLE} />
                                                 <View className="items-center">
                                                     <Text variant="h6" className='uppercase'>cancellation</Text>

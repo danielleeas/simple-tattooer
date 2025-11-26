@@ -18,7 +18,7 @@ export default function MakeItYours() {
     };
 
     const handleMenu = () => {
-        // router.push('/production/menu');
+        router.push('/artist/menu');
     };
 
     const handleYourRules = () => {

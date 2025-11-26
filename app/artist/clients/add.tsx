@@ -15,11 +15,12 @@ import { useToast } from "@/lib/contexts/toast-context";
 
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
 import PLUS_THIN_IMAGE from "@/assets/images/icons/plus_thin.png";
+import { createClientWithAuth } from "@/lib/services/clients-service";
 
 export default function AddClient() {
 
     const { artist } = useAuth();
-	const { toast } = useToast();
+    const { toast } = useToast();
 
     const [formData, setFormData] = useState({
         full_name: '',
@@ -27,40 +28,81 @@ export default function AddClient() {
         phone_number: '',
         project_notes: '',
     });
-	const [isSubmitting] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleBack = () => {
         router.back();
     };
 
-	const handleCreateClient = async () => {
-		if (!formData.full_name.trim() || !formData.email.trim() || !formData.phone_number.trim()) {
-			toast({
-				variant: 'error',
-				title: 'Missing information',
-				description: 'Full name, email, and phone number are required.',
-			});
-			return;
-		}
+    const handleCreateClient = async () => {
+        if (!formData.full_name.trim() || !formData.email.trim() || !formData.phone_number.trim()) {
+            toast({
+                variant: 'error',
+                title: 'Missing information',
+                description: 'Full name, email, and phone number are required.',
+            });
+            return;
+        }
 
-		if (!artist?.id) {
-			toast({
-				variant: 'error',
-				title: 'Not ready',
-				description: 'Artist session not loaded. Please try again.',
-			});
-			return;
-		}
+        if (!artist?.id) {
+            toast({
+                variant: 'error',
+                title: 'Not ready',
+                description: 'Artist session not loaded. Please try again.',
+            });
+            return;
+        }
 
-        router.push({
-            pathname: '/artist/booking/quote',
-            params: {
+        try {
+            setIsSubmitting(true);
+
+            const created = await createClientWithAuth({
                 full_name: formData.full_name,
                 email: formData.email,
                 phone_number: formData.phone_number,
                 project_notes: formData.project_notes,
-            },
-        });
+                artist_id: artist.id,
+            });
+
+            if (!created?.success) {
+                toast({
+                    variant: 'error',
+                    title: 'Failed to create client',
+                    description: created?.error || 'Please try again',
+                    duration: 3000,
+                });
+                return;
+            }
+
+            const clientId = created.client.id;
+
+            toast({
+                variant: 'success',
+                title: 'Client created successfully',
+                duration: 3000,
+            });
+
+            setTimeout(() => {
+                router.push({
+                    pathname: '/artist/clients/[id]',
+                    params: {
+                        id: clientId,
+                    },
+                });
+            }, 100);
+
+        }
+        catch (error: any) {
+            toast({
+                variant: 'error',
+                title: 'Failed to create client',
+                description: error?.message || 'Please try again',
+                duration: 3000,
+            });
+        }
+        finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -73,7 +115,7 @@ export default function AddClient() {
                     threshold={80}
                     enabled={true}
                 >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-10 gap-6">
+                    <View className="flex-1 bg-background px-4">
                         <View className="flex-1">
                             <KeyboardAwareScrollView bottomOffset={50} contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
                                 <View className="gap-6 pb-10">
@@ -89,32 +131,67 @@ export default function AddClient() {
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Full Name</Text>
-                                        <Input placeholder="Enter full name" helperText="First and last, please" value={formData.full_name} onChangeText={(text) => setFormData({ ...formData, full_name: text })} />
+                                        <Input
+                                            spellCheck={false}
+                                            autoComplete="off"
+                                            textContentType="none"
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            placeholder="Enter full name"
+                                            helperText="First and last, please"
+                                            value={formData.full_name}
+                                            onChangeText={(text) => setFormData({ ...formData, full_name: text })} />
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Email</Text>
-                                        <Input placeholder="Enter email" keyboardType="email-address" value={formData.email} onChangeText={(text) => setFormData({ ...formData, email: text })} />
+                                        <Input
+                                            spellCheck={false}
+                                            autoComplete="off"
+                                            textContentType="none"
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            placeholder="Enter email"
+                                            keyboardType="email-address"
+                                            value={formData.email}
+                                            onChangeText={(text) => setFormData({ ...formData, email: text })} />
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Phone Number</Text>
-                                        <Input placeholder="Enter phone number" value={formData.phone_number} onChangeText={(text) => setFormData({ ...formData, phone_number: text })} />
+                                        <Input
+                                            spellCheck={false}
+                                            autoComplete="off"
+                                            textContentType="none"
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            placeholder="Enter phone number"
+                                            value={formData.phone_number}
+                                            onChangeText={(text) => setFormData({ ...formData, phone_number: text })} />
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Project Notes</Text>
-                                        <Textarea placeholder="Enter project notes" className="min-h-28" value={formData.project_notes} onChangeText={(text) => setFormData({ ...formData, project_notes: text })} />
+                                        <Textarea
+                                            spellCheck={false}
+                                            autoComplete="off"
+                                            textContentType="none"
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            placeholder="Enter project notes"
+                                            className="min-h-28"
+                                            value={formData.project_notes}
+                                            onChangeText={(text) => setFormData({ ...formData, project_notes: text })} />
                                     </View>
                                 </View>
                             </KeyboardAwareScrollView>
                         </View>
-                        <View className="flex-row gap-3">
+                        <View className="flex-row gap-3 py-4">
                             <View className="flex-1">
-								<Button variant="outline" size="lg" onPress={handleBack}>
+                                <Button variant="outline" onPress={handleBack} disabled={isSubmitting}>
                                     <Text variant='h5'>Cancel</Text>
                                 </Button>
                             </View>
                             <View className="flex-1">
-								<Button size="lg" onPress={handleCreateClient} disabled={isSubmitting}>
-									<Text variant='h5'>{isSubmitting ? 'Creating…' : 'Create Quote'}</Text>
+                                <Button variant='outline' onPress={handleCreateClient} disabled={isSubmitting}>
+                                    <Text variant='h5'>{isSubmitting ? 'Saving' : 'Save'}</Text>
                                 </Button>
                             </View>
                         </View>

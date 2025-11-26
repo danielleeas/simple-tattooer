@@ -91,7 +91,7 @@ export default function SearchClients() {
     };
 
     const handleAddClient = () => {
-        router.push('/artist/clients/add');
+        router.push('/artist/booking/add-client');
     };
 
     const handleAllClients = () => {

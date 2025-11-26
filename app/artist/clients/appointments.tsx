@@ -349,133 +349,145 @@ export default function ClientAppointments() {
                                         <Text variant="h6" className="text-center uppercase">Appointments</Text>
                                     </View>
 
-                                    <Button variant="outline" className='items-center justify-center' onPress={() => {router.push({pathname: "/artist/clients/[id]", params: { id: id }})}}>
+                                    <Button variant="outline" className='items-center justify-center' onPress={() => { router.push({ pathname: "/artist/clients/[id]", params: { id: id } }) }}>
                                         <Text variant="h5">View Profile</Text>
                                     </Button>
 
-                                    <View className="gap-6">
-                                        {projects.map((project) => (
-                                            <View key={project.id} className="gap-6">
-                                                <Pressable
-                                                    className="flex-row items-center justify-between gap-2"
-                                                    onPress={() => toggleProject(project.id)}
-                                                >
-                                                    <View />
-                                                    <View className="w-1.5 h-1.5 bg-primary rounded-full" />
-                                                    <Text variant="h4" className="flex-1">{project.name}</Text>
-                                                    <Icon
-                                                        as={expandedProjects[project.id] ? ChevronUpIcon : ChevronDownIcon}
-                                                        size={24}
-                                                    />
-                                                </Pressable>
+                                    {projects.length > 0 &&
 
-                                                {expandedProjects[project.id] && (
-                                                    <View className="w-full gap-6">
-                                                        {project.drawingImageUrl && (
-                                                            <View className="flex-row items-center justify-between gap-2">
-                                                                <View className="flex-row items-end justify-start gap-2">
-                                                                    <Pressable onPress={() => handleImagePress({ uri: project.drawingImageUrl })}>
-                                                                        <Image
-                                                                            source={{ uri: project.drawingImageUrl }}
-                                                                            style={{ width: 120, height: 120, borderRadius: 8 }}
-                                                                            resizeMode="contain"
-                                                                        />
-                                                                    </Pressable>
+                                        <View className="gap-6">
+                                            {projects.map((project) => (
+                                                <View key={project.id} className="gap-6">
+                                                    <Pressable
+                                                        className="flex-row items-center justify-between gap-2"
+                                                        onPress={() => toggleProject(project.id)}
+                                                    >
+                                                        <View />
+                                                        <View className="w-1.5 h-1.5 bg-primary rounded-full" />
+                                                        <Text variant="h4" className="flex-1">{project.name}</Text>
+                                                        <Icon
+                                                            as={expandedProjects[project.id] ? ChevronUpIcon : ChevronDownIcon}
+                                                            size={24}
+                                                        />
+                                                    </Pressable>
+
+                                                    {expandedProjects[project.id] && (
+                                                        <View className="w-full gap-6">
+                                                            {project.drawingImageUrl && (
+                                                                <View className="flex-row items-center justify-between gap-2">
+                                                                    <View className="flex-row items-end justify-start gap-2">
+                                                                        <Pressable onPress={() => handleImagePress({ uri: project.drawingImageUrl })}>
+                                                                            <Image
+                                                                                source={{ uri: project.drawingImageUrl }}
+                                                                                style={{ width: 120, height: 120, borderRadius: 8 }}
+                                                                                resizeMode="contain"
+                                                                            />
+                                                                        </Pressable>
+                                                                    </View>
+                                                                    <View className="flex-1 items-center justify-center pt-2">
+                                                                        <Text variant="small" className="font-thin leading-5">Tap to open drawing to full screen</Text>
+                                                                    </View>
                                                                 </View>
-                                                                <View className="flex-1 items-center justify-center pt-2">
-                                                                    <Text variant="small" className="font-thin leading-5">Tap to open drawing to full screen</Text>
-                                                                </View>
+                                                            )}
+                                                            <View className="gap-2">
+                                                                <Text variant="h4">Dates</Text>
+                                                                <Text className="font-thin leading-5 text-text-secondary">
+                                                                    If you need to manually reschedule, change time/location, or see history, tap the date
+                                                                </Text>
                                                             </View>
-                                                        )}
-                                                        <View className="gap-2">
-                                                            <Text variant="h4">Dates</Text>
-                                                            <Text className="font-thin leading-5 text-text-secondary">
-                                                                If you need to manually reschedule, change time/location, or see history, tap the date
-                                                            </Text>
-                                                        </View>
-                                                        {project.sessions.map((session, index) => {
-                                                            const isExpanded = expandedSessions[project.id];
-                                                            const shouldShowSession = index < 3 || isExpanded;
+                                                            {project.sessions.map((session, index) => {
+                                                                const isExpanded = expandedSessions[project.id];
+                                                                const shouldShowSession = index < 3 || isExpanded;
 
-                                                            return (
-                                                                <View key={session.id} className="gap-1">
-                                                                    {shouldShowSession && (
-                                                                        <Pressable key={session.id} className="gap-1" onPress={() => handleDetailSession(String(id), project.id, session.id)}>
-                                                                            <Text variant="h5">{formatDbDate(session.date, 'MMM DD, YYYY')}</Text>
-                                                                            <Text className="text-text-secondary leading-none">{session.time}</Text>
-                                                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                                                {session?.location}
-                                                                            </Text>
-                                                                        </Pressable>
-                                                                    )}
+                                                                return (
+                                                                    <View key={session.id} className="gap-1">
+                                                                        {shouldShowSession && (
+                                                                            <Pressable key={session.id} className="gap-1" onPress={() => handleDetailSession(String(id), project.id, session.id)}>
+                                                                                <Text variant="h5">{formatDbDate(session.date, 'MMM DD, YYYY')}</Text>
+                                                                                <Text className="text-text-secondary leading-none">{session.time}</Text>
+                                                                                <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                                                                    {session?.location}
+                                                                                </Text>
+                                                                            </Pressable>
+                                                                        )}
 
-                                                                    {index === 2 && project.sessions.length > 3 && !isExpanded && (
-                                                                        <Pressable
-                                                                            key={`show-more-${project.id}`}
-                                                                            className="gap-1 flex-row items-center justify-center"
-                                                                            onPress={() => toggleSessions(project.id)}
-                                                                        >
-                                                                            <Text>Show more</Text>
-                                                                            <Icon as={ChevronDownIcon} size={24} />
-                                                                        </Pressable>
-                                                                    )}
+                                                                        {index === 2 && project.sessions.length > 3 && !isExpanded && (
+                                                                            <Pressable
+                                                                                key={`show-more-${project.id}`}
+                                                                                className="gap-1 flex-row items-center justify-center"
+                                                                                onPress={() => toggleSessions(project.id)}
+                                                                            >
+                                                                                <Text>Show more</Text>
+                                                                                <Icon as={ChevronDownIcon} size={24} />
+                                                                            </Pressable>
+                                                                        )}
 
-                                                                    {index === project.sessions.length - 1 && isExpanded && project.sessions.length > 3 && (
-                                                                        <Pressable
-                                                                            key={`show-less-${project.id}`}
-                                                                            className="gap-1 flex-row items-center justify-center"
-                                                                            onPress={() => toggleSessions(project.id)}
-                                                                        >
-                                                                            <Text>Show less</Text>
-                                                                            <Icon as={ChevronUpIcon} size={24} />
-                                                                        </Pressable>
-                                                                    )}
-                                                                </View>
-                                                            );
-                                                        })}
-
-                                                        <View className="gap-2">
-                                                            <Text variant="h4">Sign Waiver</Text>
-                                                            <Pressable className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border" onPress={handleOpenWaiver}>
-                                                                <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
-                                                                    <Icon as={FileText} strokeWidth={2} size={24} className="text-background" />
-                                                                </View>
-                                                                <View className="gap-2 flex-1">
-                                                                    <View style={{ width: project.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${project.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
-                                                                        <Text className={`text-xs items-center justify-center ${project.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{project.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
+                                                                        {index === project.sessions.length - 1 && isExpanded && project.sessions.length > 3 && (
+                                                                            <Pressable
+                                                                                key={`show-less-${project.id}`}
+                                                                                className="gap-1 flex-row items-center justify-center"
+                                                                                onPress={() => toggleSessions(project.id)}
+                                                                            >
+                                                                                <Text>Show less</Text>
+                                                                                <Icon as={ChevronUpIcon} size={24} />
+                                                                            </Pressable>
+                                                                        )}
                                                                     </View>
-                                                                    <Text variant="small">{waiverFileName || 'No waiver uploaded'}</Text>
-                                                                    <View className="flex-row items-center gap-1">
-                                                                        <Text variant="small">{project.waiverSigned ? 'Preview' : 'Preview and Signed'}</Text>
-                                                                        <Icon as={FileSearch} strokeWidth={1} size={16} />
-                                                                    </View>
-                                                                </View>
-                                                            </Pressable>
-                                                        </View>
-                                                        <View className="gap-2">
-                                                            <Text className="text-text-secondary">Notes</Text>
-                                                            <Textarea
-                                                                readOnly
-                                                                placeholder="Enter notes"
-                                                                className="min-h-28"
-                                                                value={project.notes}
-                                                            />
-                                                        </View>
+                                                                );
+                                                            })}
 
-                                                    </View>
-                                                )}
-                                            </View>
-                                        ))}
-                                    </View>
+                                                            <View className="gap-2">
+                                                                <Text variant="h4">Sign Waiver</Text>
+                                                                <Pressable className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border" onPress={handleOpenWaiver}>
+                                                                    <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
+                                                                        <Icon as={FileText} strokeWidth={2} size={24} className="text-background" />
+                                                                    </View>
+                                                                    <View className="gap-2 flex-1">
+                                                                        <View style={{ width: project.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${project.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
+                                                                            <Text className={`text-xs items-center justify-center ${project.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{project.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
+                                                                        </View>
+                                                                        <Text variant="small">{waiverFileName || 'No waiver uploaded'}</Text>
+                                                                        <View className="flex-row items-center gap-1">
+                                                                            <Text variant="small">{project.waiverSigned ? 'Preview' : 'Preview and Signed'}</Text>
+                                                                            <Icon as={FileSearch} strokeWidth={1} size={16} />
+                                                                        </View>
+                                                                    </View>
+                                                                </Pressable>
+                                                            </View>
+                                                            <View className="gap-2">
+                                                                <Text className="text-text-secondary">Notes</Text>
+                                                                <Textarea
+                                                                    readOnly
+                                                                    placeholder="Enter notes"
+                                                                    className="min-h-28"
+                                                                    value={project.notes}
+                                                                />
+                                                            </View>
+
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            ))}
+                                        </View>
+                                    }
+
+                                    {projects.length === 0 &&
+                                        <View className="items-center justify-center">
+                                            <Text variant="h4">No projects found</Text>
+                                            <Text variant="small">Add a project to get started</Text>
+                                        </View>
+                                    }
                                 </View>
                             </KeyboardAwareScrollView>
                         </View>
 
                         <View className="gap-4 items-center justify-center pb-6">
-                            <Button variant="outline" onPress={handleAddSession} size="lg" className="w-full">
-                                <Text variant='h5'>Add Session</Text>
-                                <Image source={PLUS_IMAGE} style={BUTTON_ICON_STYLE} />
-                            </Button>
+                            {projects.length > 0 &&
+                                <Button variant="outline" onPress={handleAddSession} size="lg" className="w-full">
+                                    <Text variant='h5'>Add Session</Text>
+                                    <Image source={PLUS_IMAGE} style={BUTTON_ICON_STYLE} />
+                                </Button>
+                            }
                             <Button variant="outline" size="lg" className="w-full">
                                 <Text variant='h5'>Booking/Consult Request</Text>
                             </Button>
