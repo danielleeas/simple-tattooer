@@ -19,9 +19,11 @@ export const Control = ({ controlData, updateControlData, artist }: ControlProps
     const { toast } = useToast();
 
     const handleCalendarSyncToggle = async (next: boolean) => {
+        console.log('next', next);
         if (next) {
             try {
                 const granted = await ensureCalendarPermissions();
+                console.log('granted', granted);
                 if (granted) {
                     updateControlData({ calendarSync: true });
                     toast({
@@ -67,7 +69,7 @@ export const Control = ({ controlData, updateControlData, artist }: ControlProps
                 <View className="flex-1">
                     <Text variant="h5">Calendar Sync</Text>
                 </View>
-                <Switch checked={controlData.calendarSync || false} onCheckedChange={(checked) => updateControlData({ calendarSync: checked })} />
+                <Switch checked={controlData.calendarSync || false} onCheckedChange={(checked) => handleCalendarSyncToggle(checked)} />
             </Pressable>
 
             <Pressable onPress={() => updateControlData({ swipeNavigation: !controlData.swipeNavigation })} className="flex-row gap-2 items-center justify-between">
