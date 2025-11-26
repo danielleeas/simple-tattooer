@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { uuidv4 } from '@/lib/utils';
 import type { Locations } from '@/lib/redux/types';
+import { createClientWithAuth } from './clients-service';
 
 export interface CalendarEvent {
 	id: string;
@@ -705,8 +706,6 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 	}
 }
 
-
-
 export type SpotConventionRecord = {
 	id: string;
 	artist_id: string;
@@ -1163,12 +1162,6 @@ export interface CreateEventBlockTimeParams {
 	repeatDuration?: number;
 	repeatDurationUnit?: 'weeks' | 'months' | 'years';
 	notes?: string;
-	offBookingEnabled?: boolean;
-	offBookingRepeatable?: boolean;
-	offBookingRepeatType?: 'daily' | 'weekly' | 'monthly';
-	offBookingRepeatDuration?: number;
-	offBookingRepeatDurationUnit?: 'weeks' | 'months' | 'years';
-	offBookingNotes?: string;
 }
 
 export interface CreateEventBlockTimeResult {
@@ -1342,12 +1335,6 @@ export interface EventBlockTimeRecord {
 	repeat_duration?: number | null;
 	repeat_duration_unit?: 'weeks' | 'months' | 'years' | null;
 	notes?: string | null;
-	off_booking_enabled: boolean;
-	off_booking_repeatable?: boolean | null;
-	off_booking_repeat_type?: 'daily' | 'weekly' | 'monthly' | null;
-	off_booking_repeat_duration?: number | null;
-	off_booking_repeat_duration_unit?: 'weeks' | 'months' | 'years' | null;
-	off_booking_notes?: string | null;
 }
 
 export async function getEventBlockTimeById(id: string): Promise<{ success: boolean; data?: EventBlockTimeRecord; error?: string }> {
@@ -1401,12 +1388,6 @@ export type UpdateEventBlockTimeInput = Pick<
 	| 'repeat_duration'
 	| 'repeat_duration_unit'
 	| 'notes'
-	| 'off_booking_enabled'
-	| 'off_booking_repeatable'
-	| 'off_booking_repeat_type'
-	| 'off_booking_repeat_duration'
-	| 'off_booking_repeat_duration_unit'
-	| 'off_booking_notes'
 > & {
 	// Allow passthrough to avoid excess property errors from callers spreading an existing record
 	id?: string;
@@ -1438,15 +1419,6 @@ export async function updateEventBlockTime(
 		const resolvedRepeatDuration: number =
 			input.repeat_duration ?? 1;
 
-		const offEnabled = !!input.off_booking_enabled;
-		const offRepeatable = offEnabled ? !!input.off_booking_repeatable : false;
-		const offRepeatType: 'daily' | 'weekly' | 'monthly' =
-			input.off_booking_repeat_type ?? 'daily';
-		const offRepeatUnit: 'weeks' | 'months' | 'years' =
-			input.off_booking_repeat_duration_unit ?? ((offRepeatType === 'monthly') ? 'months' : 'weeks');
-		const offRepeatDuration: number =
-			input.off_booking_repeat_duration ?? 1;
-
 		const payload = {
 			title: input.title?.trim(),
 			date: input.date,
@@ -1457,12 +1429,6 @@ export async function updateEventBlockTime(
 			repeat_duration: resolvedRepeatDuration,
 			repeat_duration_unit: resolvedRepeatUnit,
 			notes: input.notes?.trim() ?? null,
-			off_booking_enabled: offEnabled,
-			off_booking_repeatable: offRepeatable,
-			off_booking_repeat_type: offRepeatType,
-			off_booking_repeat_duration: offRepeatDuration,
-			off_booking_repeat_duration_unit: offRepeatUnit,
-			off_booking_notes: offEnabled ? (input.off_booking_notes?.trim() ?? null) : null,
 		};
 
 		const { error } = await supabase
