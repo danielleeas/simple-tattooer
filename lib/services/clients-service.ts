@@ -295,27 +295,48 @@ export async function getClientById(artistId: string, clientId: string): Promise
 	};
 }
 
-	/**
-	 * Check if the client has any project with status = 'need_drawing' (scoped to artist).
-	 */
-	export async function clientHasProjectNeedingDrawing(artistId: string, clientId: string): Promise<boolean> {
-		if (!artistId || !clientId) return false;
+export async function findClientById(clientId: string): Promise<any | null> {
+	if (!clientId) return null;
 
-		const { data, error } = await supabase
-			.from('projects')
-			.select('id')
-			.eq('artist_id', artistId)
-			.eq('client_id', clientId)
-			.eq('status', 'need_drawing')
-			.limit(1);
+	console.log("calling here ?")
 
-		if (error) {
-			console.error('Error checking projects needing drawing:', error);
-			return false;
-		}
+	const { data, error } = await supabase
+		.from('clients')
+		.select('id, full_name, email')
+		.eq('id', clientId)
+		.single();
 
-		return Array.isArray(data) && data.length > 0;
+	if (error) {
+		console.error('Error fetching client by id:', error);
+		return null;
 	}
+
+	if (!data) return null;
+
+	return data;
+}
+
+/**
+ * Check if the client has any project with status = 'need_drawing' (scoped to artist).
+ */
+export async function clientHasProjectNeedingDrawing(artistId: string, clientId: string): Promise<boolean> {
+	if (!artistId || !clientId) return false;
+
+	const { data, error } = await supabase
+		.from('projects')
+		.select('id')
+		.eq('artist_id', artistId)
+		.eq('client_id', clientId)
+		.eq('status', 'need_drawing')
+		.limit(1);
+
+	if (error) {
+		console.error('Error checking projects needing drawing:', error);
+		return false;
+	}
+
+	return Array.isArray(data) && data.length > 0;
+}
 
 /**
  * Fetch all projects for a client (scoped to artist), including sessions.

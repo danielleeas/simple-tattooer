@@ -10,7 +10,7 @@ import LOGO from '@/assets/images/logo_text.png';
 interface SplashProps {
     isAuthenticated: boolean;
     welcome_enabled: boolean;
-    mode: 'preview' | 'production';
+    mode: 'preview' | 'production' | 'client';
 }
 
 const IMAGE_STYLE: ImageStyle = {

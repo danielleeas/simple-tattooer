@@ -135,6 +135,10 @@ export function DetailsStep() {
           <View className="gap-2">
             <Text variant="h5">Studio Name</Text>
             <Input
+              spellCheck={false}
+              autoCorrect={false}
+              autoComplete="off"
+              textContentType="none"
               value={details.studioName}
               onChangeText={(text) => updateDetails({ studioName: text })}
             />
@@ -228,6 +232,10 @@ export function DetailsStep() {
           <View className="gap-2">
             <Text variant="h5">Social Media Handle</Text>
             <Input
+              spellCheck={false}
+              autoCorrect={false}
+              autoComplete="off"
+              textContentType="none"
               value={details.socialHandler}
               onChangeText={(text) => updateDetails({ socialHandler: text })}
             />

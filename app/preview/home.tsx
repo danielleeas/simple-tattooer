@@ -23,7 +23,7 @@ const ICON_STYLE: ImageStyle = {
 };
 
 interface PreviewHomeProps {
-    mode: 'preview' | 'production';
+    mode: 'preview' | 'production' | 'client';
 }
 
 export default function PreviewHome({ mode }: PreviewHomeProps) {

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Stack } from 'expo-router';
 import { View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text } from '@/components/ui/text';
 
 import { useAuth } from '@/lib/contexts';
 
@@ -10,7 +11,7 @@ import ClientHome from '@/app/client/home';
 import ArtistHome from './artist/home';
 
 export default function Screen() {
-  const { isAuthenticated, mode, isLoading } = useAuth();
+  const { isAuthenticated, mode, isLoading, client } = useAuth();
 
   if (isLoading) {
     return (
@@ -35,6 +36,29 @@ export default function Screen() {
         <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
         <SafeAreaView className='flex-1'>
           <PreviewHome mode={mode} />
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (mode === 'client') {
+    console.log("client mode", mode, client?.links)
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <SafeAreaView className='flex-1 bg-background'>
+          {client?.links && client.links.length > 0 ? (
+            <View>
+              <Text>You are linked to the following artists:</Text>
+              {client.links.map((link) => (
+                <View key={link.artist_id}>
+                  <Text>{link.artist.full_name}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <ClientHome mode={mode} />
+          )}
         </SafeAreaView>
       </>
     );

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { SignupData, Artist, Subscriptions } from '@/lib/redux/types';
+import { SignupData, Artist, Subscriptions, Client } from '@/lib/redux/types';
 import { withRetryAndTimeout, safeAsync, buildBookingLink } from '@/lib/utils';
 import { BASE_URL } from '@/lib/constants';
 
@@ -183,6 +183,31 @@ export const getArtistProfile = async (artistId: string): Promise<Artist | null>
     locations: artist.locations || undefined
   };
 };
+
+export const getClientProfile = async (clientId: string): Promise<Client | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id, full_name, email, phone_number, location, links!inner(artist_id, status, artist:artists(*))')
+      .eq('links.status', 'deposit_paid')
+      .eq('id', clientId)
+      .single();
+
+    if (!data) {
+      return null;
+    }
+
+    if (error) {
+      console.error('Error getting client profile:', error);
+      return null;
+    }
+
+    return data as unknown as Client;
+  } catch (error) {
+    console.error('Error getting client profile:', error);
+    return null;
+  }
+}
 
 // Get artist subscription details
 export const getSubscription = async (artistId: string): Promise<Subscriptions | null> => {

@@ -1,16 +1,17 @@
 import React, { createContext, useContext, useEffect, ReactNode, useRef, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
-import { setArtist, setSession, clearArtist, setMode, setAuthLoading } from '@/lib/redux/slices/auth-slice';
-import { onAuthStateChange, getArtistProfile, getArtistAppMode } from '@/lib/services/auth-service';
+import { setArtist, setSession, clearArtist, setMode, setAuthLoading, setClient } from '@/lib/redux/slices/auth-slice';
+import { onAuthStateChange, getArtistProfile, getArtistAppMode, getClientProfile } from '@/lib/services/auth-service';
 import { saveSessionToStorage, clearStoredAuthData, initializeAuth } from '@/lib/services/session-service';
-import { Artist } from '@/lib/redux/types';
+import { Artist, Client } from '@/lib/redux/types';
 
 interface AuthContextType {
   artist: Artist | null;
+  client: Client | null;
   session: any;
   isAuthenticated: boolean;
   isLoading: boolean;
-  mode: 'preview' | 'production';
+  mode: 'preview' | 'production' | 'client';
   error: string | null;
 }
 
@@ -22,8 +23,8 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const dispatch = useAppDispatch();
-  const { artist, session, isAuthenticated, isLoading, error, mode, signupLoading } = useAppSelector((state: any) => state.auth);
-  
+  const { artist, client, session, isAuthenticated, isLoading, error, mode } = useAppSelector((state: any) => state.auth);
+
   // Refs to track ongoing operations and prevent race conditions
   const initializationRef = useRef<boolean>(false);
   const authStateChangeRef = useRef<any>(null);
@@ -42,14 +43,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       const modePromise = getArtistAppMode(artist.id);
-      
+
       const result = await Promise.race([modePromise, timeoutPromise]);
-      
+
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
-      
+
       return result;
     } catch (error) {
       console.warn('Error determining app mode, defaulting to preview:', error);
@@ -68,9 +69,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (initializationRef.current) {
         return;
       }
-      
+
       initializationRef.current = true;
-      
+
       try {
         // Set loading to true at the start of authentication check
         dispatch(setAuthLoading(true));
@@ -89,6 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (user && session && !error) {
             // Artist has valid session, get profile and set state
             const artistProfile: Artist | null = await getArtistProfile(user.id);
+
             if (artistProfile) {
               // Profile exists, set artist and session
               dispatch(setArtist(artistProfile));
@@ -102,10 +104,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 dispatch(setMode('preview'));
               });
             } else {
-              // Profile not found, clear auth state
-              dispatch(clearArtist());
-              await clearStoredAuthData();
-              dispatch(setMode('preview'));
+
+              const clientProfile: Client | null = await getClientProfile(user.id);
+
+              if (clientProfile) {
+                dispatch(setClient(clientProfile));
+                dispatch(setSession(session));
+                dispatch(setMode('client'));
+              } else {
+                // Profile not found, clear auth state
+                dispatch(clearArtist());
+                await clearStoredAuthData();
+                dispatch(setMode('preview'));
+              }
             }
           } else {
             // No valid session found, clear any stored data and set as not authenticated
@@ -116,7 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         })();
 
         await Promise.race([authPromise, timeoutPromise]);
-        
+
       } catch (error) {
         console.error('Error initializing authentication:', error);
         // Clear auth state on any error
@@ -193,6 +204,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = {
     artist,
+    client,
     session,
     isAuthenticated,
     isLoading,

@@ -23,6 +23,32 @@ export interface Artist {
     locations?: Locations[];
 }
 
+interface SimpleArtist {
+    id: string;
+    email: string;
+    full_name: string;
+    photo: string;
+    avatar: string;
+    booking_link: string;
+    studio_name: string;
+    social_handler: string;
+    subscription_active: boolean;
+    subscription_type?: string;
+}
+
+export interface Client {
+    id: string;
+    full_name: string;
+    email: string;
+    phone_number?: string;
+    location?: string;
+    links?: {
+        artist_id: string;
+        status: string;
+        artist: SimpleArtist;
+    }[];
+}
+
 export interface Subscriptions {
     id: string;
     artist_id: string;

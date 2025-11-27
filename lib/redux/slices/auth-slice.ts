@@ -1,23 +1,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile } from '@/lib/services/auth-service';
+import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile, getClientProfile } from '@/lib/services/auth-service';
 import { saveSubscriptionToSupabase } from '@/lib/services/subscribe-service';
-import { saveSessionToStorage, saveArtistToStorage, clearStoredAuthData } from '@/lib/services/session-service';
-import { Artist } from '@/lib/redux/types';
+import { saveSessionToStorage, saveArtistToStorage, clearStoredAuthData, saveClientToStorage } from '@/lib/services/session-service';
+import { Artist, Client } from '@/lib/redux/types';
 
 export interface AuthState {
   artist: Artist | null;
+  client: Client | null;
   session: any | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   signupLoading: boolean;
   signinLoading: boolean;
-  mode: 'preview' | 'production';
+  mode: 'preview' | 'production' | 'client';
 }
 
 const initialState: AuthState = {
   artist: null,
+  client: null,
   session: null,
   isAuthenticated: false,
   isLoading: true,
@@ -127,15 +129,23 @@ export const signinWithAuth = createAsyncThunk(
 
       // Step 2: Get artist profile from our custom artists table
       const artistProfile = await getArtistProfile(user.id);
-      if (!artistProfile) {
-        throw new Error('Artist profile not found');
+      if (artistProfile) {
+        await saveSessionToStorage(session);
+        await saveArtistToStorage(artistProfile as any);
+        return { artist: artistProfile, client: null, session };
+      }
+
+      // Step 3: Get client profile from our custom clients table
+      const clientProfile = await getClientProfile(user.id);
+      if (clientProfile) {
+        await saveSessionToStorage(session);
+        await saveClientToStorage(clientProfile as any);
+        return { artist: null, client: clientProfile, session };
       }
 
       // Step 3: Save session and artist data to storage for persistence
-      await saveSessionToStorage(session);
-      await saveArtistToStorage(artistProfile as any);
 
-      return { artist: artistProfile, session };
+      throw new Error('No artist or client profile found');
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to sign in');
     }
@@ -165,6 +175,11 @@ export const authSlice = createSlice({
   reducers: {
     setArtist: (state, action: PayloadAction<Artist>) => {
       state.artist = action.payload;
+      state.isAuthenticated = true;
+      state.error = null;
+    },
+    setClient: (state, action: PayloadAction<Client>) => {
+      state.client = action.payload;
       state.isAuthenticated = true;
       state.error = null;
     },
@@ -231,7 +246,7 @@ export const authSlice = createSlice({
         state.artist.subscription_type = action.payload.subscription_type;
       }
     },
-    setMode: (state, action: PayloadAction<'preview' | 'production'>) => {
+    setMode: (state, action: PayloadAction<'preview' | 'production' | 'client'>) => {
       state.mode = action.payload;
     },
   },
@@ -261,6 +276,7 @@ export const authSlice = createSlice({
       .addCase(signinWithAuth.fulfilled, (state, action) => {
         state.signinLoading = false;
         state.artist = action.payload.artist;
+        state.client = action.payload.client;
         state.session = action.payload.session;
         state.isAuthenticated = true;
         state.error = null;
@@ -324,6 +340,7 @@ export const authSlice = createSlice({
 
 export const {
   setArtist,
+  setClient,
   setSession,
   updateArtistRules,
   updateArtistTemplates,

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 const SESSION_KEY = 'supabase_session';
 const ARTIST_KEY = 'artist_profile';
+const CLIENT_KEY = 'client_profile';
 
 export interface StoredSession {
   access_token: string;
@@ -17,6 +18,13 @@ export interface StoredArtist {
   full_name: string;
   subscription_active: boolean;
   subscription_type?: string;
+  created_at: string;
+}
+
+export interface StoredClient {
+  id: string;
+  email: string;
+  full_name: string;
   created_at: string;
 }
 
@@ -60,6 +68,14 @@ export const saveArtistToStorage = async (artist: StoredArtist): Promise<void> =
   }
 };
 
+export const saveClientToStorage = async (client: StoredClient): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(CLIENT_KEY, JSON.stringify(client));
+  } catch (error) {
+    console.error('Error saving client to storage:', error);
+  }
+};
+
 // Get artist profile from AsyncStorage
 export const getArtistFromStorage = async (): Promise<StoredArtist | null> => {
   try {
@@ -77,7 +93,7 @@ export const getArtistFromStorage = async (): Promise<StoredArtist | null> => {
 // Clear all stored auth data
 export const clearStoredAuthData = async (): Promise<void> => {
   try {
-    await AsyncStorage.multiRemove([SESSION_KEY, ARTIST_KEY]);
+    await AsyncStorage.multiRemove([SESSION_KEY, ARTIST_KEY, CLIENT_KEY]);
   } catch (error) {
     console.error('Error clearing stored auth data:', error);
   }

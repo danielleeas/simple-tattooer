@@ -842,7 +842,7 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
         // Sessions for date/time/location lines
         const { data: sessions, error: sessionsErr } = await supabase
             .from('sessions')
-            .select('date,start_time,location:artist_locations(address)')
+            .select('date,start_time,location:locations(address)')
             .eq('project_id', projectId)
             .order('date', { ascending: true });
 
@@ -876,7 +876,7 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
             })
             .filter(Boolean) as string[];
 
-        const startHere = `https://simpletattooer.com/client-portal?id=${clientId}`;
+        const startHere = `https://kdls.org/client-portal?id=${clientId}&artist_id=${artist.id}`;
 
         // Compose variables
         const variables: Record<string, any> = {
