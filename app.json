@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "simpletattooer",
-    "slug": "simpletattooer",
+    "slug": "simple-tattooer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -20,7 +20,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.darkocean.simpletattooer",
-      "associatedDomains": ["applinks:kdls.org"],
+      "associatedDomains": [
+        "applinks:kdls.org"
+      ],
       "infoPlist": {
         "NSCalendarsUsageDescription": "This app needs calendar access to sync and display your events."
       }
@@ -36,10 +38,21 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "data": [
-            { "scheme": "https", "host": "kdls.org", "pathPrefix": "/client-portal" },
-            { "scheme": "https", "host": "www.kdls.org", "pathPrefix": "/client-portal" }
+            {
+              "scheme": "https",
+              "host": "kdls.org",
+              "pathPrefix": "/client-portal"
+            },
+            {
+              "scheme": "https",
+              "host": "www.kdls.org",
+              "pathPrefix": "/client-portal"
+            }
           ]
         }
       ],
