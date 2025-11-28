@@ -1,4 +1,4 @@
-import { View, Modal, Dimensions, Pressable } from "react-native";
+import { View, Modal, Dimensions } from "react-native";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -16,50 +16,18 @@ import { Button } from "@/components/ui/button";
 interface WaiverSignProps {
     visible: boolean;
     onClose: () => void;
-    waiverUrl: string;
+    waiverUrl: string; // PDF file URL
     onSign: () => void;
 }
 
 const { height: screenHeight } = Dimensions.get('window');
 const ANIMATION_DURATION = 100;
 
-type FileType = 'pdf' | 'image' | 'unknown';
-
-const detectFileType = (url: string): FileType => {
-    if (!url) return 'unknown';
-    
-    // Extract file extension from URL
-    const urlWithoutQuery = url.split('?')[0]; // Remove query parameters
-    const extension = urlWithoutQuery.split('.').pop()?.toLowerCase();
-    
-    if (!extension) return 'unknown';
-    
-    // Check if it's a PDF
-    if (extension === 'pdf') {
-        return 'pdf';
-    }
-    
-    // Check if it's an image
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-    if (imageExtensions.includes(extension)) {
-        return 'image';
-    }
-    
-    return 'unknown';
-};
-
 export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignProps) => {
     const [isRendered, setIsRendered] = useState(visible);
-    const [fileType, setFileType] = useState<FileType>('unknown');
     const translateY = useSharedValue(screenHeight);
     const backdropOpacity = useSharedValue(0);
     const { top, bottom } = useSafeAreaInsets();
-
-    // Detect file type when waiverUrl changes
-    useEffect(() => {
-        const detectedType = detectFileType(waiverUrl);
-        setFileType(detectedType);
-    }, [waiverUrl]);
 
     const handleClose = () => {
         // Animate backdrop fade out
@@ -77,8 +45,6 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
             onClose();
         }, ANIMATION_DURATION);
     };
-
-    console.log('fileType', fileType);
 
     useEffect(() => {
         if (visible) {
@@ -132,16 +98,19 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                         },
                         modalStyle
                     ]}
-                    className="bg-background-secondary"
+                    className="bg-background"
                 >
-                    <View className="flex-1 p-4 bg-background">
-                        <Button variant="ghost" size="icon" className="z-10 absolute top-0 right-0" onPress={handleClose}>
-                            <Icon as={X} size={24} />
-                        </Button>
-                        <Text variant="h6" className="leading-tight flex-1">Sign Waiver Agreement</Text>
+                    <View className="flex-1">
+                        {/* Header */}
+                        <View className="flex-row items-center justify-between p-4 border-b border-border">
+                            <Text variant="h6" className="leading-tight">Sign Waiver Agreement</Text>
+                            <Button variant="ghost" size="icon" onPress={handleClose}>
+                                <Icon as={X} size={24} />
+                            </Button>
+                        </View>
                     </View>
                 </Animated.View>
             </View>
         </Modal>
     );
-}
+};

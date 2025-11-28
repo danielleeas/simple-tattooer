@@ -58,6 +58,23 @@ export default function QuickAppointmentAddPage() {
         }
     };
 
+    const truncateFileName = (fileName: string): string => {
+        if (!fileName || fileName.length <= 15) return fileName;
+        
+        const lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex === -1) {
+            // No extension, just truncate the name
+            return fileName.length > 13 ? `${fileName.slice(0, 6)}....${fileName.slice(-6)}` : fileName;
+        }
+        
+        const nameWithoutExt = fileName.slice(0, lastDotIndex);
+        const extension = fileName.slice(lastDotIndex);
+        
+        if (nameWithoutExt.length <= 13) return fileName;
+        
+        return `${nameWithoutExt.slice(0, 6)}....${nameWithoutExt.slice(-6)}${extension}`;
+    };
+
     const waiverUrl = artist?.rule?.waiver_text || '';
     const waiverFileName = waiverUrl ? getFileNameFromUrl(waiverUrl) : '';
 
@@ -345,10 +362,10 @@ export default function QuickAppointmentAddPage() {
                                             <View style={{ width: formData.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${formData.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
                                                 <Text className={`text-xs items-center justify-center ${formData.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{formData.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
                                             </View>
-                                            <Text variant="small">{waiverFileName || 'No waiver uploaded'}</Text>
+                                            <Text variant="small">{waiverFileName ? truncateFileName(waiverFileName) : 'No waiver uploaded'}</Text>
                                             <View className="flex-row items-center gap-1">
                                                 <Text variant="small">{formData.waiverSigned ? 'Preview' : 'Preview and Sign'}</Text>
-                                                <Icon as={FileSearch} strokeWidth={1} size={16} />
+                                                <Icon as={FileSearch} strokeWidth={2} size={16} />
                                             </View>
                                         </View>
                                     </Pressable>
