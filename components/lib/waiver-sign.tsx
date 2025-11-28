@@ -140,6 +140,7 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                                         uri: waiverUrl,
                                         cache: true,
                                     }}
+                                    horizontal={true}
                                     trustAllCerts={false}
                                     onLoadComplete={(numberOfPages) => {
                                         setPdfLoading(false);
@@ -155,11 +156,11 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                                     }}
                                     style={{
                                         flex: 1,
+                                        backgroundColor: '#05080F',
                                         width: screenWidth,
                                         height: screenHeight - 100, // Account for header and safe area
                                     }}
                                     enablePaging={false}
-                                    horizontal={false}
                                     spacing={10}
                                 />
                             )}
