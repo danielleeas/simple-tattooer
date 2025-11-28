@@ -104,7 +104,9 @@
         {
           "calendarPermission": "The app needs to access your calendar."
         }
-      ]
+      ],
+      "react-native-pdf-lib",
+      "react-native-signature-canvas"
     ],
     "experiments": {
       "typedRoutes": true

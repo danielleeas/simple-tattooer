@@ -25,6 +25,7 @@ import { FileText, FileSearch } from "lucide-react-native";
 import { createClientWithAuth } from '@/lib/services/clients-service';
 import { createQuickAppointment } from '@/lib/services/calendar-service';
 import { createManualBooking } from "@/lib/services/booking-service";
+import { WaiverSign } from "@/components/lib/waiver-sign";
 
 type QuickAppointmentData = {
     fullName: string;
@@ -43,6 +44,8 @@ export default function QuickAppointmentAddPage() {
     const { artist } = useAuth();
     const [loading, setLoading] = useState(false);
     const { date } = useLocalSearchParams<{ date?: string }>();
+
+    const [waiverSignVisible, setWaiverSignVisible] = useState(false);
 
     const getFileNameFromUrl = (inputUrl: string): string => {
         if (!inputUrl) return '';
@@ -197,6 +200,17 @@ export default function QuickAppointmentAddPage() {
         }
     };
 
+    const handleSignWaiver = () => {
+        setFormData({ ...formData, waiverSigned: true });
+        setWaiverSignVisible(false);
+    };
+
+    const openWaiverSign = (waiverUrl: string | undefined) => {
+        if (!waiverUrl) return;
+        setWaiverSignVisible(true);
+        
+    };
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
@@ -321,6 +335,7 @@ export default function QuickAppointmentAddPage() {
                                     </View>
 
                                     <Pressable
+                                        onPress={() => openWaiverSign(artist?.rule?.waiver_text)}
                                         className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border"
                                     >
                                         <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
@@ -346,6 +361,7 @@ export default function QuickAppointmentAddPage() {
                         </KeyboardAwareScrollView>
                     </View>
                 </StableGestureWrapper >
+                <WaiverSign visible={waiverSignVisible} onClose={() => setWaiverSignVisible(false)} waiverUrl={waiverUrl} onSign={handleSignWaiver} />
             </SafeAreaView >
         </>
     );
