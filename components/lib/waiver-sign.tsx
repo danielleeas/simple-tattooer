@@ -1,4 +1,4 @@
-import { View, Modal, Dimensions } from "react-native";
+import { View, Modal, Dimensions, ActivityIndicator, Platform } from "react-native";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -12,6 +12,7 @@ import { X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
+import Pdf from "react-native-pdf";
 
 interface WaiverSignProps {
     visible: boolean;
@@ -20,11 +21,13 @@ interface WaiverSignProps {
     onSign: () => void;
 }
 
-const { height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
 const ANIMATION_DURATION = 100;
 
 export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignProps) => {
     const [isRendered, setIsRendered] = useState(visible);
+    const [pdfLoading, setPdfLoading] = useState(true);
+    const [pdfError, setPdfError] = useState<string | null>(null);
     const translateY = useSharedValue(screenHeight);
     const backdropOpacity = useSharedValue(0);
     const { top, bottom } = useSafeAreaInsets();
@@ -49,6 +52,9 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
     useEffect(() => {
         if (visible) {
             setIsRendered(true);
+            // Reset PDF state when modal opens
+            setPdfLoading(true);
+            setPdfError(null);
             // Animate backdrop fade in
             backdropOpacity.value = withTiming(1, {
                 duration: ANIMATION_DURATION,
@@ -107,6 +113,56 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                             <Button variant="ghost" size="icon" onPress={handleClose}>
                                 <Icon as={X} size={24} />
                             </Button>
+                        </View>
+                        
+                        {/* PDF Viewer */}
+                        <View className="flex-1">
+                            {pdfLoading && (
+                                <View className="absolute inset-0 items-center justify-center z-10 bg-background">
+                                    <ActivityIndicator size="large" />
+                                    <Text className="mt-4 text-text-secondary">Loading PDF...</Text>
+                                </View>
+                            )}
+                            {pdfError && (
+                                <View className="flex-1 items-center justify-center p-4">
+                                    <Text className="text-destructive text-center mb-4">{pdfError}</Text>
+                                    <Button variant="outline" onPress={() => {
+                                        setPdfError(null);
+                                        setPdfLoading(true);
+                                    }}>
+                                        <Text>Retry</Text>
+                                    </Button>
+                                </View>
+                            )}
+                            {waiverUrl && !pdfError && (
+                                <Pdf
+                                    source={{ 
+                                        uri: waiverUrl,
+                                        cache: true,
+                                    }}
+                                    trustAllCerts={false}
+                                    onLoadComplete={(numberOfPages) => {
+                                        setPdfLoading(false);
+                                        setPdfError(null);
+                                    }}
+                                    onPageChanged={(page, numberOfPages) => {
+                                        // Optional: track page changes
+                                    }}
+                                    onError={(error) => {
+                                        setPdfLoading(false);
+                                        setPdfError('Failed to load PDF. Please try again.');
+                                        console.error('PDF Error:', error);
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        width: screenWidth,
+                                        height: screenHeight - 100, // Account for header and safe area
+                                    }}
+                                    enablePaging={false}
+                                    horizontal={false}
+                                    spacing={10}
+                                />
+                            )}
                         </View>
                     </View>
                 </Animated.View>
