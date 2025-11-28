@@ -11,7 +11,7 @@ interface ClientHomeProps {
 }
 
 export default function ClientHome({ mode }: ClientHomeProps) {
-    const showSplash = useAppSelector((state: RootState) => state.ui.showSplash)
+    const showSplash = useAppSelector((state: RootState) => state.ui as any).showSplash
 
     const handleMenu = () => {
         console.log('Menu');

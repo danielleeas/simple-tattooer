@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
@@ -12,6 +12,15 @@ import ArtistHome from './artist/home';
 
 export default function Screen() {
   const { isAuthenticated, mode, isLoading, client } = useAuth();
+  console.log("mode", mode);
+
+  // Handle client portal redirect for single artist link
+  React.useEffect(() => {
+    if (mode === 'client' && client?.links && client.links.length === 1) {
+      const singleLink = client.links[0];
+      router.push(`/client-portal?id=${client.id}&artist_id=${singleLink.artist_id}`);
+    }
+  }, [mode, client]);
 
   if (isLoading) {
     return (
@@ -43,11 +52,12 @@ export default function Screen() {
 
   if (mode === 'client') {
     console.log("client mode", mode, client?.links)
+
     return (
       <>
         <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
         <SafeAreaView className='flex-1 bg-background'>
-          {client?.links && client.links.length > 0 ? (
+          {client?.links && client.links.length > 1 ? (
             <View>
               <Text>You are linked to the following artists:</Text>
               {client.links.map((link) => (
