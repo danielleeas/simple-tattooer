@@ -57,6 +57,7 @@ function Collapse({
 	// Reanimated shared values for smooth transitions
 	const progress = useSharedValue(isOpen ? 1 : 0);
 	const opacity = useSharedValue(isOpen ? 1 : 0);
+	const translateY = useSharedValue(isOpen ? 0 : -10);
 
 	// Update animations when isOpen changes
 	useEffect(() => {
@@ -70,15 +71,23 @@ function Collapse({
 				duration: 250,
 				easing: Easing.out(Easing.ease),
 			});
-		} else {
-			// Closing animation - use timing for both animations to make transition more visible
-			progress.value = withTiming(0, {
-				duration: 400,
+			translateY.value = withTiming(0, {
+				duration: 250,
 				easing: Easing.out(Easing.ease),
 			});
+		} else {
+			// Closing animation - enhanced with smoother timing and translateY for better visibility
 			opacity.value = withTiming(0, {
+				duration: 200,
+				easing: Easing.in(Easing.ease),
+			});
+			translateY.value = withTiming(-10, {
 				duration: 300,
 				easing: Easing.in(Easing.ease),
+			});
+			progress.value = withTiming(0, {
+				duration: 350,
+				easing: Easing.inOut(Easing.ease),
 			});
 		}
 	}, [isOpen]);
@@ -93,6 +102,7 @@ function Collapse({
 		return {
 			opacity: opacity.value,
 			maxHeight: progress.value * 1000, // Large max height for smooth expansion
+			transform: [{ translateY: translateY.value }],
 		};
 	});
 

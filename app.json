@@ -104,13 +104,6 @@
         {
           "calendarPermission": "The app needs to access your calendar."
         }
-      ],
-      [
-        "expo-maps",
-        {
-          "requestLocationPermission": true,
-          "locationPermission": "Allow Simple Tattooer to use your location"
-        }
       ]
     ],
     "experiments": {

@@ -103,3 +103,14 @@ export interface UpdatePortfolioData {
   portfolio_image?: string;
   portfolio_description?: string;
 }
+
+export interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'other';
+  senderName: string;
+  timestamp: string;
+  date: Date;
+  isRead?: boolean;
+  avatar?: string;
+}

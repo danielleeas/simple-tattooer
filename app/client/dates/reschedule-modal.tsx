@@ -36,7 +36,7 @@ export default function RescheduleModal({
         onClose();
 
         setTimeout(() => {
-            router.push('/client/dashboard' as any);
+            router.push('/client/home' as any);
             toast({
                 variant: 'success',
                 title: 'Reschedule request sent!',
@@ -88,7 +88,7 @@ export default function RescheduleModal({
 
                 <Text variant="h5">Choose a new date:</Text>
 
-                <View className="gap-2">
+                {/* <View className="gap-2">
                     {dayRangesChunks.map((ranges, index) => (
                         <View key={index} className="gap-2 flex-row items-center justify-between">
                             {ranges.map((day) => (
@@ -103,7 +103,7 @@ export default function RescheduleModal({
                             ))}
                         </View>
                     ))}
-                </View>
+                </View> */}
 
                 <View className="flex-row gap-3 pt-4">
                     <View className="flex-1">

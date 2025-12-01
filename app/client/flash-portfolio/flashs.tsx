@@ -101,11 +101,11 @@ export default function Flash() {
                       <Text className="text-white flex-1" numberOfLines={2}>
                         {flash.flash_name}
                       </Text>
-                      {flash.flash_price && (
+                      {flash.flash_price != null && flash.flash_price > 0 ? (
                         <Text className="text-white font-semibold">
                           ${flash.flash_price.toString()}
                         </Text>
-                      )}
+                      ) : null}
                     </LinearGradient>
                   </ImageBackground>
                 ))}

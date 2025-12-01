@@ -32,7 +32,7 @@ export default function CancellationModal({
         onClose();
 
         setTimeout(() => {
-            router.push('/client/dashboard' as any);
+            router.push('/client/home' as any);
             toast({
                 variant: 'success',
                 title: 'Cancellation request sent!',
