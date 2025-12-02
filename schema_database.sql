@@ -733,6 +733,43 @@ CREATE INDEX IF NOT EXISTS idx_project_requests_start_times ON project_requests(
 CREATE INDEX IF NOT EXISTS idx_project_requests_created_at ON project_requests(created_at);
 CREATE INDEX IF NOT EXISTS idx_project_requests_updated_at ON project_requests(updated_at);
 
+-- consult requests table for storing consult requests
+CREATE TABLE IF NOT EXISTS consult_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  residence TEXT NOT NULL,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  tattoo_idea TEXT NOT NULL,
+  type_of_tattoo TEXT NOT NULL,
+  photos TEXT[] NOT NULL DEFAULT '{}',
+  consult_type TEXT CHECK (consult_type IN ('in_person', 'online')) NOT NULL,
+  consult_date TEXT NOT NULL,
+  consult_start_time TEXT NOT NULL, 
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for consult requests
+CREATE INDEX IF NOT EXISTS idx_consult_requests_artist_id ON consult_requests(artist_id);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_full_name ON consult_requests(full_name);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_email ON consult_requests(email);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_phone_number ON consult_requests(phone_number);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_residence ON consult_requests(residence);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_location_id ON consult_requests(location_id);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_tattoo_idea ON consult_requests(tattoo_idea);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_type_of_tattoo ON consult_requests(type_of_tattoo);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_photos ON consult_requests(photos);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_consult_type ON consult_requests(consult_type);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_consult_date ON consult_requests(consult_date);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_consult_start_time ON consult_requests(consult_start_time);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_status ON consult_requests(status);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_created_at ON consult_requests(created_at);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_updated_at ON consult_requests(updated_at);
+
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
