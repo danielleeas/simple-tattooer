@@ -156,6 +156,7 @@ CREATE POLICY "Allow public updates to artist-portfolios" ON storage.objects
 CREATE POLICY "Allow public deletes from artist-portfolios" ON storage.objects
   FOR DELETE USING (bucket_id = 'artist-portfolios'); 
   
+
 -- Allow anyone to upload drawings to artist-drawings bucket
 CREATE POLICY "Allow public uploads to artist-drawings" ON storage.objects
   FOR INSERT WITH CHECK (bucket_id = 'artist-drawings');
@@ -170,7 +171,24 @@ CREATE POLICY "Allow public updates to artist-drawings" ON storage.objects
 
 -- Allow anyone to delete drawings in artist-drawings bucket
 CREATE POLICY "Allow public deletes from artist-drawings" ON storage.objects
-  FOR DELETE USING (bucket_id = 'artist-drawings'); 
+  FOR DELETE USING (bucket_id = 'artist-drawings');
+
+
+-- Allow anyone to upload request-photos to request-photos bucket
+CREATE POLICY "Allow public uploads to request-photos" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'request-photos');
+
+-- Allow anyone to view request-photos in request-photos bucket
+CREATE POLICY "Allow public access to request-photos" ON storage.objects
+  FOR SELECT USING (bucket_id = 'request-photos');
+
+-- Allow anyone to update request-photos in request-photos bucket
+CREATE POLICY "Allow public updates to request-photos" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'request-photos');
+
+-- Allow anyone to delete request-photos in request-photos bucket
+CREATE POLICY "Allow public deletes from request-photos" ON storage.objects
+  FOR DELETE USING (bucket_id = 'request-photos'); 
 
 -- Ensure the buckets exist and are public
 INSERT INTO storage.buckets (id, name, public) 
@@ -211,6 +229,12 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('artist-drawings', 'artist-drawings', true)
+ON CONFLICT (id) DO UPDATE SET 
+  name = EXCLUDED.name,
+  public = EXCLUDED.public;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('request-photos', 'request-photos', true)
 ON CONFLICT (id) DO UPDATE SET 
   name = EXCLUDED.name,
   public = EXCLUDED.public;

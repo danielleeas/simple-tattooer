@@ -1,4 +1,4 @@
-import { View, Modal, Dimensions, ActivityIndicator, Platform } from "react-native";
+import { View, Modal, Dimensions, ActivityIndicator, Platform, ScrollView } from "react-native";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -28,6 +28,10 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
     const [isRendered, setIsRendered] = useState(visible);
     const [pdfLoading, setPdfLoading] = useState(true);
     const [pdfError, setPdfError] = useState<string | null>(null);
+    const [totalPages, setTotalPages] = useState<number | null>(null);
+    const [pdfDimensions, setPdfDimensions] = useState<{ width: number; height: number } | null>(null);
+    const [pdfUri, setPdfUri] = useState<string | null>(null);
+    const [editMode, setEditMode] = useState<('text' | 'signature') | null>(null);
     const translateY = useSharedValue(screenHeight);
     const backdropOpacity = useSharedValue(0);
     const { top, bottom } = useSafeAreaInsets();
@@ -55,6 +59,9 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
             // Reset PDF state when modal opens
             setPdfLoading(true);
             setPdfError(null);
+            setTotalPages(null);
+            setPdfUri(null);
+
             // Animate backdrop fade in
             backdropOpacity.value = withTiming(1, {
                 duration: ANIMATION_DURATION,
@@ -81,13 +88,23 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                 setIsRendered(false);
             }, ANIMATION_DURATION);
         }
-    }, [visible]);
+    }, [visible, waiverUrl]);
 
     const modalStyle = useAnimatedStyle(() => {
         return {
             transform: [{ translateY: translateY.value }],
         };
     });
+
+    const getContainerWidth = (pageNum: number) => {
+        const containerWidth = screenWidth * pageNum;
+        return containerWidth;
+    };
+
+    const handleEditMode = (mode: 'text' | 'signature') => {
+        // Toggle: if the same mode is clicked, deactivate it; otherwise switch to the new mode
+        setEditMode(editMode === mode ? null : mode);
+    };
 
     if (!isRendered) return null;
 
@@ -114,9 +131,9 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                                 <Icon as={X} size={24} />
                             </Button>
                         </View>
-                        
+
                         {/* PDF Viewer */}
-                        <View className="flex-1">
+                        <View className="flex-1" style={{ width: '100%' }}>
                             {pdfLoading && (
                                 <View className="absolute inset-0 items-center justify-center z-10 bg-background">
                                     <ActivityIndicator size="large" />
@@ -134,35 +151,104 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                                     </Button>
                                 </View>
                             )}
-                            {waiverUrl && !pdfError && (
-                                <Pdf
-                                    source={{ 
-                                        uri: waiverUrl,
-                                        cache: true,
-                                    }}
-                                    horizontal={true}
-                                    trustAllCerts={false}
-                                    onLoadComplete={(numberOfPages) => {
-                                        setPdfLoading(false);
-                                        setPdfError(null);
-                                    }}
-                                    onPageChanged={(page, numberOfPages) => {
-                                        // Optional: track page changes
-                                    }}
-                                    onError={(error) => {
-                                        setPdfLoading(false);
-                                        setPdfError('Failed to load PDF. Please try again.');
-                                        console.error('PDF Error:', error);
-                                    }}
-                                    style={{
-                                        flex: 1,
-                                        backgroundColor: '#05080F',
-                                        width: screenWidth,
-                                        height: screenHeight - 100, // Account for header and safe area
-                                    }}
-                                    enablePaging={false}
-                                    spacing={10}
-                                />
+                            {waiverUrl && (
+                                <View className="absolute flex-1 top-0 left-0 right-0 bottom-0 opacity-0">
+                                    <Pdf
+                                        source={{
+                                            uri: waiverUrl,
+                                            cache: true,
+                                        }}
+                                        horizontal={true}
+                                        trustAllCerts={false}
+                                        fitPolicy={2} // 0 = fit width, 1 = fit height, 2 = fit both
+                                        onLoadComplete={(numberOfPages, path, size) => {
+                                            setPdfError(null);
+                                            setTotalPages(numberOfPages);
+                                            setPdfUri(path);
+                                            setPdfDimensions({ width: screenWidth, height: (screenWidth / size.width) * size.height });
+                                            console.log('PDF loaded with', numberOfPages, 'pages', path, size);
+                                        }}
+                                        onPageChanged={(page, numberOfPages) => {
+                                            console.log(`Current page: ${page}`);
+                                        }}
+                                        onPageSingleTap={(page, x, y) => {
+                                            console.log(`Single tap on page: ${page}, x: ${x}, y: ${y}`);
+                                        }}
+                                        onError={(error) => {
+                                            setPdfError('Failed to load PDF. Please try again.');
+                                            console.error('PDF Error:', error);
+                                        }}
+                                        style={{
+                                            flex: 1,
+                                            width: 200,
+                                            backgroundColor: '#05080F',
+                                        }}
+                                        enablePaging={true}
+                                        spacing={10}
+                                    />
+                                </View>
+                            )}
+
+                            <View className="flex-row gap-2">
+                                <Button 
+                                    variant={editMode === 'text' ? 'default' : 'outline'} 
+                                    onPress={() => handleEditMode('text')}
+                                >
+                                    <Text>Add Text</Text>
+                                </Button>
+                                <Button 
+                                    variant={editMode === 'signature' ? 'default' : 'outline'} 
+                                    onPress={() => handleEditMode('signature')}
+                                >
+                                    <Text>Add Signature</Text>
+                                </Button>
+                            </View>
+
+                            {pdfUri && !pdfError && pdfDimensions && (
+                                <View className="bg-red-500 w-full" style={{ height: pdfDimensions.height }}>
+                                    <ScrollView
+                                        horizontal
+                                        pagingEnabled
+                                        showsHorizontalScrollIndicator={false}
+                                        scrollEnabled={!editMode}
+                                        contentContainerStyle={{ width: getContainerWidth(totalPages || 1)}}
+                                    >
+                                        <View style={{ position: 'relative', width: getContainerWidth(totalPages || 1), height: pdfDimensions.height }}>
+                                            <View
+                                                className="absolute top-0 left-0 right-0 bottom-0 z-10"
+                                                style={{
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                                                    width: getContainerWidth(totalPages || 1),
+                                                    height: pdfDimensions.height,
+                                                }}
+                                            >
+                                            </View>
+                                            <Pdf
+                                                source={{
+                                                    uri: waiverUrl,
+                                                    cache: true,
+                                                }}
+                                                horizontal={true}
+                                                trustAllCerts={false}
+                                                onLoadComplete={() => {
+                                                    setPdfLoading(false);
+                                                }}
+                                                onError={(error) => {
+                                                    setPdfLoading(false);
+                                                }}
+                                                style={{
+                                                    width: getContainerWidth(totalPages || 1),
+                                                    height: pdfDimensions.height,
+                                                    backgroundColor: '#05080F',
+                                                }}
+                                                enableDoubleTapZoom={false}
+                                                scrollEnabled={false}
+                                                enablePaging={false}
+                                                spacing={0}
+                                            />
+                                        </View>
+                                    </ScrollView>
+                                </View>
                             )}
                         </View>
                     </View>
