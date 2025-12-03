@@ -526,7 +526,8 @@ CREATE TABLE IF NOT EXISTS clients (
   location TEXT NOT NULL,
   project_notes TEXT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
-   
+  reference_photos TEXT[] NOT NULL DEFAULT '{}',
+  healed_photos TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

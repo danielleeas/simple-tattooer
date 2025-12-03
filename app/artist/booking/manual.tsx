@@ -16,9 +16,9 @@ import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
-import { getAvailableDates, getAvailableTimes, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
+import { getAvailableDates, getAvailableTimes, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
-import { formatDbDate } from "@/lib/utils";
+import { formatDbDate, toYmd, parseYmdToLocalDate, formatDateToYmd, makeChunks } from "@/lib/utils";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -63,53 +63,7 @@ export default function ManualBooking() {
         notes: '',
     });
 
-    const handleHome = () => {
-        router.dismissAll();
-    }
-
-    const handleMenu = () => {
-        router.push('/artist/menu');
-    };
-
-    // Helpers to convert between Date and YYYY-MM-DD (local) expected by DatePicker
-    const formatDateToYmd = useCallback((date?: Date) => {
-        if (!date) return undefined;
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }, []);
-
-    const parseYmdToLocalDate = useCallback((ymd?: string) => {
-        if (!ymd) return undefined;
-        const [y, m, d] = ymd.split('-').map(Number);
-        if (!y || !m || !d) return undefined;
-        return new Date(y, m - 1, d, 12); // local noon to avoid TZ shifts
-    }, []);
-
-    const makeChunks = (arr: { id: number; time: string }[]) => {
-        const chunks: { id: number; time: string }[][] = [];
-        // Create chunks of 2 objects each
-        for (let i = 0; i < arr.length; i += 2) {
-            chunks.push(arr.slice(i, i + 2));
-        }
-        return chunks;
-    };
-
-    const startTimesChunks = useMemo(() => makeChunks(renderStartTimes), [renderStartTimes]);
-
-    // Helpers for month boundaries
-    const getMonthRange = (year: number, monthZeroBased: number) => {
-        const start = new Date(year, monthZeroBased, 1);
-        const end = new Date(year, monthZeroBased + 1, 0);
-        const toYmd = (d: Date) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const da = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${da}`;
-        };
-        return { start: toYmd(start), end: toYmd(end) };
-    };
+    const startTimesChunks = useMemo(() => makeChunks(renderStartTimes, 2), [renderStartTimes]);
 
     const loadAvailabilityForMonth = async (year: number, monthZeroBased: number) => {
         try {
@@ -123,53 +77,40 @@ export default function ManualBooking() {
         }
     };
 
-    // Initial month load
-    useEffect(() => {
-        const today = new Date();
-        loadAvailabilityForMonth(today.getFullYear(), today.getMonth());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [artist?.id]);
+    // const startTimesForDate = useCallback(async (date: Date) => {
+    //     if (!artist?.id || !formData.sessionLength) return [];
+    //     const ymd = toYmd(date);
+    //     const options = await getAvailableTimes(artist as any, ymd, formData.sessionLength, 30);
+    //     const startTimes = options.map((opt, idx) => ({
+    //         id: idx + 1,
+    //         time: opt.label,
+    //     }));
+    //     return startTimes;
+    // }, [artist?.id, formData.sessionLength]);
 
-    const startTimesForDate = useCallback(async (date: Date) => {
-        if (!artist?.id || !formData.sessionLength) return [];
-        const toYmdLocal = (d: Date) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const da = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${da}`;
-        };
-        const ymd = toYmdLocal(date);
-        const options = await getAvailableTimes(artist as any, ymd, formData.sessionLength, 30);
-        const startTimes = options.map((opt, idx) => ({
-            id: idx + 1,
-            time: opt.label,
-        }));
-        return startTimes;
-    }, [artist?.id, formData.sessionLength]);
-
-    useEffect(() => {
-        let alive = true;
-        const seq = ++fetchSeqRef.current;
-        (async () => {
-            if (!formData.date || !artist?.id || !formData.sessionLength || !formData.locationId) {
-                setRenderStartTimes((prev) => (prev.length ? [] : prev));
-                if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
-                return;
-            }
-            if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(true);
-            try {
-                const times = await startTimesForDate(formData.date);
-                if (!alive || seq !== fetchSeqRef.current) return;
-                setRenderStartTimes((prev) => (shallowEqualTimes(prev, times) ? prev : times));
-            } finally {
-                if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
-            }
-        })();
-        return () => {
-            alive = false;
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.date, formData.sessionLength, formData.locationId, artist?.id]);
+    // useEffect(() => {
+    //     let alive = true;
+    //     const seq = ++fetchSeqRef.current;
+    //     (async () => {
+    //         if (!formData.date || !artist?.id || !formData.sessionLength || !formData.locationId) {
+    //             setRenderStartTimes((prev) => (prev.length ? [] : prev));
+    //             if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
+    //             return;
+    //         }
+    //         if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(true);
+    //         try {
+    //             const times = await startTimesForDate(formData.date);
+    //             if (!alive || seq !== fetchSeqRef.current) return;
+    //             setRenderStartTimes((prev) => (shallowEqualTimes(prev, times) ? prev : times));
+    //         } finally {
+    //             if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
+    //         }
+    //     })();
+    //     return () => {
+    //         alive = false;
+    //     };
+    //     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // }, [formData.date, formData.sessionLength, formData.locationId, artist?.id]);
 
     const handleCompleteBooking = async () => {
         try {
@@ -237,6 +178,14 @@ export default function ManualBooking() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleHome = () => {
+        router.dismissAll();
+    }
+
+    const handleMenu = () => {
+        router.push('/artist/menu');
     };
 
     return (
@@ -354,13 +303,6 @@ export default function ManualBooking() {
                                                 </View>
                                             ) : (
                                                 (() => {
-                                                    const toYmdLocal = (d: Date) => {
-                                                        const y = d.getFullYear();
-                                                        const m = String(d.getMonth() + 1).padStart(2, '0');
-                                                        const da = String(d.getDate()).padStart(2, '0');
-                                                        return `${y}-${m}-${da}`;
-                                                    };
-                                                    const dateKey = formData.date ? toYmdLocal(formData.date) : '';
                                                     if (renderStartTimes.length === 0) {
                                                         return (
                                                             <View className="items-center justify-center py-4">
