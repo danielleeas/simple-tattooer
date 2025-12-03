@@ -5,16 +5,12 @@ import { Text } from '@/components/ui/text';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSetupWizard } from '@/lib/contexts/setup-wizard-context';
 import { Input } from '@/components/ui/input';
-import { Textarea } from "@/components/ui/textarea"
+import { Textarea } from "@/components/ui/textarea";
+import { depositTimesChunks, timesChunks } from '@/components/pages/your-rule/type';
 
 export function DepositStep() {
 
     const { deposit, updateDeposit } = useSetupWizard();
-
-    const timesChunks = [
-        [{ value: '12', label: '12 Hours' }, { value: '24', label: '24 Hours' }],
-        [{ value: '48', label: '48 Hours' }, { value: '72', label: '72 Hours' }],
-    ]
 
     return (
         <KeyboardAwareScrollView bottomOffset={80} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled'>
@@ -47,7 +43,7 @@ export function DepositStep() {
                     <View className='gap-2'>
                         <Text variant="h5">Default Hold Time hrs/days</Text>
                         <RadioGroup value={deposit.holdTime} onValueChange={(value) => updateDeposit({ holdTime: value })}>
-                            {timesChunks.map((times) => (
+                            {depositTimesChunks.map((times) => (
                                 <View key={times.map((time) => time.value).join(',')} className='flex-row items-center gap-3'>
                                     {times.map((time) => (
                                         <Pressable onPress={() => updateDeposit({ holdTime: time.value })} key={time.value} className="flex-1 flex-row items-center gap-3">
@@ -60,7 +56,7 @@ export function DepositStep() {
                                 </View>
                             ))}
                         </RadioGroup>
-                        <Text className='text-text-secondary'>Gives clients time to pay.</Text>
+                        <Text className='text-text-secondary'>If the deposit isn't paid in time, held dates are released.</Text>
                     </View>
 
                     <View className='gap-2'>
