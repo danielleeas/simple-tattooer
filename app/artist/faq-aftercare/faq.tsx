@@ -495,12 +495,13 @@ export default function FAQPage() {
                         </View>
                         <View style={{ gap: 8, flexDirection: 'row' }}>
                             <View style={{ flex: 1 }}>
-                                <Button onPress={() => setIsDeleteModalOpen(false)} variant="outline" size='lg' className='items-center justify-center'>
+                                <Button variant="outline" onPress={() => setIsDeleteModalOpen(false)} size='lg' className='items-center justify-center'>
                                     <Text>Cancel</Text>
                                 </Button>
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Button
+                                    variant="outline"
                                     onPress={handleFaqDeleteConfirm}
                                     size='lg'
                                     className='items-center justify-center'
@@ -566,6 +567,7 @@ export default function FAQPage() {
                             <Text>Cancel</Text>
                         </Button>
                         <Button
+                            variant="outline"
                             onPress={saveCategory}
                             disabled={!categoryFormData.category_name.trim() || isCreatingCategory}
                             className="flex-1"
@@ -628,6 +630,7 @@ export default function FAQPage() {
                             <Text>Cancel</Text>
                         </Button>
                         <Button
+                            variant="outline"
                             onPress={saveEditCategory}
                             disabled={!editingCategory?.category_name.trim() || isUpdatingCategory}
                             className="flex-1"
@@ -703,6 +706,7 @@ export default function FAQPage() {
                             <Text>Cancel</Text>
                         </Button>
                         <Button
+                            variant="outline"
                             onPress={saveFAQ}
                             disabled={!faqFormData.question.trim() || !faqFormData.answer.trim() || isCreatingItem}
                             className="flex-1"
@@ -771,6 +775,7 @@ export default function FAQPage() {
                             <Text>Cancel</Text>
                         </Button>
                         <Button
+                            variant="outline"
                             onPress={saveEditItem}
                             disabled={!editingItem?.question.trim() || !editingItem?.answer.trim() || isUpdatingItem}
                             className="flex-1"

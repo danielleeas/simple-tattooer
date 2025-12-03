@@ -123,7 +123,7 @@ export default function DetailWaitlist() {
                                         </Button>
                                     </View>
                                     <View className="flex-1">
-                                        <Button onPress={handleWaitlistAssignConfirm} size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" onPress={handleWaitlistAssignConfirm} size='lg' className='items-center justify-center'>
                                             <Text>Assign</Text>
                                         </Button>
                                     </View>

@@ -405,7 +405,7 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                 <Text variant="h5">Studio Name</Text>
                 <Input value={brandingData.studioName} onChangeText={(text) => { updateBrandingData({ studioName: text }) }} />
             </View>
-            
+
             <View className="gap-1">
                 <View className='flex-row gap-2 items-center'>
                     <Text variant="h5" className='flex-1' style={{ maxWidth: 290 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Edit/Copy Personal Booking Link</Text>
@@ -502,7 +502,10 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                             onImageRemoved={() => { updateBrandingData({ profilePhoto: '' }) }}
                         />
                     </View>
-                    <Text className="text-center leading-none" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Add a photo for Welcome Screen</Text>
+                    <View>
+                        <Text className="text-center leading-none" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Add photo for your Personal Booking</Text>
+                        <Text className="text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Link & Welcome Screen</Text>
+                    </View>
                 </View>
             </Collapse>
 
@@ -662,13 +665,13 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                             <Text className="text-text-secondary mt-1">Choose how you want to add an image</Text>
                         </View>
                         <View className='flex-row gap-2 items-center justify-center'>
-                            <Button onPress={takePhoto}>
+                            <Button variant="outline" onPress={takePhoto}>
                                 <Text>Camera</Text>
                             </Button>
-                            <Button onPress={pickImage}>
+                            <Button variant="outline" onPress={pickImage}>
                                 <Text>Photo Library</Text>
                             </Button>
-                            <Button onPress={() => setOptionOpen(false)} variant='outline'>
+                            <Button variant="outline" onPress={() => setOptionOpen(false)}>
                                 <Text>Cancel</Text>
                             </Button>
                         </View>

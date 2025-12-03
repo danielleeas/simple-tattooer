@@ -211,7 +211,7 @@ export default function QuickAppointmentDetailPage() {
                                         </Button>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Button onPress={handleDeleteConfirm} size='lg' disabled={deleting} className='items-center justify-center'>
+                                        <Button variant="outline" onPress={handleDeleteConfirm} size='lg' disabled={deleting} className='items-center justify-center'>
                                             <Text>{deleting ? 'Deleting...' : 'Delete'}</Text>
                                         </Button>
                                     </View>

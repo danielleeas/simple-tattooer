@@ -338,7 +338,7 @@ export default function ClientDetailSession() {
                                     </Button>
                                 </View>
                                 <View className="flex-1">
-                                    <Button onPress={() => setIsRescheduleModalOpen(false)} size='lg' className='items-center justify-center w-full'>
+                                    <Button variant="outline" onPress={() => setIsRescheduleModalOpen(false)} size='lg' className='items-center justify-center w-full'>
                                         <Text>Send Email</Text>
                                     </Button>
                                 </View>
@@ -367,7 +367,7 @@ export default function ClientDetailSession() {
                                     </Button>
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <Button onPress={handleDeleteConfirm} size='lg' className='items-center justify-center'>
+                                    <Button variant="outline" onPress={handleDeleteConfirm} size='lg' className='items-center justify-center'>
                                         <Text>Delete</Text>
                                     </Button>
                                 </View>

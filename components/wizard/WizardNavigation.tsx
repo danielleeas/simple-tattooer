@@ -144,6 +144,7 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
             </Button>
             {isLastStep ? (
               <Button
+                variant="outline"
                 className='flex-1'
                 onPress={handleFinish}
                 disabled={isSaving}
@@ -152,6 +153,7 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
               </Button>
             ) : (
               <Button
+                variant="outline"
                 className='flex-1'
                 onPress={handleNext}
                 disabled={!canGoNext}
@@ -162,6 +164,7 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
           </>
         ) : (
           <Button
+            variant="outline"
             className='flex-1'
             onPress={handleNext}
             disabled={!canGoNext}

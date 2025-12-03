@@ -540,6 +540,7 @@ function TimeDurationPicker({
                                 <Text variant="h6">Cancel</Text>
                             </Button>
                             <Button
+                                variant="outline"
                                 size="default"
                                 onPress={handleConfirm}
                                 style={{ flex: 1 }}

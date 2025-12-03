@@ -564,7 +564,7 @@ export default function UploadPortfolios() {
                                         </Button>
                                     </View>
                                     <View className="flex-1">
-                                        <Button disabled={deleting} onPress={handlePortfolioDeleteConfirm} size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" disabled={deleting} onPress={handlePortfolioDeleteConfirm} size='lg' className='items-center justify-center'>
                                             <Text>Delete</Text>
                                         </Button>
                                     </View>

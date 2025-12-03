@@ -188,11 +188,11 @@ export default function SpotConventionDetailPage() {
                             </ScrollView>
                         </View>
                         <View className="flex-row gap-3">
-                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" className="flex-1">
+                            <Button variant="outline" onPress={() => setIsDeleteModalOpen(true)} className="flex-1">
                                 <Text variant='h5'>Delete</Text>
                                 <Image source={DELETE_IMAGE} style={BUTTON_ICON_STYLE} />
                             </Button>
-                            <Button onPress={handleEdit} variant="outline" className="flex-1">
+                            <Button variant="outline" onPress={handleEdit} className="flex-1">
                                 <Text variant='h5'>Edit</Text>
                                 <Image source={PENCIL_SIMPLE} style={BUTTON_ICON_STYLE} />
                             </Button>
@@ -214,12 +214,12 @@ export default function SpotConventionDetailPage() {
                                 </View>
                                 <View style={{ gap: 8, flexDirection: 'row' }}>
                                     <View style={{ flex: 1 }}>
-                                        <Button onPress={() => setIsDeleteModalOpen(false)} disabled={deleting} variant="outline" size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" onPress={() => setIsDeleteModalOpen(false)} disabled={deleting} size='lg' className='items-center justify-center'>
                                             <Text>Cancel</Text>
                                         </Button>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Button onPress={handleDeleteConfirm} size='lg' disabled={deleting} className='items-center justify-center'>
+                                        <Button variant="outline" onPress={handleDeleteConfirm} size='lg' disabled={deleting} className='items-center justify-center'>
                                             <Text>{deleting ? 'Deleting...' : 'Delete'}</Text>
                                         </Button>
                                     </View>

@@ -529,7 +529,7 @@ export default function ClientAppointments() {
                                 <Checkbox checked={agreeChecked} onCheckedChange={(v) => setAgreeChecked(!!v)} />
                                 <Text className="flex-1 font-thin leading-0 text-text-secondary">I have read and understood the terms of this waiver agreement.</Text>
                             </View>
-                            <Button disabled={!agreeChecked || !waiverUrl} onPress={handleSignWaiver}>
+                            <Button variant="outline" disabled={!agreeChecked || !waiverUrl} onPress={handleSignWaiver}>
                                 <Text className="font-semibold">Sign Waiver</Text>
                             </Button>
                         </View>

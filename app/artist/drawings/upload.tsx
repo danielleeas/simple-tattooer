@@ -431,13 +431,13 @@ export default function UploadDrawings() {
                             <Text className="text-text-secondary mt-1">Choose how you want to add an image</Text>
                         </View>
                         <View className='flex-row gap-2 items-center justify-center'>
-                            <Button onPress={takePhoto}>
+                            <Button variant="outline" onPress={takePhoto}>
                                 <Text>Camera</Text>
                             </Button>
-                            <Button onPress={pickImage}>
+                            <Button variant="outline" onPress={pickImage}>
                                 <Text>Photo Library</Text>
                             </Button>
-                            <Button onPress={() => setOptionOpen(false)} variant='outline'>
+                            <Button variant="outline" onPress={() => setOptionOpen(false)}>
                                 <Text>Cancel</Text>
                             </Button>
                         </View>

@@ -194,6 +194,7 @@ export default function SigninPage() {
 
             <View className="mt-4 gap-4">
               <Button
+                variant="outline"
                 onPress={handleSignin}
                 size="lg"
                 className="w-full"

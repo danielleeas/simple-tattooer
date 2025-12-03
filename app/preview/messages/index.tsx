@@ -109,7 +109,7 @@ export default function Messages() {
                                         </Button>
                                     </View>
                                     <View className="flex-1">
-                                        <Button onPress={() => setMessageAllClientsModalOpen(false)} size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" onPress={() => setMessageAllClientsModalOpen(false)} size='lg' className='items-center justify-center'>
                                             <Text>Send Message</Text>
                                         </Button>
                                     </View>

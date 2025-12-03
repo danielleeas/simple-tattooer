@@ -293,6 +293,7 @@ export default function AftercarePage() {
                 </View>
                 <View className="flex-1">
                     <Button
+                        variant="outline"
                         onPress={handleSaveTip}
                         disabled={isSaving}
                         className="items-center justify-center"
@@ -405,6 +406,7 @@ export default function AftercarePage() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Button
+                                    variant="outline"
                                     onPress={handleDeleteConfirm}
                                     size='lg'
                                     className='items-center justify-center'

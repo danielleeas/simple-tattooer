@@ -416,7 +416,7 @@ function DurationPicker({
                             <Button variant="outline" size="default" onPress={handleCancel} style={{ flex: 1 }}>
                                 <Text variant="h6">Cancel</Text>
                             </Button>
-                            <Button size="default" onPress={handleConfirm} style={{ flex: 1 }}>
+                            <Button variant="outline" size="default" onPress={handleConfirm} style={{ flex: 1 }}>
                                 <Text variant="h6">Confirm</Text>
                             </Button>
                         </View>

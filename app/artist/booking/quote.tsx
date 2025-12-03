@@ -441,7 +441,7 @@ export default function QuoteBooking() {
                     </View>
 
                     <View className="gap-4 items-center justify-center">
-                        <Button onPress={handleCompleteBooking} size="lg" className="w-full" disabled={submitting}>
+                        <Button variant="outline" onPress={handleCompleteBooking} size="lg" className="w-full" disabled={submitting}>
                             {submitting ? (
                                 <View className="flex-row items-center justify-center gap-2">
                                     <ActivityIndicator size="small" color="#000000" />

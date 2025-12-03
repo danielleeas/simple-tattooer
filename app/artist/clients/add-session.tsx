@@ -361,7 +361,7 @@ export default function ClientAddSession() {
                             <Button onPress={handleBack} variant="outline" size="lg" className="flex-1">
                                 <Text variant='h5'>Cancel</Text>
                             </Button>
-                            <Button onPress={handleSave} size="lg" className="flex-1" disabled={saving}>
+                            <Button variant="outline" onPress={handleSave} size="lg" className="flex-1" disabled={saving}>
                                 <Text variant='h5'>Save</Text>
                             </Button>
                         </View>

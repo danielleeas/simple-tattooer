@@ -526,6 +526,7 @@ CREATE TABLE IF NOT EXISTS clients (
   location TEXT NOT NULL,
   project_notes TEXT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
+   
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -537,6 +538,8 @@ CREATE INDEX IF NOT EXISTS idx_clients_phone_number ON clients(phone_number);
 CREATE INDEX IF NOT EXISTS idx_clients_location ON clients(location);
 CREATE INDEX IF NOT EXISTS idx_clients_project_notes ON clients(project_notes);
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
+CREATE INDEX IF NOT EXISTS idx_clients_reference_photos ON clients(reference_photos);
+CREATE INDEX IF NOT EXISTS idx_clients_healed_photos ON clients(healed_photos);
 CREATE INDEX IF NOT EXISTS idx_clients_created_at ON clients(created_at);
 CREATE INDEX IF NOT EXISTS idx_clients_updated_at ON clients(updated_at);
 

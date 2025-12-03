@@ -71,7 +71,7 @@ export default function AddClient() {
                             </Button>
                         </View>
                         <View className="flex-1">
-                            <Button size="lg" onPress={handleCreateClient}>
+                            <Button variant="outline" size="lg" onPress={handleCreateClient}>
                                 <Text variant='h5' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Create Quote</Text>
                             </Button>
                         </View>

@@ -190,6 +190,23 @@ CREATE POLICY "Allow public updates to request-photos" ON storage.objects
 CREATE POLICY "Allow public deletes from request-photos" ON storage.objects
   FOR DELETE USING (bucket_id = 'request-photos'); 
 
+
+-- Allow anyone to upload client-photos to client-photos bucket
+CREATE POLICY "Allow public uploads to client-photos" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'client-photos');
+
+-- Allow anyone to view client-photos in client-photos bucket
+CREATE POLICY "Allow public access to client-photos" ON storage.objects
+  FOR SELECT USING (bucket_id = 'client-photos');
+
+-- Allow anyone to update client-photos in client-photos bucket
+CREATE POLICY "Allow public updates to client-photos" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'client-photos');
+
+-- Allow anyone to delete client-photos in client-photos bucket
+CREATE POLICY "Allow public deletes from client-photos" ON storage.objects
+  FOR DELETE USING (bucket_id = 'client-photos'); 
+
 -- Ensure the buckets exist and are public
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('artist-photos', 'artist-photos', true)
@@ -235,6 +252,12 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('request-photos', 'request-photos', true)
+ON CONFLICT (id) DO UPDATE SET 
+  name = EXCLUDED.name,
+  public = EXCLUDED.public;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('client-photos', 'client-photos', true)
 ON CONFLICT (id) DO UPDATE SET 
   name = EXCLUDED.name,
   public = EXCLUDED.public;
