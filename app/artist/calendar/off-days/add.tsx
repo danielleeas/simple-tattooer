@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { View, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from "expo-router";
 
-import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -19,7 +18,6 @@ import { DatePicker } from "@/components/lib/date-picker";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { Collapse } from "@/components/lib/collapse";
 import { createOffDays } from "@/lib/services/calendar-service";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const repeatTypeChunks = [
     { value: 'daily', label: 'Daily' },
