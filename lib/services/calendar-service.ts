@@ -55,6 +55,7 @@ export interface CreateTempChangeParams {
 export interface CreateTempChangeResult {
 	success: boolean;
 	id?: string;
+	location?: Locations;
 	error?: string;
 }
 
@@ -924,7 +925,7 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			return { success: false, error: 'Location is required' };
 		}
 
-		const { id: locationId } = await resolveLocationId(params.artistId, params.location);
+		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, params.location);
 
 		// Normalize to requested times: start at 00:00, end at 23:00
 
@@ -973,7 +974,7 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			}
 		}
 
-		return { success: true, id: tempChangeId };
+		return { success: true, id: tempChangeId, location: newLocation };
 	} catch (err) {
 		return {
 			success: false,

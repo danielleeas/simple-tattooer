@@ -25,6 +25,8 @@ import type { Locations } from "@/lib/redux/types";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { LocationModal } from "@/components/lib/location-modal";
 import { createTempChange } from "@/lib/services/calendar-service";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 
 interface TempChangeFormData {
     start_date: string | null;
@@ -41,6 +43,7 @@ export default function AddTempChangePage() {
     const router = useRouter();
     const { toast } = useToast();
     const { artist } = useAuth();
+    const dispatch = useAppDispatch();
 
     const [openTempLocationModal, setOpenTempLocationModal] = useState(false);
     const [locationData, setLocationData] = useState<Locations[]>([]);
@@ -136,6 +139,23 @@ export default function AddTempChangePage() {
                 toast({ variant: 'error', title: 'Failed to save changes', description: result.error });
                 return;
             }
+
+            // Update artist state if a new location was created
+            if (result.location && artist) {
+                const updatedLocations = artist.locations ? [...artist.locations] : [];
+                // Check if location already exists in the array
+                const locationExists = updatedLocations.some(
+                    (loc) => loc.id === result.location?.id || loc.place_id === result.location?.place_id
+                );
+                if (!locationExists) {
+                    updatedLocations.push(result.location);
+                    dispatch(setArtist({
+                        ...artist,
+                        locations: updatedLocations,
+                    }));
+                }
+            }
+
             toast({ variant: 'success', title: 'Work Days Changed!', duration: 3000 });
             router.dismissTo('/artist/calendar');
         } catch (error) {
@@ -440,8 +460,8 @@ export default function AddTempChangePage() {
                                     <View className="gap-2 w-full">
                                         <DropdownPicker
                                             options={locationData.map((location: Locations) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                            value={formData.location?.id ?? formData.location?.place_id}
-                                            onValueChange={(value: string) => setFormData({ ...formData, location: locationData.find(l => l.id ?? l.place_id === value) })}
+                                            value={formData.location?.id ?? formData.location?.place_id ?? undefined}
+                                            onValueChange={(value: string) => setFormData({ ...formData, location: locationData.find(l => l.id === value || l.place_id === value) || undefined })}
                                             placeholder="Select location"
                                             modalTitle="Select Location"
                                         />
