@@ -20,12 +20,20 @@ import { parseYmdFromDb } from "@/lib/utils";
 import X_IMAGE from "@/assets/images/icons/x.png";
 import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 
+const repeatTypeChunks = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'yearly', label: 'Yearly' },
+]
+
 type MarkUnavailableData = {
     id?: string;
     date: string;
     repeatable: boolean;
-    repeatLength: number;
-    repeatUnit: 'days' | 'weeks' | 'months' | 'years';
+    repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    repeatLength: number | undefined;
+    repeatUnit: 'days' | 'weeks' | 'months' | 'years' | undefined;
     notes: string;
 };
 
@@ -35,22 +43,14 @@ const repeatDuration = (length?: number, unit?: 'days' | 'weeks' | 'months' | 'y
     return { value: length, unit };
 };
 
-const getRepeatUnit = (type?: string): 'days' | 'weeks' | 'months' | 'years' => {
-    if (type === 'daily') return 'days';
-    if (type === 'weekly') return 'weeks';
-    if (type === 'monthly') return 'months';
-    if (type === 'yearly') return 'years';
-    return 'weeks';
-};
-
-const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
-    if (!unit) return 'daily';
-    if (unit === 'days') return 'daily';
-    if (unit === 'weeks') return 'weekly';
-    if (unit === 'months') return 'monthly';
-    if (unit === 'years') return 'yearly';
-    return 'daily';
-};
+const getDisableUnits = (repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly'): ('days' | 'weeks' | 'months' | 'years')[] => {
+    if (!repeatType) return ['days', 'weeks', 'months', 'years'];
+    if (repeatType === 'daily') return [];
+    if (repeatType === 'weekly') return ['days'];
+    if (repeatType === 'monthly') return ['days', 'weeks'];
+    if (repeatType === 'yearly') return ['days', 'weeks', 'months'];
+    return [];
+}
 
 export default function MarkUnavailablePage() {
     const router = useRouter();
@@ -65,8 +65,9 @@ export default function MarkUnavailablePage() {
     const [formData, setFormData] = useState<MarkUnavailableData>({
         date: '',
         repeatable: false,
-        repeatLength: 1,
-        repeatUnit: 'weeks',
+        repeatType: undefined,
+        repeatLength: undefined,
+        repeatUnit: undefined,
         notes: '',
     });
 
@@ -76,12 +77,27 @@ export default function MarkUnavailablePage() {
             setLoading(true);
             const res = await getMarkUnavailableById(id);
             if (res.success && res.data) {
+                // Convert repeat_type to repeatUnit for DurationPicker
+                let repeatUnit: 'days' | 'weeks' | 'months' | 'years' = 'days';
+                const repeatType = res.data.repeat_type as 'daily' | 'weekly' | 'monthly' | 'yearly' | null | undefined;
+                if (repeatType === 'daily') {
+                    repeatUnit = 'days';
+                } else if (repeatType === 'weekly') {
+                    repeatUnit = 'weeks';
+                } else if (repeatType === 'monthly') {
+                    repeatUnit = 'months';
+                } else if (repeatType === 'yearly') {
+                    repeatUnit = 'years';
+                } else if (res.data.repeat_duration_unit) {
+                    repeatUnit = res.data.repeat_duration_unit as 'days' | 'weeks' | 'months' | 'years';
+                }
                 setFormData({
                     id: res.data.id,
                     date: res.data.date,
                     repeatable: res.data.repeatable,
-                    repeatLength: res.data.repeat_duration,
-                    repeatUnit: getRepeatUnit(res.data.repeat_type),
+                    repeatType: repeatType || undefined,
+                    repeatLength: res.data.repeat_duration ?? 1,
+                    repeatUnit: repeatUnit || 'days',
                     notes: res.data.notes || '',
                 });
             }
@@ -90,7 +106,7 @@ export default function MarkUnavailablePage() {
         } finally {
             setLoading(false);
         }
-    }, [id]);
+    }, [id, toast]);
 
     useEffect(() => {
         if (isEdit) {
@@ -108,6 +124,10 @@ export default function MarkUnavailablePage() {
             return;
         }
 
+        if (formData.repeatable && !formData.repeatType) {
+            toast({ variant: 'error', title: 'Select repeat type', duration: 2500 });
+            return;
+        }
         if (formData.repeatable && (!formData.repeatLength || formData.repeatLength <= 0)) {
             toast({ variant: 'error', title: 'Select repeat duration', duration: 2500 });
             return;
@@ -139,7 +159,7 @@ export default function MarkUnavailablePage() {
                 artistId: artist.id,
                 date: dateStr,
                 repeatable: formData.repeatable,
-                repeatType: formData.repeatable ? getRepeatType(formData.repeatUnit) : undefined,
+                repeatType: formData.repeatable ? formData.repeatType : undefined,
                 repeatDuration: formData.repeatable ? formData.repeatLength : undefined,
                 repeatDurationUnit: formData.repeatable ? formData.repeatUnit : undefined,
                 notes: formData.notes?.trim() || undefined,
@@ -215,33 +235,57 @@ export default function MarkUnavailablePage() {
                                 {/* Form Fields */}
                                 <View className="gap-6">
 
-                                    <View className="gap-2">
-                                        <View className="flex-row items-start gap-1">
-                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, repeatable: !formData.repeatable })}>
-                                                <Text variant="h5" className="w-[310px]">Repeat?</Text>
-                                            </Pressable>
-                                            <View>
-                                                <Switch
-                                                    checked={formData.repeatable}
-                                                    onCheckedChange={() => setFormData({ ...formData, repeatable: !formData.repeatable })}
-                                                />
-                                            </View>
+                                    <View className="flex-row items-start gap-1">
+                                        <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, repeatable: !formData.repeatable })}>
+                                            <Text variant="h5" className="w-[310px]">Repeat?</Text>
+                                        </Pressable>
+                                        <View>
+                                            <Switch
+                                                checked={formData.repeatable}
+                                                onCheckedChange={() => setFormData({ ...formData, repeatable: !formData.repeatable })}
+                                            />
                                         </View>
                                     </View>
 
                                     {formData.repeatable && (
-                                        <View className="gap-2">
-                                            <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <DurationPicker
-                                                        selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
-                                                        maxValue={12}
-                                                        modalTitle="Select Repeat Duration"
-                                                    />
-                                                </View>
-                                            </Collapse>
-                                        </View>
+                                        <>
+                                            <View className="gap-2 flex-row items-center">
+                                                {repeatTypeChunks.map((repeatType) => {
+                                                    const handleRepeatTypeSelect = () => {
+                                                        const newRepeatType = repeatType.value as 'daily' | 'weekly' | 'monthly' | 'yearly';
+                                                        const newRepeatUnit = newRepeatType === 'daily' ? 'days' :
+                                                            newRepeatType === 'weekly' ? 'weeks' :
+                                                            newRepeatType === 'monthly' ? 'months' :
+                                                            newRepeatType === 'yearly' ? 'years' : 'days';
+                                                        setFormData({ ...formData, repeatType: newRepeatType, repeatUnit: newRepeatUnit });
+                                                    };
+                                                    return (
+                                                        <Button
+                                                            key={repeatType.value}
+                                                            onPress={handleRepeatTypeSelect}
+                                                            variant={formData.repeatType === repeatType.value ? 'default' : 'outline'}
+                                                            className="max-w-[70px] w-full h-8 items-center justify-center px-0 py-0"
+                                                        >
+                                                            <Text variant='small'>{repeatType.label}</Text>
+                                                        </Button>
+                                                    );
+                                                })}
+                                            </View>
+
+                                            <View className="gap-2">
+                                                <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
+                                                    <View className="gap-2 w-full">
+                                                        <DurationPicker
+                                                            selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
+                                                            onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
+                                                            maxValue={12}
+                                                            modalTitle="Select Repeat Duration"
+                                                            disabledUnits={getDisableUnits(formData.repeatType)}
+                                                        />
+                                                    </View>
+                                                </Collapse>
+                                            </View>
+                                        </>
                                     )}
 
                                     <View className="gap-2">
