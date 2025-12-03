@@ -33,6 +33,7 @@ export interface CreateSpotConventionParams {
 export interface CreateSpotConventionResult {
 	success: boolean;
 	id?: string;
+	location?: Locations;
 	error?: string;
 }
 
@@ -618,22 +619,22 @@ function normalizeLocationForInsert(artistId: string, loc: CreateSpotConventionP
 	};
 }
 
-async function resolveLocationId(artistId: string, location: CreateSpotConventionParams['location']): Promise<string> {
+async function resolveLocationId(artistId: string, location: CreateSpotConventionParams['location']): Promise<{ id: string; location?: Locations }> {
 	const maybeId = (location as any)?.id as string | undefined;
 	if (maybeId && typeof maybeId === 'string') {
-		return maybeId;
+		return { id: maybeId };
 	}
 
 	const address = (location as any)?.address;
 	if (artistId && address) {
 		const { data: existingByAddress, error: findErr } = await supabase
 			.from('locations')
-			.select('id')
+			.select('id, address, place_id, coordinates, is_main_studio')
 			.eq('artist_id', artistId)
 			.eq('address', address)
 			.maybeSingle();
 		if (!findErr && existingByAddress?.id) {
-			return existingByAddress.id;
+			return { id: existingByAddress.id };
 		}
 	}
 
@@ -641,12 +642,12 @@ async function resolveLocationId(artistId: string, location: CreateSpotConventio
 	const { data: created, error: insErr } = await supabase
 		.from('locations')
 		.insert([payload])
-		.select('id')
+		.select('id, address, place_id, coordinates, is_main_studio')
 		.single();
 	if (insErr) {
 		throw new Error(insErr.message || 'Failed to create location');
 	}
-	return created.id as string;
+	return { id: created.id as string, location: created as unknown as Locations };
 }
 
 export async function createSpotConvention(params: CreateSpotConventionParams): Promise<CreateSpotConventionResult> {
@@ -664,7 +665,7 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 			return { success: false, error: 'Location is required' };
 		}
 
-		const locationId = await resolveLocationId(params.artistId, params.location);
+		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, params.location);
 
 		const insertPayload = {
 			artist_id: params.artistId,
@@ -715,7 +716,7 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 			}
 		}
 
-		return { success: true, id: spotConventionId };
+		return { success: true, id: spotConventionId, location: newLocation };
 	} catch (err) {
 		return {
 			success: false,
@@ -923,7 +924,7 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			return { success: false, error: 'Location is required' };
 		}
 
-		const locationId = await resolveLocationId(params.artistId, params.location);
+		const { id: locationId } = await resolveLocationId(params.artistId, params.location);
 
 		// Normalize to requested times: start at 00:00, end at 23:00
 

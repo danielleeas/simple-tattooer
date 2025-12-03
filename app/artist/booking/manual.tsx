@@ -69,7 +69,7 @@ export default function ManualBooking() {
         try {
             if (!artist?.id) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, clientId as string | undefined, start, end);
+            const days = await getAvailableDates(artist as any, clientId as string | undefined, formData.locationId as string | undefined, start, end);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);

@@ -24,8 +24,9 @@ import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { Locations } from "@/lib/redux/types";
 import { LocationModal } from "@/components/lib/location-modal";
-// import { addTemporaryLocation } from "@/lib/services/settings-service";
 import { createSpotConvention } from "@/lib/services/calendar-service";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 
 interface FormDataProps {
     title: string;
@@ -41,6 +42,7 @@ export default function AddSpotConventionPage() {
     const router = useRouter();
     const { toast } = useToast();
     const { artist } = useAuth();
+    const dispatch = useAppDispatch();
 
     // Form state
     const DEFAULT_START = '09:00';
@@ -155,6 +157,22 @@ export default function AddSpotConventionPage() {
             if (!result.success) {
                 toast({ variant: 'error', title: 'Failed to add spot convention', description: result.error });
                 return;
+            }
+
+            // Update artist state if a new location was created
+            if (result.location && artist) {
+                const updatedLocations = artist.locations ? [...artist.locations] : [];
+                // Check if location already exists in the array
+                const locationExists = updatedLocations.some(
+                    (loc) => loc.id === result.location?.id || loc.place_id === result.location?.place_id
+                );
+                if (!locationExists) {
+                    updatedLocations.push(result.location);
+                    dispatch(setArtist({
+                        ...artist,
+                        locations: updatedLocations,
+                    }));
+                }
             }
 
             toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });

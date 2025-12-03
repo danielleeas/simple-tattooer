@@ -85,6 +85,7 @@ function weekdayCodeOf(ymd: string): WeekdayCode {
 export const getAvailableDates = async (
     artist: Artist,
     clientId: string | undefined,
+    locationId: string | undefined,
     startDate: string,
     endDate: string
 ): Promise<string[]> => {
