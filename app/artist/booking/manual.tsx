@@ -39,6 +39,8 @@ export default function ManualBooking() {
     const { artist } = useAuth();
     const { clientId } = useLocalSearchParams();
     const [availableDates, setAvailableDates] = useState<string[]>([]);
+    const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
+    const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
     const [renderStartTimes, setRenderStartTimes] = useState<{ id: number; time: string }[]>([]);
     const fetchSeqRef = useRef(0);
     const [loadingStartTimes, setLoadingStartTimes] = useState(false);
@@ -65,17 +67,32 @@ export default function ManualBooking() {
 
     const startTimesChunks = useMemo(() => makeChunks(renderStartTimes, 2), [renderStartTimes]);
 
-    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number) => {
+    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
+        setAvailableDates([]);
         try {
-            if (!artist?.id) return;
+            if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, clientId as string | undefined, formData.locationId as string | undefined, start, end);
+            const days = await getAvailableDates(artist as any, clientId as string | undefined, locationId, start, end);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);
             setAvailableDates([]);
         }
     };
+
+    const onChangeCalendarMonth = (year: number, month: number) => {
+        setCalendarYear(year);
+        setCalendarMonth(month);
+    }
+
+    useEffect(() => {
+        if (!artist?.id || !formData.locationId) return;
+        loadAvailabilityForMonth(calendarYear, calendarMonth, formData.locationId);
+    }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
+
+    // const handleLocationChange = async (locationId) => {
+
+    // }
 
     // const startTimesForDate = useCallback(async (date: Date) => {
     //     if (!artist?.id || !formData.sessionLength) return [];
@@ -275,11 +292,12 @@ export default function ManualBooking() {
                                     selectedDateString={formatDateToYmd(formData.date)}
                                     onDateStringSelect={(dateStr) => setFormData({ ...formData, date: parseYmdToLocalDate(dateStr) })}
                                     showInline={true}
+                                    showTodayButton={false}
                                     selectionMode="single"
                                     availableDates={availableDates}
-                                    onMonthChange={(y, m) => loadAvailabilityForMonth(y, m)}
+                                    onMonthChange={(y, m) => onChangeCalendarMonth(y, m)}
                                     disabled={formData.sessionLength === undefined || formData.locationId === ''}
-                                    className="border border-border-white rounded-lg p-4"
+                                    className="border border-border rounded-lg p-4"
                                 />
 
                                 {(formData.sessionLength === undefined && formData.locationId === '') && (

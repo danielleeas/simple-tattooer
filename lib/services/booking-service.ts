@@ -1,7 +1,7 @@
 import { Artist, Locations as ArtistLocation } from "../redux/types";
 import { supabase } from "../supabase";
 import { parseYmdFromDb } from "../utils";
-import { getEventsInRange } from "./calendar-service";
+import { getEventsInRange, getOffDayById, getSpotConventionById, getTempChangeById } from "./calendar-service";
 import { defaultTemplateData } from "@/components/pages/your-rule/type";
 
 type WeekdayCode = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
@@ -94,20 +94,17 @@ export const getAvailableDates = async (
     const { start, end } = clampRange(startDate, endDate);
     const todayYmd = toYmd(new Date());
 
-    const start_date_Ymd = parseYmdFromDb(start);
-    const end_date_Ymd = parseYmdFromDb(end);
-    const start_date = new Date(start_date_Ymd.getFullYear(), start_date_Ymd.getMonth(), start_date_Ymd.getDate(), 0, 0, 0, 0);
-    const end_date = new Date(end_date_Ymd.getFullYear(), end_date_Ymd.getMonth(), end_date_Ymd.getDate(), 23, 59, 59, 999);
-
     const flows = (artist.flow || {}) as {
         work_days?: string[];
         different_time_enabled: boolean;
         start_times: Record<string, string>;
         end_times: Record<string, string>;
+        multiple_sessions_enabled: boolean;
+        sessions_per_day: number;
+        back_to_back_enabled: boolean;
+        max_back_to_back: number;
+        buffer_between_sessions: number;
     };
-
-    const eventsRes = await getEventsInRange({ artistId: artist.id, start: start_date, end: end_date })
-    const events = eventsRes.success ? eventsRes.events || [] : [];
 
     let candidateDates: string[];
 
@@ -126,7 +123,120 @@ export const getAvailableDates = async (
     result.sort();
     // const filtered = candidateDates.filter((d) => !offDaySet.has(d));
 
-    return result;
+    const start_date_Ymd = parseYmdFromDb(start);
+    const end_date_Ymd = parseYmdFromDb(end);
+    const start_date = new Date(start_date_Ymd.getFullYear(), start_date_Ymd.getMonth(), start_date_Ymd.getDate(), 0, 0, 0, 0);
+    const end_date = new Date(end_date_Ymd.getFullYear(), end_date_Ymd.getMonth(), end_date_Ymd.getDate(), 23, 59, 59, 999);
+
+    const eventsRes = await getEventsInRange({ artistId: artist.id, start: start_date, end: end_date })
+    const events = eventsRes.success ? eventsRes.events || [] : [];
+    const backgroundEvents = events.filter((e) => e.type === 'background');
+    const tempChangeEvents = backgroundEvents.filter((e) => e.source === 'temp_change');
+
+    // Collect all dates in temp change ranges to disable default flow work_days in those ranges
+    const tempChangeDateRange = new Set<string>();
+    const tempChangeDatesToAdd: string[] = [];
+
+    if (tempChangeEvents.length > 0) {
+        for (const e of tempChangeEvents) {
+            const tempChangeRes = await getTempChangeById(e.source_id);
+            if (tempChangeRes.success && tempChangeRes.data) {
+                const tc = tempChangeRes.data;
+                const isTcLocationMatch = tc.location_id === locationId;
+                if (!isTcLocationMatch) continue;
+                const tcDates = eachDateInclusive(tc.start_date, tc.end_date);
+                // Add all dates in temp change range to disable default flow work_days
+                for (const d of tcDates) {
+                    tempChangeDateRange.add(d);
+                }
+                // Collect temp change work_days to add later
+                const tcWorkDays = new Set<string>(tc.work_days || []);
+                for (const d of tcDates) {
+                    const w = weekdayCodeOf(d);
+                    if (tcWorkDays.has(w)) {
+                        tempChangeDatesToAdd.push(d);
+                    }
+                }
+            }
+        }
+    }
+
+    // Remove default flow dates that fall within temp change date ranges
+    const filteredResult = result.filter((d) => !tempChangeDateRange.has(d));
+    
+    // Add temp change dates
+    for (const d of tempChangeDatesToAdd) {
+        filteredResult.push(d);
+    }
+
+    // Collect all book-off dates to exclude from available dates
+    const bookOffDateSet = new Set<string>();
+    const bookOffEvents = backgroundEvents.filter((e) => e.source === 'book_off');
+    for (const e of bookOffEvents) {
+        const bookOffRes = await getOffDayById(e.source_id);
+        if (bookOffRes.success && bookOffRes.data) {
+            const bookOff = bookOffRes.data;
+            const bookOffDates = eachDateInclusive(bookOff.start_date, bookOff.end_date);
+            for (const d of bookOffDates) {
+                bookOffDateSet.add(d);
+            }
+        }
+    }
+    
+    // Remove book-off dates from available dates
+    const resultWithoutBookOffs = filteredResult.filter((d) => !bookOffDateSet.has(d));
+
+    // Collect all unavailable dates from mark_unavailable events (using event dates directly)
+    const unavailableDateSet = new Set<string>();
+    const unavailableEvents = backgroundEvents.filter((e) => e.source === 'mark_unavailable');
+    for (const e of unavailableEvents) {
+        // Extract date part from "YYYY-MM-DD HH:mm" format
+        const startDate = e.start_date.substring(0, 10); // "YYYY-MM-DD"
+        const endDate = e.end_date.substring(0, 10); // "YYYY-MM-DD"
+        const unavailableDates = eachDateInclusive(startDate, endDate);
+        for (const d of unavailableDates) {
+            unavailableDateSet.add(d);
+        }
+    }
+    
+    // Remove unavailable dates from available dates
+    const resultWithoutUnavailable = resultWithoutBookOffs.filter((d) => !unavailableDateSet.has(d));
+
+    // Collect all dates from spot convention events (if location matches)
+    const spotConventionDatesToAdd: string[] = [];
+    const spotConventionEvents = backgroundEvents.filter((e) => e.source === 'spot_convention');
+    for (const e of spotConventionEvents) {
+        const spotConventionRes = await getSpotConventionById(e.source_id);
+        if (spotConventionRes.success && spotConventionRes.data) {
+            const spotConvention = spotConventionRes.data;
+            // Check if location matches
+            const isSpotConventionLocationMatch = spotConvention.location_id === locationId;
+            if (!isSpotConventionLocationMatch) continue;
+            // Extract date range from event (format: "YYYY-MM-DD HH:mm")
+            const startDate = e.start_date.substring(0, 10); // "YYYY-MM-DD"
+            const endDate = e.end_date.substring(0, 10); // "YYYY-MM-DD"
+            const spotConventionDates = eachDateInclusive(startDate, endDate);
+            // Add all dates in the spot convention range
+            for (const d of spotConventionDates) {
+                if (d >= todayYmd) {
+                    spotConventionDatesToAdd.push(d);
+                }
+            }
+        }
+    }
+    
+    // Add spot convention dates to available dates
+    for (const d of spotConventionDatesToAdd) {
+        resultWithoutUnavailable.push(d);
+    }
+
+    console.log('flow', flows)
+    
+    // Sort and deduplicate
+    const finalResult = Array.from(new Set(resultWithoutUnavailable));
+    finalResult.sort();
+
+    return finalResult;
 };
 
 export interface StartTimeOption {

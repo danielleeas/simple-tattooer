@@ -426,11 +426,21 @@ const NativeCalendarPicker = ({
     const swipeThreshold = 50;
     const panResponder = React.useRef(
         PanResponder.create({
+            onStartShouldSetPanResponder: (_evt, _gestureState) => {
+                // Start capturing early to compete with Pressables and ScrollView
+                if (disabled) return false;
+                return true;
+            },
             onMoveShouldSetPanResponder: (_evt, gestureState) => {
                 if (disabled) return false;
                 const dx = gestureState.dx;
                 const dy = gestureState.dy;
-                return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy);
+                // Only capture if it's clearly a horizontal gesture
+                // This prevents interfering with vertical scrolling
+                return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5;
+            },
+            onPanResponderGrant: () => {
+                // When we capture the gesture, prevent default behavior
             },
             onPanResponderRelease: (_evt, gestureState) => {
                 if (disabled) return;
@@ -441,7 +451,14 @@ const NativeCalendarPicker = ({
                     goToPreviousMonth();
                 }
             },
-            onPanResponderTerminationRequest: () => true,
+            onPanResponderTerminationRequest: (_evt, gestureState) => {
+                // Allow termination if it's a vertical gesture (let scroll view handle it)
+                if (disabled) return true;
+                const dx = Math.abs(gestureState.dx);
+                const dy = Math.abs(gestureState.dy);
+                // Release if it's more vertical than horizontal
+                return dy > dx * 1.5;
+            },
         })
     ).current;
 
@@ -577,7 +594,7 @@ const NativeCalendarPicker = ({
     };
 
     return (
-        <View style={{ width: '100%', opacity: disabled ? 0.5 : 1 }} {...panResponder.panHandlers}>
+        <View style={{ width: '100%', opacity: disabled ? 0.5 : 1 }}>
             {showTodayButton && (
                 <View className="flex-row items-center justify-center">
                     <Pressable
@@ -835,7 +852,7 @@ const NativeCalendarPicker = ({
             </View>
 
             {/* Calendar grid */}
-            <View style={{ gap: config.gap }}>
+            <View style={{ gap: config.gap }} {...panResponder.panHandlers}>
                 {Array.from({ length: 6 }, (_, weekIndex) => (
                     <View key={weekIndex} className="flex-row">
                         {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
