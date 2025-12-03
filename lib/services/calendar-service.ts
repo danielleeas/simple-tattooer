@@ -311,14 +311,23 @@ export async function createOffDays(params: CreateOffDaysParams): Promise<Create
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addWeeks(cursorStart, 1);
 				}
-			} else {
-				// monthly
+			} else if (resolvedRepeatType === 'monthly') {
+				// Repeat the same span each month
 				let cursorStart = new Date(baseStart);
 				while (windowEndExclusive && cursorStart < windowEndExclusive) {
 					const occStart = new Date(cursorStart);
 					const occEnd = addDays(occStart, spanDays - 1);
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addMonths(cursorStart, 1);
+				}
+			} else {
+				// yearly - repeat the same span each year on the same date
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addYears(cursorStart, 1);
 				}
 			}
 		}
@@ -522,7 +531,7 @@ export async function updateOffDay(
 		if (!row.is_repeat) {
 			occurrences.push({ start: baseStart, end: baseEnd });
 		} else {
-			const rType = (row.repeat_type ?? 'daily') as 'daily' | 'weekly' | 'monthly';
+			const rType = (row.repeat_type ?? 'daily') as 'daily' | 'weekly' | 'monthly' | 'yearly';
 			if (rType === 'daily') {
 				let cursor = new Date(baseStart);
 				while (windowEndExclusive && cursor < windowEndExclusive) {
@@ -539,13 +548,22 @@ export async function updateOffDay(
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addWeeks(cursorStart, 1);
 				}
-			} else {
+			} else if (rType === 'monthly') {
 				let cursorStart = new Date(baseStart);
 				while (windowEndExclusive && cursorStart < windowEndExclusive) {
 					const occStart = new Date(cursorStart);
 					const occEnd = addDays(occStart, spanDays - 1);
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addMonths(cursorStart, 1);
+				}
+			} else {
+				// yearly - repeat the same span each year on the same date
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addYears(cursorStart, 1);
 				}
 			}
 		}
@@ -1282,11 +1300,18 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 					occurrences.push(new Date(cursor));
 					cursor = addWeeks(cursor, 1);
 				}
-			} else {
+			} else if (resolvedRepeatType === 'monthly') {
 				let cursor = new Date(base);
 				while (windowEndExclusive && cursor < windowEndExclusive) {
 					occurrences.push(new Date(cursor));
 					cursor = addMonths(cursor, 1);
+				}
+			} else {
+				// yearly - repeat on the same date each year
+				let cursor = new Date(base);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addYears(cursor, 1);
 				}
 			}
 		}
@@ -1532,11 +1557,18 @@ export async function updateEventBlockTime(
 							occurrences.push(new Date(cursor));
 							cursor = addWeeks(cursor, 1);
 						}
-					} else {
+					} else if (repeatType === 'monthly') {
 						let cursor = new Date(base);
 						while (windowEndExclusive && cursor < windowEndExclusive) {
 							occurrences.push(new Date(cursor));
 							cursor = addMonths(cursor, 1);
+						}
+					} else {
+						// yearly - repeat on the same date each year
+						let cursor = new Date(base);
+						while (windowEndExclusive && cursor < windowEndExclusive) {
+							occurrences.push(new Date(cursor));
+							cursor = addYears(cursor, 1);
 						}
 					}
 				}
