@@ -143,7 +143,7 @@ export const Drawing = ({ drawingData, updateDrawingData }: DrawingProps) => {
                         inputMode="numeric"
                         placeholder="0"
                         className="h-8"
-                        value={drawingData.maxReschedulesAllowed}
+                        value={drawingData.maxReschedulesAllowed.toString()}
                         onChangeText={(text) => updateDrawingData({ maxReschedulesAllowed: text })}
                     />
                 </View>
