@@ -19,6 +19,7 @@ import { useAuth, useToast } from "@/lib/contexts";
 import { getAvailableDates, getAvailableTimes, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
 import { formatDbDate, makeChunks } from "@/lib/utils";
+import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -28,7 +29,7 @@ interface FormDataProps {
     sessionLength: number | undefined;
     locationId: string;
     dates: string[]; // YYYY-MM-DD format strings
-    startTime: string;
+    startTimes: Record<string, string>;
     depositAmount: string;
     sessionRate: string;
     notes: string;
@@ -41,37 +42,23 @@ export default function ManualBooking() {
     const [availableDates, setAvailableDates] = useState<string[]>([]);
     const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
     const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
-    const [renderStartTimes, setRenderStartTimes] = useState<{ id: number; time: string }[]>([]);
-    const fetchSeqRef = useRef(0);
-    const [loadingStartTimes, setLoadingStartTimes] = useState(false);
     const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-
-    const shallowEqualTimes = (a: { id: number; time: string }[], b: { id: number; time: string }[]) => {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-            if (a[i].time !== b[i].time) return false;
-        }
-        return true;
-    };
 
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
         sessionLength: undefined,
         locationId: '',
         dates: [],
-        startTime: '',
+        startTimes: {},
         depositAmount: '',
         sessionRate: '',
         notes: '',
     });
 
-    const startTimesChunks = useMemo(() => makeChunks(renderStartTimes, 2), [renderStartTimes]);
-
     const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
         setLoadingAvailability(true);
         setAvailableDates([]);
-        setFormData((prev) => ({ ...prev, dates: [] }));
         try {
             if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
@@ -90,121 +77,91 @@ export default function ManualBooking() {
         setCalendarMonth(month);
     }
 
+    const onChangeLocation = (locationId: string) =>{
+        setFormData((prev) => ({ ...prev, locationId: locationId, dates: [] }));
+    }
+
+    const handleDatesSelect = (dates: string[]) => {
+        const sortedDates = [...dates].sort();
+        setFormData((prev) => ({ ...prev, dates: sortedDates }));
+    }
+
     useEffect(() => {
         if (!artist?.id || !formData.locationId) return;
         loadAvailabilityForMonth(calendarYear, calendarMonth, formData.locationId);
     }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
 
-    // const handleLocationChange = async (locationId) => {
-
-    // }
-
-    // const startTimesForDate = useCallback(async (date: Date) => {
-    //     if (!artist?.id || !formData.sessionLength) return [];
-    //     const ymd = toYmd(date);
-    //     const options = await getAvailableTimes(artist as any, ymd, formData.sessionLength, 30);
-    //     const startTimes = options.map((opt, idx) => ({
-    //         id: idx + 1,
-    //         time: opt.label,
-    //     }));
-    //     return startTimes;
-    // }, [artist?.id, formData.sessionLength]);
-
-    // useEffect(() => {
-    //     let alive = true;
-    //     const seq = ++fetchSeqRef.current;
-    //     (async () => {
-    //         if (!formData.date || !artist?.id || !formData.sessionLength || !formData.locationId) {
-    //             setRenderStartTimes((prev) => (prev.length ? [] : prev));
-    //             if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
-    //             return;
-    //         }
-    //         if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(true);
-    //         try {
-    //             const times = await startTimesForDate(formData.date);
-    //             if (!alive || seq !== fetchSeqRef.current) return;
-    //             setRenderStartTimes((prev) => (shallowEqualTimes(prev, times) ? prev : times));
-    //         } finally {
-    //             if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
-    //         }
-    //     })();
-    //     return () => {
-    //         alive = false;
-    //     };
-    //     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // }, [formData.date, formData.sessionLength, formData.locationId, artist?.id]);
-
     const handleCompleteBooking = async () => {
-        try {
-            setSubmitting(true);
-            if (!artist?.id) {
-                toast({ variant: 'error', title: 'Missing artist session' });
-                return;
-            }
-            const depositAmount = parseInt(formData.depositAmount);
-            const sessionRate = parseInt(formData.sessionRate);
+        // try {
+        //     setSubmitting(true);
+        //     if (!artist?.id) {
+        //         toast({ variant: 'error', title: 'Missing artist session' });
+        //         return;
+        //     }
+        //     const depositAmount = parseInt(formData.depositAmount);
+        //     const sessionRate = parseInt(formData.sessionRate);
 
-            if (formData.dates.length === 0) {
-                toast({ variant: 'error', title: 'Please select at least one date' });
-                return;
-            }
+        //     if (formData.dates.length === 0) {
+        //         toast({ variant: 'error', title: 'Please select at least one date' });
+        //         return;
+        //     }
 
-            const result = await createManualBooking({
-                artistId: artist.id,
-                clientId: String(clientId || ''),
-                title: formData.title,
-                sessionLengthMinutes: formData.sessionLength || 0,
-                locationId: formData.locationId,
-                dates: formData.dates,
-                startTimeDisplay: formData.startTime,
-                depositAmount,
-                sessionRate,
-                notes: formData.notes,
-            });
+        //     const result = await createManualBooking({
+        //         artistId: artist.id,
+        //         clientId: String(clientId || ''),
+        //         title: formData.title,
+        //         sessionLengthMinutes: formData.sessionLength || 0,
+        //         locationId: formData.locationId,
+        //         dates: formData.dates,
+        //         startTimeDisplay: formData.startTime,
+        //         depositAmount,
+        //         sessionRate,
+        //         notes: formData.notes,
+        //     });
 
-            if (!result.success) {
-                toast({
-                    variant: 'error',
-                    title: 'Failed to create booking',
-                    description: result.error || 'Please try again',
-                    duration: 3000,
-                });
-                return;
-            }
+        //     if (!result.success) {
+        //         toast({
+        //             variant: 'error',
+        //             title: 'Failed to create booking',
+        //             description: result.error || 'Please try again',
+        //             duration: 3000,
+        //         });
+        //         return;
+        //     }
 
-            // Send manual booking request approval email (non-blocking) via service
-            void sendManualBookingRequestEmail({
-                artist: artist as any,
-                clientId: String(clientId || ''),
-                form: {
-                    title: formData.title,
-                    dates: formData.dates,
-                    startTime: formData.startTime,
-                    sessionLength: formData.sessionLength || 0,
-                    notes: formData.notes,
-                    locationId: formData.locationId,
-                    depositAmount,
-                    sessionRate,
-                },
-            });
+        //     // Send manual booking request approval email (non-blocking) via service
+        //     void sendManualBookingRequestEmail({
+        //         artist: artist as any,
+        //         clientId: String(clientId || ''),
+        //         form: {
+        //             title: formData.title,
+        //             dates: formData.dates,
+        //             startTime: formData.startTime,
+        //             sessionLength: formData.sessionLength || 0,
+        //             notes: formData.notes,
+        //             locationId: formData.locationId,
+        //             depositAmount,
+        //             sessionRate,
+        //         },
+        //     });
 
-            toast({
-                variant: 'success',
-                title: 'Booking Created!',
-                description: 'Waiting for client response to pay deposit',
-                duration: 3000,
-            });
-            router.push('/');
-        } catch (e: any) {
-            toast({
-                variant: 'error',
-                title: 'Unexpected error',
-                description: e?.message || 'Please try again',
-                duration: 3000,
-            });
-        } finally {
-            setSubmitting(false);
-        }
+        //     toast({
+        //         variant: 'success',
+        //         title: 'Booking Created!',
+        //         description: 'Waiting for client response to pay deposit',
+        //         duration: 3000,
+        //     });
+        //     router.push('/');
+        // } catch (e: any) {
+        //     toast({
+        //         variant: 'error',
+        //         title: 'Unexpected error',
+        //         description: e?.message || 'Please try again',
+        //         duration: 3000,
+        //     });
+        // } finally {
+        //     setSubmitting(false);
+        // }
     };
 
     const handleHome = () => {
@@ -227,7 +184,7 @@ export default function ManualBooking() {
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
                 />
-                <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
+                <View className="flex-1 bg-background p-4 gap-6">
                     <View className="flex-1">
                         <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                             <View className="gap-6 pb-6">
@@ -279,7 +236,7 @@ export default function ManualBooking() {
                                         <DropdownPicker
                                             options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
                                             value={formData.locationId}
-                                            onValueChange={(value: string) => setFormData({ ...formData, locationId: value as string })}
+                                            onValueChange={(value: string) => onChangeLocation(value as string)}
                                             placeholder="Select location"
                                             modalTitle="Select Location"
                                             disabled={formData.sessionLength === undefined}
@@ -305,14 +262,14 @@ export default function ManualBooking() {
                                             <Text className="text-text-secondary mt-2 text-sm">Checking availability...</Text>
                                         </View>
                                     )}
-                                    {!loadingAvailability && availableDates.length === 0 && (
+                                    {!loadingAvailability && availableDates.length === 0 && formData.locationId !== '' && (
                                         <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
                                             <Text className="text-text-secondary mt-2 text-sm">No availability found</Text>
                                         </View>
                                     )}
                                     <DatePicker
                                         selectedDatesStrings={formData.dates}
-                                        onDatesStringSelect={(dateStrs) => setFormData({ ...formData, dates: dateStrs })}
+                                        onDatesStringSelect={(dateStrs) => handleDatesSelect(dateStrs)}
                                         showInline={true}
                                         showTodayButton={false}
                                         selectionMode="multiple"
@@ -329,8 +286,8 @@ export default function ManualBooking() {
                                     </Text>
                                 )}
 
-                                {formData.dates.length > 0 && (
-                                    <View className="gap-2">
+                                {formData.dates.length > 0 && artist && (
+                                    <View className="gap-4">
                                         <View className="gap-2">
                                             <Text variant="small" className="font-thin leading-5 text-text-secondary">
                                                 {formData.dates.length === 1
@@ -339,40 +296,17 @@ export default function ManualBooking() {
                                                 }
                                             </Text>
                                         </View>
-                                        <View className="gap-2">
-                                            {loadingStartTimes ? (
-                                                <View className="items-center justify-center py-4">
-                                                    <ActivityIndicator size="small" color="#ffffff" />
-                                                    <Text variant="small" className="text-text-secondary mt-2">Loading times...</Text>
-                                                </View>
-                                            ) : (
-                                                (() => {
-                                                    if (renderStartTimes.length === 0) {
-                                                        return (
-                                                            <View className="items-center justify-center py-4">
-                                                                <Text variant="small" className="text-text-secondary">No available start times</Text>
-                                                            </View>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <View className="gap-2">
-                                                            {startTimesChunks.map((times, index) => (
-                                                                <View key={index} className="flex-row items-center gap-2">
-                                                                    {times.map((time) => (
-                                                                        <Pressable
-                                                                            key={time.id}
-                                                                            onPress={() => setFormData((prev) => ({ ...prev, startTime: time.time }))}
-                                                                            className={`rounded-full border border-border-white items-center justify-center h-8 flex-1 ${formData.startTime === time.time ? 'bg-foreground' : ''}`}
-                                                                        >
-                                                                            <Text variant="small" className={formData.startTime === time.time ? 'text-black' : 'text-text-secondary'}>{time.time}</Text>
-                                                                        </Pressable>
-                                                                    ))}
-                                                                </View>
-                                                            ))}
-                                                        </View>
-                                                    );
-                                                })()
-                                            )}
+                                        <View className="gap-4">
+                                            {formData.dates.map((date) => {
+                                                return (
+                                                    <View key={date} className="gap-2">
+                                                        <Text variant="h5" className="text-foreground">
+                                                            {formatDbDate(date, 'MMM DD, YYYY')}
+                                                        </Text>
+                                                        <StartTimes date={date} sessionLength={formData.sessionLength || 0} breakTime={30} artist={artist} />
+                                                    </View>
+                                                );
+                                            })}
                                         </View>
                                     </View>
                                 )}
@@ -402,7 +336,7 @@ export default function ManualBooking() {
                     </View>
 
                     <View className="gap-4 items-center justify-center">
-                        <Button variant="outline" onPress={handleCompleteBooking} size="lg" className="w-full" disabled={submitting}>
+                        <Button variant="outline" onPress={handleCompleteBooking} className="w-full" disabled={submitting}>
                             {submitting ? (
                                 <View className="flex-row items-center justify-center gap-2">
                                     <ActivityIndicator size="small" color="#000000" />

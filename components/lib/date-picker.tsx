@@ -189,6 +189,17 @@ const NativeCalendarPicker = ({
         selectedDates || (selectedDate ? [selectedDate] : [])
     );
 
+    // Sync tempSelectedDates with selectedDates prop when it changes
+    React.useEffect(() => {
+        if (selectionMode === 'multiple' || selectionMode === 'range') {
+            setTempSelectedDates(selectedDates || []);
+        } else if (selectedDate) {
+            setTempSelectedDates([selectedDate]);
+        } else {
+            setTempSelectedDates([]);
+        }
+    }, [selectedDates, selectedDate, selectionMode]);
+
     // Get size configuration
     const config = sizeConfig[size];
 

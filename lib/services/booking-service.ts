@@ -159,6 +159,7 @@ export const getAvailableDates = async (
                 // Collect temp change work_days to add later
                 const tcWorkDays = new Set<string>(tc.work_days || []);
                 for (const d of tcDates) {
+                    if (d < todayYmd) continue; // Skip past dates
                     const w = weekdayCodeOf(d);
                     if (tcWorkDays.has(w)) {
                         tempChangeDatesToAdd.push(d);
@@ -274,7 +275,10 @@ export const getAvailableDates = async (
     const finalResult = Array.from(new Set(resultWithoutSessionConflicts));
     finalResult.sort();
 
-    return finalResult;
+    // Filter out any past dates to ensure no past dates can be selected
+    const resultWithoutPastDates = finalResult.filter((d) => d >= todayYmd);
+
+    return resultWithoutPastDates;
 };
 
 export interface StartTimeOption {
@@ -286,60 +290,12 @@ export const getAvailableTimes = async (
     artist: Artist,
     dateYmd: string,
     duration: number,
-    interval: number
+    breakTime: number
 ): Promise<StartTimeOption[]> => {
     if (!artist.id) throw new Error('artist is required');
-    const dayYmd = toYmd(parseYmd(dateYmd));
-    const todayYmd = toYmd(new Date());
-    if (dayYmd < todayYmd) return [];
-    const weekday = weekdayCodeOf(dayYmd);
-
-    const flows = (artist.flow || {}) as {
-        work_days?: string[];
-        different_time_enabled: boolean;
-        start_times: Record<string, string>;
-        end_times: Record<string, string>;
-    };
-    const flowWork = new Set<string>(flows.work_days || []);
-    let dayStartStr: string | undefined;
-    let dayEndStr: string | undefined;
-
-    if (!flowWork.has(weekday)) return [];
-    dayStartStr = flows.start_times?.[weekday];
-    dayEndStr = flows.end_times?.[weekday];
-
-    const dayStartM = parseHhMmToMinutes(dayStartStr);
-    const dayEndM = parseHhMmToMinutes(dayEndStr);
-    if (dayStartM == null || dayEndM == null || dayEndM <= dayStartM) return [];
-
-    let available: TimeInterval[] = [{ startM: dayStartM, endM: dayEndM }];
-
-    if (dayYmd === todayYmd) {
-        const now = new Date();
-        const nowMinutes = now.getHours() * 60 + now.getMinutes();
-        available = available
-            .map((iv) => ({
-                startM: Math.max(iv.startM, nowMinutes),
-                endM: iv.endM,
-            }))
-            .filter((iv) => iv.endM > iv.startM);
-    }
-
-    if (available.length === 0) return [];
+    console.log('dateYmd', dateYmd);
 
     const out: StartTimeOption[] = [];
-    for (const iv of available) {
-        // Align the start to the nearest minute interval
-        let cursor = iv.startM;
-        if (cursor % interval !== 0) {
-            cursor = cursor + (interval - (cursor % interval));
-        }
-        while (cursor + duration <= iv.endM) {
-            const value = minutesToHhMm(cursor);
-            out.push({ value, label: minutesToDisplay(cursor) });
-            cursor += interval;
-        }
-    }
 
     return out;
 }
