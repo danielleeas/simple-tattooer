@@ -11,12 +11,10 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from '@/components/lib/date-picker';
 import { TimeDurationPicker } from '@/components/lib/time-duration-picker';
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
-import { Icon } from "@/components/ui/icon";
 import { Collapse } from "@/components/lib/collapse";
 import { useAuth, useToast } from "@/lib/contexts";
-import { Locations as ArtistLocation } from "@/lib/redux/types";
-import { getAvailableDates, getAvailableTimes, getSessionById, createProjectSession, updateProjectSession } from "@/lib/services/booking-service";
+import { Locations as ArtistLocation, Artist } from "@/lib/redux/types";
+import { getAvailableDates, getAvailableTimes, getSessionById, createProjectSession, updateProjectSession, getMonthRange } from "@/lib/services/booking-service";
 import { formatDbDate } from "@/lib/utils";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
@@ -34,11 +32,13 @@ export default function ClientEditSession() {
     const { projectId, sessionId } = useLocalSearchParams();
     const { artist } = useAuth();
     const { toast } = useToast();
-    const [startTimeOpened, setStartTimeOpened] = useState<boolean>(false);
 
     const [availableDates, setAvailableDates] = useState<string[]>([]);
     const [renderStartTimes, setRenderStartTimes] = useState<{ id: number; time: string }[]>([]);
     const [loadingStartTimes, setLoadingStartTimes] = useState(false);
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
+    const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
+    const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
     const [formData, setFormData] = useState<FormData>({
         sessionDate: undefined,
         sessionDuration: undefined,
@@ -47,6 +47,7 @@ export default function ClientEditSession() {
     });
     const fetchSeqRef = useRef(0);
     const [saving, setSaving] = useState(false);
+    const [sessionDateLoaded, setSessionDateLoaded] = useState(false);
 
     const toDisplayTime = useCallback((hhmm?: string): string => {
         if (!hhmm) return '';
@@ -63,6 +64,10 @@ export default function ClientEditSession() {
         router.back();
     };
 
+    const handleHome = () => {
+        router.dismissAll();
+    };
+
     const handleMenu = () => {
         router.push('/artist/menu');
     };
@@ -76,19 +81,6 @@ export default function ClientEditSession() {
     };
 
     const startTimesChunks = useMemo(() => makeChunks(renderStartTimes), [renderStartTimes]);
-
-    // Helpers for month boundaries
-    const getMonthRange = (year: number, monthZeroBased: number) => {
-        const start = new Date(year, monthZeroBased, 1);
-        const end = new Date(year, monthZeroBased + 1, 0);
-        const toYmd = (d: Date) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const da = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${da}`;
-        };
-        return { start: toYmd(start), end: toYmd(end) };
-    };
 
     // Local date helpers for DatePicker (expects YYYY-MM-DD strings)
     const toYmdLocal = (date?: Date): string | undefined => {
@@ -106,24 +98,32 @@ export default function ClientEditSession() {
         return new Date(y, m - 1, d, 12);
     };
 
-    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number) => {
+    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
+        setLoadingAvailability(true);
+        setAvailableDates([]);
         try {
-            if (!artist?.id) return;
+            if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist, undefined, start, end);
+            const days = await getAvailableDates(artist, locationId, start, end);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);
             setAvailableDates([]);
+        } finally {
+            setLoadingAvailability(false);
         }
     };
 
-    // Initial month load
+    const onChangeCalendarMonth = (year: number, month: number) => {
+        setCalendarYear(year);
+        setCalendarMonth(month);
+    };
+
     useEffect(() => {
-        const today = new Date();
-        loadAvailabilityForMonth(today.getFullYear(), today.getMonth());
+        if (!artist?.id || !formData.locationId) return;
+        loadAvailabilityForMonth(calendarYear, calendarMonth, formData.locationId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [artist?.id]);
+    }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
 
     // Preload existing session details
     useEffect(() => {
@@ -136,6 +136,12 @@ export default function ClientEditSession() {
             }
             const d = result.data;
             const dateObj = new Date(`${d.date}T00:00:00`);
+            if (!isNaN(dateObj.getTime())) {
+                // Update calendar to show the month of the selected date
+                setCalendarYear(dateObj.getFullYear());
+                setCalendarMonth(dateObj.getMonth());
+                setSessionDateLoaded(true);
+            }
             setFormData({
                 sessionDate: isNaN(dateObj.getTime()) ? undefined : dateObj,
                 sessionDuration: Number(d.duration) || undefined,
@@ -147,7 +153,7 @@ export default function ClientEditSession() {
     }, [sessionId]);
 
     const startTimesForDate = useCallback(async (date: Date) => {
-        if (!artist?.id || !formData.sessionDuration) return [];
+        if (!artist?.id || !formData.sessionDuration || !formData.locationId) return [];
         const toYmdLocal = (d: Date) => {
             const y = d.getFullYear();
             const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -155,13 +161,13 @@ export default function ClientEditSession() {
             return `${y}-${m}-${da}`;
         };
         const ymd = toYmdLocal(date);
-        const options = await getAvailableTimes(artist, ymd, formData.sessionDuration, 30);
+        const options = await getAvailableTimes(artist, ymd, formData.sessionDuration, artist?.flow?.break_time || 30, formData.locationId);
         const startTimes = options.map((opt, idx) => ({
             id: idx + 1,
             time: opt.label,
         }));
         return startTimes;
-    }, [artist?.id, formData.sessionDuration]);
+    }, [artist?.id, formData.sessionDuration, formData.locationId]);
 
     useEffect(() => {
         let alive = true;
@@ -218,6 +224,7 @@ export default function ClientEditSession() {
             let ok = true;
             if (sessionId) {
                 const upd = await updateProjectSession({
+                    artist: artist as Artist,
                     sessionId: String(sessionId),
                     date: formData.sessionDate as Date,
                     startTimeDisplay: formData.sessionStartTime,
@@ -239,29 +246,8 @@ export default function ClientEditSession() {
                     title: 'Session updated',
                     duration: 2000,
                 });
-            } else {
-                const result = await createProjectSession({
-                    projectId: pid,
-                    date: formData.sessionDate,
-                    startTimeDisplay: formData.sessionStartTime,
-                    sessionLengthMinutes: formData.sessionDuration,
-                    locationId: formData.locationId,
-                });
-                if (!result.success) {
-                    toast({
-                        variant: 'error',
-                        title: 'Failed to add session',
-                        description: result.error || 'Please try again',
-                        duration: 3000,
-                    });
-                    return;
-                }
-                toast({
-                    variant: 'success',
-                    title: 'Session added',
-                    duration: 2000,
-                });
             }
+
             router.back();
         } catch (e: any) {
             toast({
@@ -282,148 +268,159 @@ export default function ClientEditSession() {
                 <Header
                     leftButtonImage={HOME_IMAGE}
                     leftButtonTitle="Home"
-                    onLeftButtonPress={handleBack}
+                    onLeftButtonPress={handleHome}
                     rightButtonImage={MENU_IMAGE}
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
                 />
-                <StableGestureWrapper
-                    onSwipeRight={handleBack}
-                    threshold={80}
-                    enabled={true}
-                >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
-                        <View className="flex-1">
-                            <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
-                                <View className="gap-6 pb-6">
-                                    <View className="items-center justify-center pb-[16px] h-[120px]">
-                                        <Image
-                                            source={require('@/assets/images/icons/appointment.png')}
-                                            style={{ width: 56, height: 56 }}
-                                            resizeMode="contain"
+                <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
+                    <View className="flex-1">
+                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
+                            <View className="gap-6 pb-6">
+                                <View className="items-center justify-center pb-[16px] h-[120px]">
+                                    <Image
+                                        source={require('@/assets/images/icons/appointment.png')}
+                                        style={{ width: 56, height: 56 }}
+                                        resizeMode="contain"
+                                    />
+                                    <Text variant="h6" className="text-center uppercase">Edit Session</Text>
+                                    <Text variant="h6" className="text-center uppercase leading-none">Detail</Text>
+                                </View>
+
+                                <View className="items-start gap-2">
+                                    <Collapse title="Session length" textClassName="text-xl">
+                                        <TimeDurationPicker
+                                            selectedDuration={formData.sessionDuration}
+                                            onDurationSelect={(duration) => setFormData({ ...formData, sessionDuration: duration })}
+                                            minuteInterval={15}
+                                            minDuration={15}
+                                            maxDuration={525}
+                                            modalTitle="Select Session Duration"
                                         />
-                                        <Text variant="h6" className="text-center uppercase">Edit Session</Text>
-                                        <Text variant="h6" className="text-center uppercase leading-none">Detail</Text>
-                                    </View>
+                                    </Collapse>
+                                </View>
 
-                                    <View className="items-start gap-2">
-                                        <Collapse title="Session length" textClassName="text-xl">
-                                            <TimeDurationPicker
-                                                selectedDuration={formData.sessionDuration}
-                                                onDurationSelect={(duration) => setFormData({ ...formData, sessionDuration: duration })}
-                                                minuteInterval={15}
-                                                minDuration={15}
-                                                maxDuration={525}
-                                                modalTitle="Select Session Duration"
-                                            />
-                                        </Collapse>
-                                    </View>
+                                <View className="items-start gap-2">
+                                    <Collapse title="Location" textClassName="text-xl">
+                                        <DropdownPicker
+                                            options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
+                                            value={formData.locationId}
+                                            onValueChange={(value: string) => {
+                                                setFormData({ ...formData, locationId: value as string, sessionDate: undefined });
+                                            }}
+                                            placeholder="Select location"
+                                            modalTitle="Select Location"
+                                            disabled={formData.sessionDuration === undefined}
+                                        />
+                                        {formData.sessionDuration === undefined && (
+                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                                Please add session length first
+                                            </Text>
+                                        )}
+                                    </Collapse>
+                                </View>
 
-                                    <View className="items-start gap-2">
-                                        <Collapse title="Location" textClassName="text-xl">
-                                            <DropdownPicker
-                                                options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                                value={formData.locationId}
-                                                onValueChange={(value: string) => setFormData({ ...formData, locationId: value as string })}
-                                                placeholder="Select location"
-                                                modalTitle="Select Location"
-                                                disabled={formData.sessionDuration === undefined}
-                                            />
-                                            {formData.sessionDuration === undefined && (
-                                                <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                    Please add session length first
-                                                </Text>
-                                            )}
-                                        </Collapse>
-                                    </View>
-
-                                    <View className="gap-2">
-                                        <Text variant="h5">Choose Date</Text>
-                                        <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                            Tap on date to view start times
-                                        </Text>
+                                <View className="gap-2">
+                                    <Text variant="h5">Choose Date</Text>
+                                    <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                        Tap on date to view start times
+                                    </Text>
+                                    <View className="relative">
+                                        {loadingAvailability && (
+                                            <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
+                                                <ActivityIndicator size="small" color="#ffffff" />
+                                                <Text className="text-text-secondary mt-2 text-sm">Checking availability...</Text>
+                                            </View>
+                                        )}
+                                        {!loadingAvailability && availableDates.length === 0 && formData.locationId !== '' && (
+                                            <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
+                                                <Text className="text-text-secondary mt-2 text-sm">No availability found</Text>
+                                            </View>
+                                        )}
                                         <DatePicker
+                                            key={sessionDateLoaded ? `session-${toYmdLocal(formData.sessionDate)}` : 'default'}
                                             selectedDateString={toYmdLocal(formData.sessionDate)}
                                             onDateStringSelect={(dateStr) => setFormData({ ...formData, sessionDate: parseYmdToLocalDate(dateStr) })}
                                             showInline={true}
                                             selectionMode="single"
+                                            showTodayButton={false}
                                             availableDates={availableDates}
-                                            onMonthChange={(y, m) => loadAvailabilityForMonth(y, m)}
+                                            onMonthChange={(y, m) => onChangeCalendarMonth(y, m)}
                                             disabled={formData.sessionDuration === undefined || formData.locationId === ''}
                                             className="border border-border-white rounded-lg p-4"
                                         />
-                                        {(formData.sessionDuration === undefined && formData.locationId === '') && (
-                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                Please add session length and location first
-                                            </Text>
-                                        )}
                                     </View>
+                                    {(formData.sessionDuration === undefined && formData.locationId === '') && (
+                                        <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                            Please add session length and location first
+                                        </Text>
+                                    )}
+                                </View>
 
-                                    <View className="items-start gap-2">
-                                        <View className="w-full flex-row items-center justify-between">
-                                            <Text variant="h5">Start Time</Text>
-                                        </View>
-                                        <View className="gap-2 w-full">
-                                            {formData.sessionDate && (
+                                <View className="items-start gap-2">
+                                    <View className="w-full flex-row items-center justify-between">
+                                        <Text variant="h5">Start Time</Text>
+                                    </View>
+                                    <View className="gap-2 w-full">
+                                        {formData.sessionDate && (
+                                            <View className="gap-2">
                                                 <View className="gap-2">
-                                                    <View className="gap-2">
-                                                        <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                            Selected date - {formData.sessionDate ? formatDbDate(formData.sessionDate, 'MMM DD, YYYY') : ''}
-                                                        </Text>
-                                                    </View>
-                                                    <View className="gap-2">
-                                                        {loadingStartTimes ? (
-                                                            <View className="items-center justify-center py-4">
-                                                                <ActivityIndicator size="small" color="#ffffff" />
-                                                                <Text variant="small" className="text-text-secondary mt-2">Loading times...</Text>
-                                                            </View>
-                                                        ) : (
-                                                            (() => {
-                                                                if (renderStartTimes.length === 0) {
-                                                                    return (
-                                                                        <View className="items-center justify-center py-4">
-                                                                            <Text variant="small" className="text-text-secondary">No available start times</Text>
-                                                                        </View>
-                                                                    );
-                                                                }
+                                                    <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                                        Selected date - {formData.sessionDate ? formatDbDate(formData.sessionDate, 'MMM DD, YYYY') : ''}
+                                                    </Text>
+                                                </View>
+                                                <View className="gap-2">
+                                                    {loadingStartTimes ? (
+                                                        <View className="items-center justify-center py-4">
+                                                            <ActivityIndicator size="small" color="#ffffff" />
+                                                            <Text variant="small" className="text-text-secondary mt-2">Loading times...</Text>
+                                                        </View>
+                                                    ) : (
+                                                        (() => {
+                                                            if (renderStartTimes.length === 0) {
                                                                 return (
-                                                                    <View className="gap-2">
-                                                                        {startTimesChunks.map((times, index) => (
-                                                                            <View key={index} className="flex-row items-center gap-2">
-                                                                                {times.map((time) => (
-                                                                                    <Pressable
-                                                                                        key={time.id}
-                                                                                        onPress={() => setFormData({ ...formData, sessionStartTime: time.time })}
-                                                                                        className={`rounded-full border border-border-white items-center justify-center h-8 flex-1 ${formData.sessionStartTime === time.time ? 'bg-foreground' : ''}`}
-                                                                                    >
-                                                                                        <Text variant="small" className={formData.sessionStartTime === time.time ? 'text-black' : 'text-text-secondary'}>{time.time}</Text>
-                                                                                    </Pressable>
-                                                                                ))}
-                                                                            </View>
-                                                                        ))}
+                                                                    <View className="items-center justify-center py-4">
+                                                                        <Text variant="small" className="text-text-secondary">No available start times</Text>
                                                                     </View>
                                                                 );
-                                                            })()
-                                                        )}
-                                                    </View>
+                                                            }
+                                                            return (
+                                                                <View className="gap-2">
+                                                                    {startTimesChunks.map((times, index) => (
+                                                                        <View key={index} className="flex-row items-center gap-2">
+                                                                            {times.map((time) => (
+                                                                                <Pressable
+                                                                                    key={time.id}
+                                                                                    onPress={() => setFormData({ ...formData, sessionStartTime: time.time })}
+                                                                                    className={`rounded-full border border-border-white items-center justify-center h-8 flex-1 ${formData.sessionStartTime === time.time ? 'bg-foreground' : ''}`}
+                                                                                >
+                                                                                    <Text variant="small" className={formData.sessionStartTime === time.time ? 'text-black' : 'text-text-secondary'}>{time.time}</Text>
+                                                                                </Pressable>
+                                                                            ))}
+                                                                        </View>
+                                                                    ))}
+                                                                </View>
+                                                            );
+                                                        })()
+                                                    )}
                                                 </View>
-                                            )}
-                                        </View>
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
-                            </KeyboardAwareScrollView>
-                        </View>
-
-                        <View className="gap-4 items-center justify-center flex-row">
-                            <Button onPress={handleBack} variant="outline" size="lg" className="flex-1">
-                                <Text variant='h5'>Cancel</Text>
-                            </Button>
-                            <Button variant="outline" onPress={handleSave} size="lg" className="flex-1" disabled={saving}>
-                                <Text variant='h5'>Save</Text>
-                            </Button>
-                        </View>
+                            </View>
+                        </KeyboardAwareScrollView>
                     </View>
-                </StableGestureWrapper>
+
+                    <View className="gap-4 items-center justify-center flex-row">
+                        <Button onPress={handleBack} variant="outline" size="lg" className="flex-1">
+                            <Text variant='h5'>Cancel</Text>
+                        </Button>
+                        <Button variant="outline" onPress={handleSave} size="lg" className="flex-1" disabled={saving}>
+                            <Text variant='h5'>Save</Text>
+                        </Button>
+                    </View>
+                </View>
             </SafeAreaView>
         </>
     );

@@ -998,13 +998,12 @@ export async function getSessionById(sessionId: string): Promise<{ success: bool
 }
 
 export interface UpdateProjectSessionInput {
+    artist: Artist;
     sessionId: string;
     date: Date;
     startTimeDisplay: string; // e.g. "1:30 PM"
     sessionLengthMinutes: number;
     locationId: string;
-    sessionRate?: number;
-    notes?: string;
 }
 
 export interface UpdateProjectSessionResult {
@@ -1030,12 +1029,6 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
             location_id: input.locationId,
             updated_at: new Date().toISOString(),
         };
-        if (typeof input.sessionRate === 'number') {
-            payload.session_rate = input.sessionRate;
-        }
-        if (typeof input.notes === 'string') {
-            payload.notes = input.notes;
-        }
 
         const { error } = await supabase
             .from('sessions')
@@ -1051,7 +1044,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
             // Fetch project id from session and then project details
             const { data: sessionProject, error: sessionProjectErr } = await supabase
                 .from('sessions')
-                .select('project_id')
+                .select('project_id,session_rate,notes')
                 .eq('id', input.sessionId)
                 .single();
             if (sessionProjectErr || !sessionProject?.project_id) {
@@ -1062,19 +1055,85 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
 
             const { data: project, error: projectErr } = await supabase
                 .from('projects')
-                .select('artist_id,title,deposit_paid')
+                .select('artist_id,client_id,title,deposit_paid,deposit_amount')
                 .eq('id', projectId)
                 .single();
             if (projectErr) {
                 console.warn('Failed to fetch project for session event update, skipping:', projectErr);
                 return { success: true };
             }
-            if (!project?.deposit_paid) {
-                // Deposit not paid; do not create/update calendar event
-                return { success: true };
-            }
+
             if (!project?.artist_id) {
                 console.warn('Project missing artist_id; skipping session event update.');
+                return { success: true };
+            }
+
+            if (!project?.client_id) {
+                console.warn('Project missing client_id; skipping session event update.');
+                return { success: true };
+            }
+
+            // Check links table to see if client has opened their portal (is_new = true means they haven't)
+            const { data: link, error: linkErr } = await supabase
+                .from('links')
+                .select('is_new')
+                .eq('client_id', project.client_id)
+                .eq('artist_id', project.artist_id)
+                .maybeSingle();
+
+            if (linkErr) {
+                console.warn('Failed to fetch link for email check:', linkErr);
+            }
+
+            // If is_new is true, client hasn't opened portal yet - send email
+            if (link?.is_new === true) {
+                try {
+                    // Prepare email data
+                    const emailForm = {
+                        title: project.title || '',
+                        dates: [dateYmd],
+                        startTimes: { [dateYmd]: input.startTimeDisplay },
+                        sessionLength: input.sessionLengthMinutes,
+                        locationId: input.locationId,
+                        notes: sessionProject.notes || '',
+                        depositAmount: project.deposit_amount || 0,
+                        sessionRate: sessionProject.session_rate || 0,
+                    };
+
+                    void sendManualBookingRequestEmail({
+                        artist: input.artist,
+                        clientId: project.client_id,
+                        form: emailForm,
+                    });
+                } catch (emailErr: any) {
+                    console.warn('Failed to send manual booking email:', emailErr);
+                }
+            } else if (link?.is_new === false) {
+
+                try {
+                    const emailForm = {
+                        title: project.title || '',
+                        dates: [dateYmd],
+                        startTimes: { [dateYmd]: input.startTimeDisplay },
+                        sessionLength: input.sessionLengthMinutes,
+                        locationId: input.locationId,
+                        notes: sessionProject.notes || '',
+                        depositAmount: project.deposit_amount || 0,
+                        sessionRate: sessionProject.session_rate || 0,
+                    };
+
+                    void sendReturnClientEmail({
+                        artist: input.artist,
+                        clientId: project.client_id,
+                        form: emailForm,
+                    });
+                } catch (emailErr: any) {
+                    console.warn('Failed to send return client email:', emailErr);
+                }
+            }
+
+            if (!project?.deposit_paid) {
+                // Deposit not paid; do not create/update calendar event
                 return { success: true };
             }
 
@@ -1272,13 +1331,13 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             const dateFormatted = formatDateLong(date);
             const time = form.startTimes[dateStr] || '';
             if (!time) return dateFormatted;
-            
+
             // Check if time already has AM/PM
             const hasAmPm = /AM|PM/i.test(time);
             if (hasAmPm) {
                 return `${dateFormatted} ${time}`;
             }
-            
+
             // Convert HH:MM to AM/PM format
             const minutes = parseHhMmToMinutes(time);
             if (minutes === null) {
@@ -1424,7 +1483,6 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
             'Start Here': startHere,
         };
 
-        // Invoke Edge Function via API
         await fetch(`${BASE_URL}/api/client-new-email`, {
             method: 'POST',
             headers: {
@@ -1486,3 +1544,124 @@ export async function sendClientPortalEmailOld(input: ClientPortalEmailOldInput)
         console.warn('Client portal email trigger error:', err);
     }
 }
+
+export interface ReturnClientEmailInput {
+    artist: Artist;
+    clientId: string;
+    form: {
+        title: string;
+        date?: Date; // Deprecated: use dates instead
+        dates?: string[]; // Array of date strings in YYYY-MM-DD format for multiple sessions
+        startTimes: Record<string, string>; // e.g. { "2025-01-01": "1:30 PM", "2025-01-02": "2:00 PM" }
+        sessionLength: number;
+        notes?: string;
+        locationId: string;
+        depositAmount: number;
+        sessionRate: number;
+    };
+}
+
+export async function sendReturnClientEmail(input: ReturnClientEmailInput): Promise<void> {
+    try {
+        const { artist, clientId, form } = input;
+
+        // Fetch client to get real email and name
+        const { data: clientRow, error: clientErr } = await supabase
+            .from('clients')
+            .select('full_name,email')
+            .eq('id', clientId)
+            .maybeSingle();
+
+        if (clientErr) {
+            console.warn('Failed to fetch client for email:', clientErr);
+            return;
+        }
+        if (!clientRow?.email) {
+            console.warn('No client email found, skipping manual booking email.');
+            return;
+        }
+
+        const to = String(clientRow.email);
+        const firstName = (clientRow.full_name || '').trim().split(' ')[0] || '';
+
+
+        const template = (artist as any)?.template || {};
+        // Email template from artist rules with fallback to defaults
+        const templateSubject =
+            (template as any)?.appointment_confirmation_with_profile_subject ||
+            defaultTemplateData.appointmentConfirmationWithProfileSubject;
+        const templateBody =
+            (template as any)?.appointment_confirmation_with_profile_body ||
+            defaultTemplateData.appointmentConfirmationWithProfileBody;
+
+        const to12h = (hhmm?: string): string => {
+            if (!hhmm) return '';
+            const [hStr, mStr] = hhmm.split(':');
+            let h = Number(hStr);
+            const m = Number(mStr);
+            if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
+            const period = h < 12 ? 'AM' : 'PM';
+            const h12 = ((h + 11) % 12) + 1;
+            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+        };
+        const formatDate = (ymd?: string): string => {
+            if (!ymd) return '';
+            const d = new Date(`${ymd}T00:00:00`);
+            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        };
+
+        // Resolve selected location address from artist.locations
+        const selectedLocation = (artist?.locations || []).find(
+            (loc: ArtistLocation) => String(loc.id) === String(form.locationId)
+        );
+        const locationAddress = selectedLocation?.address || '';
+
+        // Build dateTimeLocation array from form input
+        // Support both single date (deprecated) and multiple dates
+        let dateStrings: string[] = [];
+        if (form.dates && form.dates.length > 0) {
+            dateStrings = form.dates;
+        } else if (form.date) {
+            dateStrings = [toYmd(form.date)];
+        }
+
+        const dateTimeLocation: string[] = dateStrings
+            .map((dateStr: string) => {
+                const dateStrFormatted = formatDate(dateStr);
+                const timeStr = to12h(form.startTimes[dateStr]);
+                if (!dateStrFormatted && !timeStr && !locationAddress) return null;
+                return `${dateStrFormatted} — ${timeStr}${locationAddress ? `, ${locationAddress}` : ''}`.trim();
+            })
+            .filter(Boolean) as string[];
+
+        // Artist avatar/photo
+        const avatar_url = (artist as any)?.avatar || (artist as any)?.photo || '';
+
+        const variables: Record<string, any> = {
+            'Client First Name': firstName,
+            'Date, Time, location': dateTimeLocation,
+            'Your Name': (artist as any)?.full_name || '',
+            'Studio Name': (artist as any)?.studio_name || '',
+        };
+
+        await fetch(`${BASE_URL}/api/client-new-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to,
+                email_templates: {
+                    subject: templateSubject,
+                    body: templateBody,
+                },
+                avatar_url,
+                variables,
+            }),
+        }).catch((err) => console.warn('Failed to send client portal email:', err));
+
+    } catch (err) {
+        console.warn('Client portal email trigger error:', err);
+    }
+}
+

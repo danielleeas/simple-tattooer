@@ -446,7 +446,7 @@ export default function ClientAppointments() {
                                                                         <View style={{ width: project.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${project.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
                                                                             <Text className={`text-xs items-center justify-center ${project.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{project.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
                                                                         </View>
-                                                                        <Text variant="small">{waiverFileName || 'No waiver uploaded'}</Text>
+                                                                        <Text variant="small">{waiverFileName? 'Waiver.pdf': 'No waiver uploaded'}</Text>
                                                                         <View className="flex-row items-center gap-1">
                                                                             <Text variant="small">{project.waiverSigned ? 'Preview' : 'Preview and Signed'}</Text>
                                                                             <Icon as={FileSearch} strokeWidth={1} size={16} />

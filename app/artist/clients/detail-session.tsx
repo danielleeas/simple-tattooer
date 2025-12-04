@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { View, Image, type ImageStyle, Pressable, ScrollView, Modal, Dimensions } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
@@ -36,76 +36,73 @@ export default function ClientDetailSession() {
     const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-    useEffect(() => {
-        let isMounted = true;
-        async function load() {
-            if (!artist?.id || !session_id) {
-                if (isMounted) {
+    const loadSessionData = useCallback(async () => {
+        if (!artist?.id || !session_id) {
+            setSession(null);
+            setDrawing(null);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            // Determine client_id/project_id if missing by loading the session
+            let effectiveClientId: string | null = client_id ? String(client_id) : null;
+            let effectiveProjectId: string | null = project_id ? String(project_id) : null;
+            let sessionFromId: any | null = null;
+
+            if (!effectiveClientId || !effectiveProjectId) {
+                sessionFromId = await getSessionById(String(session_id));
+                if (!sessionFromId) {
                     setSession(null);
                     setDrawing(null);
                     setLoading(false);
-                }
-                return;
-            }
-            setLoading(true);
-            try {
-				// Determine client_id/project_id if missing by loading the session
-				let effectiveClientId: string | null = client_id ? String(client_id) : null;
-				let effectiveProjectId: string | null = project_id ? String(project_id) : null;
-				let sessionFromId: any | null = null;
-
-				if (!effectiveClientId || !effectiveProjectId) {
-					sessionFromId = await getSessionById(String(session_id));
-					if (!sessionFromId) {
-						if (isMounted) {
-							setSession(null);
-							setDrawing(null);
-							setLoading(false);
-                            setClientName('');
-						return;
-					}
-					}
-					if (!effectiveProjectId) {
-						effectiveProjectId = String(sessionFromId?.project?.id || sessionFromId?.project_id || '');
-					}
-					if (!effectiveClientId) {
-						effectiveClientId = String(sessionFromId?.project?.client_id || sessionFromId?.project?.client?.id || '');
-					}
-				}
-
-				// Preferred path: if client id is available, load project(s) and filter session
-				const projects = effectiveClientId
-					? await getClientProjectsWithSessions(String(artist.id), String(effectiveClientId))
-					: [];
-				const project = (projects || []).find((p: any) => String(p?.id) === String(effectiveProjectId));
-
-                let d: DrawingRow | null = null;
-                if (project?.drawing) {
-                    const drawingRow = Array.isArray(project.drawing) ? project.drawing[0] : project.drawing;
-                    d = drawingRow ?? null;
-                }
-
-				const s = (project?.sessions || []).find((sess: any) => String(sess?.id) === String(session_id)) || sessionFromId || null;
-                const name = s?.project?.client?.full_name || project?.client?.full_name || '';
-
-                if (isMounted) {
-                    setSession(s);
-                    setDrawing(d);
-                    setClientName(name);
-                }
-            } catch {
-                if (isMounted) {
-                    setSession(null);
-                    setDrawing(null);
                     setClientName('');
+                    return;
                 }
-            } finally {
-                if (isMounted) setLoading(false);
+                if (!effectiveProjectId) {
+                    effectiveProjectId = String(sessionFromId?.project?.id || sessionFromId?.project_id || '');
+                }
+                if (!effectiveClientId) {
+                    effectiveClientId = String(sessionFromId?.project?.client_id || sessionFromId?.project?.client?.id || '');
+                }
             }
+
+            // Preferred path: if client id is available, load project(s) and filter session
+            const projects = effectiveClientId
+                ? await getClientProjectsWithSessions(String(artist.id), String(effectiveClientId))
+                : [];
+            const project = (projects || []).find((p: any) => String(p?.id) === String(effectiveProjectId));
+
+            let d: DrawingRow | null = null;
+            if (project?.drawing) {
+                const drawingRow = Array.isArray(project.drawing) ? project.drawing[0] : project.drawing;
+                d = drawingRow ?? null;
+            }
+
+            const s = (project?.sessions || []).find((sess: any) => String(sess?.id) === String(session_id)) || sessionFromId || null;
+            const name = s?.project?.client?.full_name || project?.client?.full_name || '';
+
+            setSession(s);
+            setDrawing(d);
+            setClientName(name);
+        } catch {
+            setSession(null);
+            setDrawing(null);
+            setClientName('');
+        } finally {
+            setLoading(false);
         }
-        load();
-        return () => { isMounted = false; };
     }, [artist?.id, client_id, project_id, session_id]);
+
+    useEffect(() => {
+        loadSessionData();
+    }, [loadSessionData]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadSessionData();
+        }, [loadSessionData])
+    );
 
     const handleBack = () => {
         router.back();
