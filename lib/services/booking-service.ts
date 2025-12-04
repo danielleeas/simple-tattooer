@@ -556,7 +556,7 @@ interface BackToBackInput {
 export const getBackToBackResult = async (
     artist: Artist,
     dates: string[],
-    clientId: string,
+    clientId?: string,
 ): Promise<BackToBackResult> => {
     try {
         if (!artist.id) throw new Error('artist is required');
@@ -570,34 +570,37 @@ export const getBackToBackResult = async (
             return { success: true };
         }
 
-        // 1) Fetch existing sessions for this client (scoped to artist)
-        const projectsWithSessions = await getClientProjectsWithSessions(artist.id, clientId);
+        let existingDates: string[] = [];
 
-        // 2) Collect existing session dates (YYYY-MM-DD)
-        const existingDates: string[] = [];
-        for (const project of projectsWithSessions || []) {
-            const projectSessions = Array.isArray(project.sessions) ? project.sessions : [];
-            for (const s of projectSessions) {
-                if (!s?.date) continue;
-                // Handle "YYYY-MM-DD", "YYYY-MM-DDTHH:mm", or "YYYY-MM-DD HH:mm"
-                const ymd = String(s.date).split('T')[0].split(' ')[0];
-                if (ymd) existingDates.push(ymd);
+        if (clientId) {
+            // 1) Fetch existing sessions for this client (scoped to artist)
+            const projectsWithSessions = await getClientProjectsWithSessions(artist.id, clientId);
+
+            // 2) Collect existing session dates (YYYY-MM-DD)
+            for (const project of projectsWithSessions || []) {
+                const projectSessions = Array.isArray(project.sessions) ? project.sessions : [];
+                for (const s of projectSessions) {
+                    if (!s?.date) continue;
+                    // Handle "YYYY-MM-DD", "YYYY-MM-DDTHH:mm", or "YYYY-MM-DD HH:mm"
+                    const ymd = String(s.date).split('T')[0].split(' ')[0];
+                    if (ymd) existingDates.push(ymd);
+                }
             }
-        }
 
-        // 2.5) Check if any newly selected dates already have existing sessions
-        const existingDatesSet = new Set(existingDates);
-        const duplicateDates = dates.filter(date => {
-            // Normalize the date to YYYY-MM-DD format
-            const normalizedDate = String(date).split('T')[0].split(' ')[0];
-            return existingDatesSet.has(normalizedDate);
-        });
+            // 2.5) Check if any newly selected dates already have existing sessions
+            const existingDatesSet = new Set(existingDates);
+            const duplicateDates = dates.filter(date => {
+                // Normalize the date to YYYY-MM-DD format
+                const normalizedDate = String(date).split('T')[0].split(' ')[0];
+                return existingDatesSet.has(normalizedDate);
+            });
 
-        if (duplicateDates.length > 0) {
-            return {
-                success: false,
-                error: `Cannot select dates that already have existing sessions: ${duplicateDates.join(', ')}`,
-            };
+            if (duplicateDates.length > 0) {
+                return {
+                    success: false,
+                    error: `Cannot select dates that already have existing sessions: ${duplicateDates.join(', ')}`,
+                };
+            }
         }
 
         // 3) Merge existing session dates with newly selected dates
@@ -1440,6 +1443,45 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
                 },
             }),
         }).catch((err) => console.warn('Failed to send client portal email:', err));
+    } catch (err) {
+        console.warn('Client portal email trigger error:', err);
+    }
+}
+
+export interface ClientPortalEmailOldInput {
+    artist: Artist;
+    clientId: string;
+    clientname: string;
+    clientEmail: string;
+}
+
+export async function sendClientPortalEmailOld(input: ClientPortalEmailOldInput): Promise<void> {
+    try {
+        const { artist, clientId, clientname, clientEmail } = input;
+
+        const to = String(clientEmail);
+
+        // Artist avatar/photo and rules
+        const avatar_url = (artist as any)?.avatar || (artist as any)?.photo || '';
+        const artist_name = (artist as any)?.full_name || '';
+        const portal_link = `${BASE_URL}/client-portal?id=${clientId}&artist_id=${artist.id}`;
+        const studio_name = (artist as any)?.studio_name || '';
+
+        await fetch(`${BASE_URL}/api/client-portal`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to,
+                artistName: artist_name,
+                avatar_url,
+                clientName: clientname,
+                portalLink: portal_link,
+                studioName: studio_name,
+            }),
+        }).catch((err) => console.warn('Failed to send client portal email:', err));
+
     } catch (err) {
         console.warn('Client portal email trigger error:', err);
     }

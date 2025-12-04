@@ -272,7 +272,7 @@ export async function getClientById(artistId: string, clientId: string): Promise
 
 	const { data, error } = await supabase
 		.from('clients')
-		.select('id, full_name, email, phone_number, location, project_notes, created_at, updated_at, links!inner(artist_id, status)')
+		.select('id, full_name, email, phone_number, location, project_notes, created_at, updated_at, links!inner(artist_id, status, is_new, notes)')
 		.eq('id', clientId)
 		.eq('links.artist_id', artistId)
 		.single();
@@ -292,13 +292,12 @@ export async function getClientById(artistId: string, clientId: string): Promise
 		...data,
 		name: data.full_name,
 		status: status || '',
+		links: links,
 	};
 }
 
 export async function findClientById(clientId: string): Promise<any | null> {
 	if (!clientId) return null;
-
-	console.log("calling here ?")
 
 	const { data, error } = await supabase
 		.from('clients')
@@ -314,6 +313,57 @@ export async function findClientById(clientId: string): Promise<any | null> {
 	if (!data) return null;
 
 	return data;
+}
+
+/**
+ * Update client information and link notes.
+ * Updates the clients table with name, email, phone_number, and location.
+ * Updates the links table with notes for the specific artist-client relationship.
+ */
+export async function updateClient(artistId: string, clientId: string, formData: {
+	name: string;
+	email: string;
+	phone_number: string;
+	location: string;
+	notes: string;
+}): Promise<boolean> {
+	if (!artistId || !clientId) return false;
+
+	const nowIso = new Date().toISOString();
+
+	// Update clients table
+	const { error: clientError } = await supabase
+		.from('clients')
+		.update({
+			full_name: formData.name.trim(),
+			email: formData.email.trim(),
+			phone_number: formData.phone_number.trim(),
+			location: formData.location.trim() || '',
+			updated_at: nowIso,
+		})
+		.eq('id', clientId);
+
+	if (clientError) {
+		console.error('Error updating client:', clientError);
+		return false;
+	}
+
+	// Update links table (notes)
+	const { error: linkError } = await supabase
+		.from('links')
+		.update({
+			notes: formData.notes.trim() || null,
+			updated_at: nowIso,
+		})
+		.eq('client_id', clientId)
+		.eq('artist_id', artistId);
+
+	if (linkError) {
+		console.error('Error updating link notes:', linkError);
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -424,7 +474,7 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 	const nextStatus = isPaid ? 'deposit_paid' : 'need_deposit';
 	const { error: linkErr } = await supabase
 		.from('links')
-		.update({ status: nextStatus, updated_at: nowIso })
+		.update({ status: nextStatus, is_new: false, updated_at: nowIso })
 		.eq('artist_id', artistId)
 		.eq('client_id', clientId);
 	if (linkErr) {
