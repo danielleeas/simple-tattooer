@@ -5,10 +5,16 @@ import Animated, { useSharedValue, withTiming, useAnimatedStyle } from "react-na
 import { setShowWelcome } from "@/lib/redux/slices/ui-slice";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { useAuth } from "@/lib/contexts/auth-context";
+import { Artist } from "@/lib/redux/types";
 
-export default function Welcome() {
+interface WelcomeProps {
+    artist?: Artist | null;
+}
+
+export default function Welcome({ artist: artistProp }: WelcomeProps = {} as WelcomeProps) {
     const dispatch = useAppDispatch();
-    const { artist } = useAuth();
+    const { artist: authArtist } = useAuth();
+    const artist = artistProp || authArtist;
     const opacity = useSharedValue<number>(1);
     const [imageLoading, setImageLoading] = useState(true);
     const [imageError, setImageError] = useState(false);

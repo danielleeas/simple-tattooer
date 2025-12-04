@@ -306,6 +306,10 @@ export async function findClientById(clientId: string): Promise<any | null> {
 		.single();
 
 	if (error) {
+		// PGRST116 means "no rows found" - this is expected when client doesn't exist
+		if (error.code === 'PGRST116') {
+			return null;
+		}
 		console.error('Error fetching client by id:', error);
 		return null;
 	}

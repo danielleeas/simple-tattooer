@@ -1,17 +1,38 @@
 import * as React from 'react';
-import { Stack } from 'expo-router';
+import { useState } from 'react';
+import { Stack, router } from 'expo-router';
 import { View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 
 import { useAuth } from '@/lib/contexts';
+import { useAppDispatch } from '@/lib/redux/hooks';
+import { clearArtist } from '@/lib/redux/slices/artist-slice';
 
 import PreviewHome from '@/app/preview/home';
-import ClientHome from '@/app/client/home';
 import ArtistHome from './artist/home';
+import ClientHome from './client/home';
 
 export default function Screen() {
+  const dispatch = useAppDispatch();
   const { isAuthenticated, mode, isLoading, client } = useAuth();
+  const [clientId, setClientId] = useState<string | null>(null);
+  console.log("mode", mode);
+
+  // Clear artist data on app start
+  React.useEffect(() => {
+    dispatch(clearArtist());
+  }, [dispatch]);
+
+  // Handle client home redirect
+  React.useEffect(() => {
+    if (mode === 'client' && client?.id) {
+      // const clientId = client?.id;
+      // const url = clientId ? `/client/home?client_id=${clientId}` : '/client/home';
+      // router.push(url as any);
+      setClientId(client?.id);
+    }
+  }, [mode, client?.id]);
 
   if (isLoading) {
     return (
@@ -41,28 +62,17 @@ export default function Screen() {
     );
   }
 
-  if (mode === 'client') {
-    console.log("client mode", mode, client?.links)
+  if ( isAuthenticated && mode === 'client' && clientId) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <SafeAreaView className='flex-1 bg-background'>
-          {client?.links && client.links.length > 0 ? (
-            <View>
-              <Text>You are linked to the following artists:</Text>
-              {client.links.map((link) => (
-                <View key={link.artist_id}>
-                  <Text>{link.artist.full_name}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <ClientHome mode={mode} />
-          )}
+        <SafeAreaView className='flex-1'>
+          <ClientHome mode={mode} clientId={clientId} />
         </SafeAreaView>
       </>
     );
   }
+
 
   return (
     <>
