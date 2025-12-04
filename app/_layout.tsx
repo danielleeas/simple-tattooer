@@ -53,7 +53,7 @@ export default function RootLayout() {
               <ToastProvider>
                 <StatusBar style='light' />
                 <KeyboardProvider>
-                  <Stack />
+                  <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
                 </KeyboardProvider>
                 <PortalHost />
               </ToastProvider>

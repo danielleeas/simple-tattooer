@@ -9,8 +9,7 @@ import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth, useToast } from "@/lib/contexts";
-import { getClientById, updateClient } from "@/lib/services/clients-service";
+import { useAuth, useToast, useClient } from "@/lib/contexts";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -25,9 +24,8 @@ export default function ClientContact() {
     const { toast } = useToast();
     const { artist } = useAuth();
     const { id } = useLocalSearchParams<{ id: string }>();
+    const { client, loading, updateClientData } = useClient();
 
-    const [client, setClient] = useState<any | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
     const saveBarAnim = useRef(new Animated.Value(0)).current;
     const [formData, setFormData] = useState<any>({
@@ -37,32 +35,6 @@ export default function ClientContact() {
         location: '',
         notes: '',
     });
-
-    useEffect(() => {
-        let isMounted = true;
-        async function load() {
-            if (!artist?.id || !id) {
-                if (isMounted) {
-                    setClient(null);
-                    setLoading(false);
-                }
-                return;
-            }
-            setLoading(true);
-            try {
-                const result = await getClientById(artist.id, String(id));
-                if (isMounted) {
-                    setClient(result);
-                }
-            } catch {
-                if (isMounted) setClient(null);
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        }
-        load();
-        return () => { isMounted = false; };
-    }, [artist?.id, id]);
 
     useEffect(() => {
         if (client) {
@@ -153,17 +125,12 @@ export default function ClientContact() {
     }
 
     const handleSave = async () => {
-        if (!artist?.id || !client?.id) return;
+        if (!client?.id) return;
         
         setSaving(true);
         try {
-            const success = await updateClient(artist.id, client.id, formData);
+            const success = await updateClientData(formData);
             if (success) {
-                // Reload client data to reflect changes
-                const updatedClient = await getClientById(artist.id, client.id);
-                if (updatedClient) {
-                    setClient(updatedClient);
-                }
                 toast({ 
                     variant: 'success', 
                     title: 'Changes saved',
@@ -215,8 +182,6 @@ export default function ClientContact() {
             </>
         );
     }
-
-    console.log(client)
 
     return (
         <>

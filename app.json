@@ -21,7 +21,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.darkocean.simpletattooer",
       "associatedDomains": [
-        "applinks:kdls.org"
+        "applinks:simpletattooer.com"
       ],
       "infoPlist": {
         "NSCalendarsUsageDescription": "This app needs calendar access to sync and display your events."
@@ -45,12 +45,12 @@
           "data": [
             {
               "scheme": "https",
-              "host": "kdls.org",
+              "host": "simpletattooer.com",
               "pathPrefix": "/client-portal"
             },
             {
               "scheme": "https",
-              "host": "www.kdls.org",
+              "host": "www.simpletattooer.com",
               "pathPrefix": "/client-portal"
             }
           ]
