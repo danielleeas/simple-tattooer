@@ -65,7 +65,7 @@ export default function ClientEditSession() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleMenu = () => {

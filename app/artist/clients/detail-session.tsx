@@ -109,7 +109,7 @@ export default function ClientDetailSession() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleMenu = () => {

@@ -261,18 +261,18 @@ export default function ClientAppointments() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleAddSession = () => {
         // Find the currently expanded project
-        const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
-        if (expandedProjectId) {
-            router.push({
-                pathname: '/artist/clients/add-session',
-                params: { projectId: expandedProjectId }
-            });
-        }
+        // const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
+        // if (expandedProjectId) {
+        //     router.push({
+        //         pathname: '/artist/clients/add-session',
+        //         params: { projectId: expandedProjectId }
+        //     });
+        // }
     };
 
     const handleDetailSession = (clientId: string, projectId: string, sessionId: string) => {

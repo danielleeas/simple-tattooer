@@ -52,7 +52,7 @@ export default function ClientProfile() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleMenu = () => {

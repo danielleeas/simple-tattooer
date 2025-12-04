@@ -81,7 +81,7 @@ export default function ClientContact() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleResendDashboardLink = () => {
