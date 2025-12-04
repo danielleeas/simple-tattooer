@@ -659,6 +659,26 @@ export async function updateProjectWaiverSigned(projectId: string, signed: boole
 }
 
 /**
+ * Update a project's notes.
+ */
+export async function updateProjectNotes(projectId: string, notes: string): Promise<boolean> {
+	if (!projectId) return false;
+	const nowIso = new Date().toISOString();
+	const { error } = await supabase
+		.from('projects')
+		.update({
+			notes: notes.trim() || null,
+			updated_at: nowIso,
+		})
+		.eq('id', projectId);
+	if (error) {
+		console.error('Error updating project notes:', error);
+		return false;
+	}
+	return true;
+}
+
+/**
  * Update a session's payment method.
  * Expects method values like: 'paypal' | 'e_transfer' | 'credit_card' | 'venmo'
  */
@@ -674,6 +694,26 @@ export async function updateSessionPaymentMethod(sessionId: string, method: stri
 		.eq('id', sessionId);
 	if (error) {
 		console.error('Error updating session payment_method:', error);
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Update a session's notes.
+ */
+export async function updateSessionNotes(sessionId: string, notes: string): Promise<boolean> {
+	if (!sessionId) return false;
+	const nowIso = new Date().toISOString();
+	const { error } = await supabase
+		.from('sessions')
+		.update({
+			notes: notes.trim() || null,
+			updated_at: nowIso,
+		})
+		.eq('id', sessionId);
+	if (error) {
+		console.error('Error updating session notes:', error);
 		return false;
 	}
 	return true;

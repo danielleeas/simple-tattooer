@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { View, Image, type ImageStyle, Pressable, ScrollView, Modal, Dimensions } from "react-native";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { View, Image, type ImageStyle, Pressable, ScrollView, Modal, Dimensions, Animated } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
@@ -9,7 +9,7 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth, useToast } from "@/lib/contexts";
-import { getClientProjectsWithSessions, getSessionById } from "@/lib/services/clients-service";
+import { getClientProjectsWithSessions, getSessionById, updateSessionNotes } from "@/lib/services/clients-service";
 import { deleteSessionById } from "@/lib/services/booking-service";
 import { type DrawingRow } from "@/lib/services/drawing-service";
 import { formatDbDate } from "@/lib/utils";
@@ -34,6 +34,9 @@ export default function ClientDetailSession() {
     const [clientName, setClientName] = useState<string>('');
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
     const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
+    const [sessionNotes, setSessionNotes] = useState<string>('');
+    const [saving, setSaving] = useState<boolean>(false);
+    const saveBarAnim = useRef(new Animated.Value(0)).current;
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
     const loadSessionData = useCallback(async () => {
@@ -85,14 +88,70 @@ export default function ClientDetailSession() {
             setSession(s);
             setDrawing(d);
             setClientName(name);
+            // Initialize session notes state
+            setSessionNotes(s?.notes || '');
         } catch {
             setSession(null);
             setDrawing(null);
             setClientName('');
+            setSessionNotes('');
         } finally {
             setLoading(false);
         }
     }, [artist?.id, client_id, project_id, session_id]);
+
+    // Check if notes have changed
+    const hasChanges = useMemo(() => {
+        if (!session) return false;
+        return sessionNotes !== (session?.notes || '');
+    }, [session, sessionNotes]);
+
+    // Animate save bar based on changes
+    useEffect(() => {
+        Animated.timing(saveBarAnim, {
+            toValue: hasChanges ? 1 : 0,
+            duration: 250,
+            useNativeDriver: true,
+        }).start();
+    }, [hasChanges, saveBarAnim]);
+
+    const saveBarTranslateY = saveBarAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [80, 0],
+    });
+
+    const handleSaveNotes = async () => {
+        if (!session_id || !session) return;
+
+        setSaving(true);
+        try {
+            const success = await updateSessionNotes(String(session_id), sessionNotes);
+            if (success) {
+                // Update local session state
+                setSession((prev: any) => prev ? { ...prev, notes: sessionNotes } : null);
+                toast?.({ 
+                    variant: 'success', 
+                    title: 'Notes saved',
+                    description: 'Session notes have been updated successfully.',
+                });
+            } else {
+                toast?.({ 
+                    variant: 'error', 
+                    title: 'Failed to save notes',
+                    description: 'Please try again later.',
+                });
+            }
+        } catch (error) {
+            console.error('Error saving session notes:', error);
+            toast?.({ 
+                variant: 'error', 
+                title: 'Failed to save notes',
+                description: 'An unexpected error occurred.',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     useEffect(() => {
         loadSessionData();
@@ -230,7 +289,7 @@ export default function ClientDetailSession() {
                     threshold={80}
                     enabled={true}
                 >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
+                    <View className="flex-1 bg-background p-4 pt-2 gap-6">
                         <View className="flex-1">
                             <ScrollView contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
                                 <View className="gap-6 pb-6">
@@ -287,8 +346,13 @@ export default function ClientDetailSession() {
                                         <Textarea
                                             placeholder="Enter notes"
                                             className="min-h-28"
-                                            value={session?.notes || ''}
-                                            readOnly
+                                            value={sessionNotes}
+                                            onChangeText={setSessionNotes}
+                                            spellCheck={false}
+                                            autoComplete="off"
+                                            textContentType="none"
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
                                         />
                                     </View>
                                     <View className="gap-3">
@@ -302,17 +366,41 @@ export default function ClientDetailSession() {
                         </View>
 
                         <View className="gap-4 items-center justify-center flex-row">
-                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" size="lg" className="flex-1">
+                            <Button onPress={() => setIsDeleteModalOpen(true)} variant="outline" className="flex-1">
                                 <Text variant='h5'>Delete</Text>
                                 <Image source={require('@/assets/images/icons/delete.png')} style={{ width: 28, height: 28 }} />
                             </Button>
-                            <Button onPress={handleEditSession} size="lg" variant="outline" className="flex-1">
+                            <Button onPress={handleEditSession} variant="outline" className="flex-1">
                                 <Text variant='h5'>Edit</Text>
                                 <Image source={require('@/assets/images/icons/pencil_simple.png')} style={{ width: 28, height: 28 }} />
                             </Button>
                         </View>
                     </View>
                 </StableGestureWrapper>
+                <Animated.View
+                    pointerEvents={hasChanges ? 'auto' : 'none'}
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        transform: [{ translateY: saveBarTranslateY }],
+                        opacity: saveBarAnim,
+                    }}
+                >
+                    <View className="px-4 py-4 bg-background">
+                        <Button
+                            variant="outline"
+                            onPress={handleSaveNotes}
+                            disabled={!hasChanges || saving}
+                            className="w-full"
+                        >
+                            <Text className="text-white font-semibold">
+                                {saving ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
+                            </Text>
+                        </Button>
+                    </View>
+                </Animated.View>
 
                 <Modal
                     visible={isRescheduleModalOpen}
