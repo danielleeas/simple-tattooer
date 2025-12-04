@@ -11,10 +11,11 @@ interface StartTimesProps {
     breakTime: number;
     artist: Artist;
     locationId: string;
+    selectedTime?: string; // HH:mm format
     onTimeSelect?: (date: string, time: string) => void;
 }
 
-export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId, onTimeSelect }: StartTimesProps) => {
+export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId, selectedTime, onTimeSelect }: StartTimesProps) => {
     const [loading, setLoading] = useState(false);
     const [startTimes, setStartTimes] = useState<{ value: string; label: string }[]>([]);
 
@@ -22,7 +23,6 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
         try {
             setLoading(true);
             const times = await getAvailableTimes(artist, date, sessionLength, breakTime, locationId);
-            console.log(times)
             setStartTimes(times);
         } catch (error) {
             console.warn('Failed to load start times:', error);
@@ -37,8 +37,6 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
     }, [startTimesForDate]);
 
     const startTimesChunks = useMemo(() => makeChunks(startTimes, 2), [startTimes]);
-
-    console.log(startTimesChunks)
 
     return (
         <>
@@ -60,14 +58,27 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
                         <View className="gap-2">
                             {startTimesChunks.map((times, index) => (
                                 <View key={index} className="flex-row items-center gap-2">
-                                    {times.map((time, i) => (
-                                        <Pressable
-                                            key={index+i}
-                                            className={`rounded-full border border-border-white items-center justify-center h-8 flex-1`}
-                                        >
-                                            <Text variant="small" className="text-text-secondary">{time.label}</Text>
-                                        </Pressable>
-                                    ))}
+                                    {times.map((time, i) => {
+                                        const isSelected = selectedTime === time.value;
+                                        return (
+                                            <Pressable
+                                                key={index+i}
+                                                onPress={() => onTimeSelect?.(date, time.value)}
+                                                className={`rounded-full border items-center justify-center h-8 flex-1 ${
+                                                    isSelected 
+                                                        ? 'border-foreground bg-foreground' 
+                                                        : 'border-border-white'
+                                                }`}
+                                            >
+                                                <Text 
+                                                    variant="small" 
+                                                    className={isSelected ? 'text-background' : 'text-foreground'}
+                                                >
+                                                    {time.label}
+                                                </Text>
+                                            </Pressable>
+                                        );
+                                    })}
                                 </View>
                             ))}
                         </View>

@@ -83,7 +83,24 @@ export default function ManualBooking() {
 
     const handleDatesSelect = (dates: string[]) => {
         const sortedDates = [...dates].sort();
-        setFormData((prev) => ({ ...prev, dates: sortedDates }));
+        // Remove start times for dates that are no longer selected
+        const updatedStartTimes = { ...formData.startTimes };
+        Object.keys(updatedStartTimes).forEach(date => {
+            if (!sortedDates.includes(date)) {
+                delete updatedStartTimes[date];
+            }
+        });
+        setFormData((prev) => ({ ...prev, dates: sortedDates, startTimes: updatedStartTimes }));
+    }
+
+    const handleTimeSelect = (date: string, time: string) => {
+        setFormData((prev) => ({
+            ...prev,
+            startTimes: {
+                ...prev.startTimes,
+                [date]: time
+            }
+        }));
     }
 
     useEffect(() => {
@@ -303,7 +320,15 @@ export default function ManualBooking() {
                                                         <Text variant="h5" className="text-foreground">
                                                             {formatDbDate(date, 'MMM DD, YYYY')}
                                                         </Text>
-                                                        <StartTimes date={date} sessionLength={formData.sessionLength || 0} breakTime={30} artist={artist} locationId={formData.locationId} />
+                                                        <StartTimes 
+                                                            date={date} 
+                                                            sessionLength={formData.sessionLength || 0} 
+                                                            breakTime={30} 
+                                                            artist={artist} 
+                                                            locationId={formData.locationId}
+                                                            selectedTime={formData.startTimes[date]}
+                                                            onTimeSelect={handleTimeSelect}
+                                                        />
                                                     </View>
                                                 );
                                             })}

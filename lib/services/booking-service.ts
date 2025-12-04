@@ -171,7 +171,7 @@ export const getAvailableDates = async (
 
     // Remove default flow dates that fall within temp change date ranges
     const filteredResult = result.filter((d) => !tempChangeDateRange.has(d));
-    
+
     // Add temp change dates
     for (const d of tempChangeDatesToAdd) {
         filteredResult.push(d);
@@ -190,7 +190,7 @@ export const getAvailableDates = async (
             }
         }
     }
-    
+
     // Remove book-off dates from available dates
     const resultWithoutBookOffs = filteredResult.filter((d) => !bookOffDateSet.has(d));
 
@@ -206,7 +206,7 @@ export const getAvailableDates = async (
             unavailableDateSet.add(d);
         }
     }
-    
+
     // Remove unavailable dates from available dates
     const resultWithoutUnavailable = resultWithoutBookOffs.filter((d) => !unavailableDateSet.has(d));
 
@@ -232,14 +232,14 @@ export const getAvailableDates = async (
             }
         }
     }
-    
+
     // Add spot convention dates to available dates
     for (const d of spotConventionDatesToAdd) {
         resultWithoutUnavailable.push(d);
     }
 
     const sessionEvents = events.filter((e) => e.source === 'session' || e.source === 'quick_appointment');
-    
+
     // Count sessions per date
     const sessionsPerDate = new Map<string, number>();
     for (const e of sessionEvents) {
@@ -248,7 +248,7 @@ export const getAvailableDates = async (
         const currentCount = sessionsPerDate.get(dateYmd) || 0;
         sessionsPerDate.set(dateYmd, currentCount + 1);
     }
-    
+
     // Filter dates based on multiple_sessions_enabled and sessions_per_day
     const datesToDisable = new Set<string>();
     if (!flows.multiple_sessions_enabled) {
@@ -267,10 +267,10 @@ export const getAvailableDates = async (
             }
         }
     }
-    
+
     // Remove disabled dates from available dates
     const resultWithoutSessionConflicts = resultWithoutUnavailable.filter((d) => !datesToDisable.has(d));
-    
+
     // Sort and deduplicate
     const finalResult = Array.from(new Set(resultWithoutSessionConflicts));
     finalResult.sort();
@@ -313,15 +313,71 @@ export const getAvailableTimes = async (
         buffer_between_sessions: number;
     };
 
-    const startTime = flows.start_times[weekday];
-    const endTime = flows.end_times[weekday];
+    // Get all events of this date first
+    const start_date = new Date(parseYmd(dayYmd).getFullYear(), parseYmd(dayYmd).getMonth(), parseYmd(dayYmd).getDate(), 0, 0, 0, 0);
+    const end_date = new Date(parseYmd(dayYmd).getFullYear(), parseYmd(dayYmd).getMonth(), parseYmd(dayYmd).getDate(), 23, 59, 59, 999);
 
-    console.log('startTime', startTime);
-    console.log('endTime', endTime);
+    const eventsRes = await getEventsInRange({ artistId: artist.id, start: start_date, end: end_date });
+    const events = eventsRes.success ? eventsRes.events || [] : [];
+
+    // Check if this date is within a tempChange event and location matches
+    let startTime: string | undefined;
+    let endTime: string | undefined;
+
+    const tempChangeEvents = events.filter((e) => e.source === 'temp_change');
+
+    if (tempChangeEvents.length > 0) {
+        // Check each tempChange event to see if date is within range and location matches
+        for (const e of tempChangeEvents) {
+            const tempChangeRes = await getTempChangeById(e.source_id);
+            if (tempChangeRes.success && tempChangeRes.data) {
+                const tc = tempChangeRes.data;
+
+                // Check if location matches
+                const isTcLocationMatch = tc.location_id === locationId;
+                if (!isTcLocationMatch) continue;
+
+                // Check if date is within tempChange date range (compare as strings for reliability)
+                if (dayYmd >= tc.start_date && dayYmd <= tc.end_date) {
+                    // Date is within tempChange range and location matches
+                    // Check if different_time_enabled is true
+                    startTime = tc.start_times[weekday];
+                    endTime = tc.end_times[weekday];
+                    break; // Use the first matching tempChange
+                }
+            }
+        }
+    }
+
+    const spotConventionEvents = events.filter((e) => e.source === 'spot_convention');
+    if (spotConventionEvents.length > 0) {
+        for (const e of spotConventionEvents) {
+            const spotConventionRes = await getSpotConventionById(e.source_id);
+            if (spotConventionRes.success && spotConventionRes.data) {
+                const spotConvention = spotConventionRes.data;
+                // Check if location matches
+                const isSpotConventionLocationMatch = spotConvention.location_id === locationId;
+                if (!isSpotConventionLocationMatch) continue;
+                // Check if date is within spotConvention date range (compare as strings for reliability)
+                if (spotConvention.dates.includes(dayYmd)) {
+                    // Date is within spotConvention range and location matches
+                    startTime = spotConvention.start_times[dayYmd];
+                    endTime = spotConvention.end_times[dayYmd];
+                    break;
+                }
+            }
+        }
+    }
+
+    // If no tempChange match, use default flow times
+    if (!startTime || !endTime) {
+        startTime = flows.start_times[weekday];
+        endTime = flows.end_times[weekday];
+    }
 
     // Generate start times array
     const startTimes: string[] = [];
-    
+
     if (!startTime || !endTime) {
         return [];
     }
@@ -363,6 +419,118 @@ export const getAvailableTimes = async (
 
         // Move to next start time
         currentMinutes = nextStartMinutes;
+    }
+
+    // Filter out start times that conflict with existing appointment events
+    const appointmentEvents = events.filter((e) => e.source === 'session' || e.source === 'quick_appointment');
+    
+    if (appointmentEvents.length > 0) {
+        // Parse appointment events to get their time ranges in minutes
+        const appointmentRanges: { start: number; end: number }[] = [];
+        
+        for (const e of appointmentEvents) {
+            // Extract date and time from "YYYY-MM-DD HH:mm" format
+            const eventDateStr = e.start_date.substring(0, 10); // "YYYY-MM-DD"
+            const eventStartTimeStr = e.start_date.substring(11, 16); // "HH:mm"
+            const eventEndTimeStr = e.end_date.substring(11, 16); // "HH:mm"
+            
+            // Only process events on the same date
+            if (eventDateStr === dayYmd) {
+                const eventStartMinutes = parseHhMmToMinutes(eventStartTimeStr);
+                const eventEndMinutes = parseHhMmToMinutes(eventEndTimeStr);
+                
+                if (eventStartMinutes !== null && eventEndMinutes !== null) {
+                    appointmentRanges.push({
+                        start: eventStartMinutes,
+                        end: eventEndMinutes
+                    });
+                }
+            }
+        }
+        
+        // Filter out start times that conflict with appointments
+        const filteredStartTimes = startTimes.filter(startTimeStr => {
+            const startTimeMinutes = parseHhMmToMinutes(startTimeStr);
+            if (startTimeMinutes === null) return false;
+            
+            const sessionEndMinutes = startTimeMinutes + duration;
+            
+            // Check if this start time conflicts with any appointment
+            for (const appt of appointmentRanges) {
+                // We require a break before and after the appointment.
+                // A candidate session [startTimeMinutes, sessionEndMinutes] is ONLY allowed if:
+                //   sessionEndMinutes <= appt.start - breakTime  (enough break before the appointment)
+                //   OR
+                //   startTimeMinutes >= appt.end + breakTime    (enough break after the appointment)
+                //
+                // Otherwise it conflicts.
+                const latestAllowedEndBeforeAppt = appt.start - breakTime;
+                const earliestAllowedStartAfterAppt = appt.end + breakTime;
+
+                const hasEnoughBreakBefore =
+                    sessionEndMinutes <= latestAllowedEndBeforeAppt;
+                const hasEnoughBreakAfter =
+                    startTimeMinutes >= earliestAllowedStartAfterAppt;
+
+                if (!hasEnoughBreakBefore && !hasEnoughBreakAfter) {
+                    // Not enough break before or after this appointment -> conflict
+                    return false;
+                }
+            }
+            
+            return true; // Keep this start time
+        });
+        
+        startTimes.length = 0;
+        startTimes.push(...filteredStartTimes);
+    }
+
+    // Personal events (block_time) like lunch, meetings, etc.
+    // These block only their own time range (no extra break time buffer).
+    const personalEvents = events.filter((e) => e.source === 'block_time');
+
+    if (personalEvents.length > 0) {
+        const personalRanges: { start: number; end: number }[] = [];
+
+        for (const e of personalEvents) {
+            // Extract date and time from "YYYY-MM-DD HH:mm" format
+            const eventDateStr = e.start_date.substring(0, 10); // "YYYY-MM-DD"
+            const eventStartTimeStr = e.start_date.substring(11, 16); // "HH:mm"
+            const eventEndTimeStr = e.end_date.substring(11, 16); // "HH:mm"
+
+            if (eventDateStr === dayYmd) {
+                const eventStartMinutes = parseHhMmToMinutes(eventStartTimeStr);
+                const eventEndMinutes = parseHhMmToMinutes(eventEndTimeStr);
+
+                if (eventStartMinutes !== null && eventEndMinutes !== null) {
+                    personalRanges.push({
+                        start: eventStartMinutes,
+                        end: eventEndMinutes,
+                    });
+                }
+            }
+        }
+
+        if (personalRanges.length > 0) {
+            const filteredForPersonal = startTimes.filter((startTimeStr) => {
+                const startTimeMinutes = parseHhMmToMinutes(startTimeStr);
+                if (startTimeMinutes === null) return false;
+
+                const sessionEndMinutes = startTimeMinutes + duration;
+
+                for (const p of personalRanges) {
+                    // Simple overlap check: session intersects personal event window.
+                    const overlaps =
+                        startTimeMinutes < p.end && sessionEndMinutes > p.start;
+                    if (overlaps) return false;
+                }
+
+                return true;
+            });
+
+            startTimes.length = 0;
+            startTimes.push(...filteredForPersonal);
+        }
     }
 
     // Convert to StartTimeOption format
@@ -421,7 +589,7 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         if (!input.title?.trim()) return { success: false, error: 'Missing project title' };
         if (!input.sessionLengthMinutes || input.sessionLengthMinutes <= 0) return { success: false, error: 'Invalid session length' };
         if (!input.locationId) return { success: false, error: 'Missing location' };
-        
+
         // Support both single date (deprecated) and multiple dates
         // dates is now string[] in YYYY-MM-DD format
         let dateStrings: string[] = [];
@@ -430,7 +598,7 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         } else if (input.date) {
             dateStrings = [toYmd(input.date)];
         }
-        
+
         if (dateStrings.length === 0) return { success: false, error: 'Missing date(s)' };
         if (!input.startTimeDisplay?.trim()) return { success: false, error: 'Missing start time' };
         if (Number.isNaN(input.depositAmount)) return { success: false, error: 'Invalid deposit amount' };
@@ -962,13 +1130,13 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
         } else if (form.date) {
             datesForFormatting = [form.date];
         }
-        
+
         // Format dates for email
         const formattedDates = datesForFormatting.length === 1
             ? formatDateLong(datesForFormatting[0])
             : datesForFormatting.length > 1
-            ? datesForFormatting.map(d => formatDateLong(d)).join(', ')
-            : '';
+                ? datesForFormatting.map(d => formatDateLong(d)).join(', ')
+                : '';
 
         const variables: Record<string, string> = {
             'Client First Name': firstName,
