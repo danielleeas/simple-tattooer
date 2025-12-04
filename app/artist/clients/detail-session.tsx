@@ -164,10 +164,14 @@ export default function ClientDetailSession() {
 
     const handleEditSession = () => {
 
-        console.log(project_id, session_id)
+        if (!session) {
+            toast?.({ variant: 'error', title: 'Session not found' });
+            return;
+        }
+
         router.push({
             pathname: '/artist/clients/edit-session',
-            params: { projectId: project_id, sessionId: session_id }
+            params: { projectId: session.project_id, sessionId: session.id }
         });
     };
 

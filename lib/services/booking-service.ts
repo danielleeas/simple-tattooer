@@ -1644,7 +1644,7 @@ export async function sendReturnClientEmail(input: ReturnClientEmailInput): Prom
             'Studio Name': (artist as any)?.studio_name || '',
         };
 
-        await fetch(`${BASE_URL}/api/client-new-email`, {
+        await fetch(`${BASE_URL}/api/return-client-email`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
