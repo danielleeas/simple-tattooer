@@ -10,17 +10,19 @@ interface StartTimesProps {
     sessionLength: number;
     breakTime: number;
     artist: Artist;
+    locationId: string;
     onTimeSelect?: (date: string, time: string) => void;
 }
 
-export const StartTimes = ({ date, sessionLength, breakTime, artist, onTimeSelect }: StartTimesProps) => {
+export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId, onTimeSelect }: StartTimesProps) => {
     const [loading, setLoading] = useState(false);
     const [startTimes, setStartTimes] = useState<{ value: string; label: string }[]>([]);
 
     const startTimesForDate = useCallback(async () => {
         try {
             setLoading(true);
-            const times = await getAvailableTimes(artist, date, sessionLength, breakTime);
+            const times = await getAvailableTimes(artist, date, sessionLength, breakTime, locationId);
+            console.log(times)
             setStartTimes(times);
         } catch (error) {
             console.warn('Failed to load start times:', error);
@@ -28,13 +30,15 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, onTimeSelec
         } finally {
             setLoading(false);
         }
-    }, [artist, sessionLength, breakTime, date]);
+    }, [artist, sessionLength, breakTime, date, locationId]);
 
     useEffect(() => {
         startTimesForDate();
     }, [startTimesForDate]);
 
     const startTimesChunks = useMemo(() => makeChunks(startTimes, 2), [startTimes]);
+
+    console.log(startTimesChunks)
 
     return (
         <>
@@ -54,6 +58,18 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, onTimeSelec
                     }
                     return (
                         <View className="gap-2">
+                            {startTimesChunks.map((times, index) => (
+                                <View key={index} className="flex-row items-center gap-2">
+                                    {times.map((time, i) => (
+                                        <Pressable
+                                            key={index+i}
+                                            className={`rounded-full border border-border-white items-center justify-center h-8 flex-1`}
+                                        >
+                                            <Text variant="small" className="text-text-secondary">{time.label}</Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            ))}
                         </View>
                     );
                 })()

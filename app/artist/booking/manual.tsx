@@ -286,7 +286,7 @@ export default function ManualBooking() {
                                     </Text>
                                 )}
 
-                                {formData.dates.length > 0 && artist && (
+                                {formData.dates.length > 0 && artist && formData.locationId !== '' && (
                                     <View className="gap-4">
                                         <View className="gap-2">
                                             <Text variant="small" className="font-thin leading-5 text-text-secondary">
@@ -303,7 +303,7 @@ export default function ManualBooking() {
                                                         <Text variant="h5" className="text-foreground">
                                                             {formatDbDate(date, 'MMM DD, YYYY')}
                                                         </Text>
-                                                        <StartTimes date={date} sessionLength={formData.sessionLength || 0} breakTime={30} artist={artist} />
+                                                        <StartTimes date={date} sessionLength={formData.sessionLength || 0} breakTime={30} artist={artist} locationId={formData.locationId} />
                                                     </View>
                                                 );
                                             })}

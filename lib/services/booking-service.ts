@@ -290,12 +290,86 @@ export const getAvailableTimes = async (
     artist: Artist,
     dateYmd: string,
     duration: number,
-    breakTime: number
+    breakTime: number,
+    locationId: string
 ): Promise<StartTimeOption[]> => {
     if (!artist.id) throw new Error('artist is required');
     console.log('dateYmd', dateYmd);
+    const dayYmd = toYmd(parseYmd(dateYmd));
+    const todayYmd = toYmd(new Date());
+    if (dayYmd < todayYmd) return [];
 
-    const out: StartTimeOption[] = [];
+    const weekday = weekdayCodeOf(dayYmd);
+
+    const flows = (artist.flow || {}) as {
+        work_days?: string[];
+        different_time_enabled: boolean;
+        start_times: Record<string, string>;
+        end_times: Record<string, string>;
+        multiple_sessions_enabled: boolean;
+        sessions_per_day: number;
+        back_to_back_enabled: boolean;
+        max_back_to_back: number;
+        buffer_between_sessions: number;
+    };
+
+    const startTime = flows.start_times[weekday];
+    const endTime = flows.end_times[weekday];
+
+    console.log('startTime', startTime);
+    console.log('endTime', endTime);
+
+    // Generate start times array
+    const startTimes: string[] = [];
+    
+    if (!startTime || !endTime) {
+        return [];
+    }
+
+    const startMinutes = parseHhMmToMinutes(startTime);
+    const endMinutes = parseHhMmToMinutes(endTime);
+
+    if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) {
+        return [];
+    }
+
+    // First start time is always the initial startTime
+    let currentMinutes = startMinutes;
+
+    // Generate all possible start times
+    while (true) {
+        // Check if current time can fit a session
+        if (currentMinutes + duration > endMinutes) {
+            // Can't fit a session starting at this time
+            break;
+        }
+
+        // Add current start time
+        startTimes.push(minutesToHhMm(currentMinutes));
+
+        // Calculate next start time: current + sessionLength + breakTime
+        const nextStartMinutes = currentMinutes + duration + breakTime;
+
+        // Check if we can fit another session after this one
+        if (nextStartMinutes + duration > endMinutes) {
+            // Can't fit another full session with break
+            // But check if we can fit one more session that ends exactly at endTime (no break needed after)
+            if (nextStartMinutes + duration === endMinutes) {
+                // We can add one more session that ends exactly at endTime
+                startTimes.push(minutesToHhMm(nextStartMinutes));
+            }
+            break;
+        }
+
+        // Move to next start time
+        currentMinutes = nextStartMinutes;
+    }
+
+    // Convert to StartTimeOption format
+    const out: StartTimeOption[] = startTimes.map(time => ({
+        value: time,
+        label: minutesToDisplay(parseHhMmToMinutes(time)!)
+    }));
 
     return out;
 }
