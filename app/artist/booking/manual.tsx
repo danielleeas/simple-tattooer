@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
-import { getAvailableDates, getAvailableTimes, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
+import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
 import { formatDbDate, makeChunks } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
@@ -109,19 +109,27 @@ export default function ManualBooking() {
     }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
 
     const handleCompleteBooking = async () => {
-        // try {
-        //     setSubmitting(true);
-        //     if (!artist?.id) {
-        //         toast({ variant: 'error', title: 'Missing artist session' });
-        //         return;
-        //     }
-        //     const depositAmount = parseInt(formData.depositAmount);
-        //     const sessionRate = parseInt(formData.sessionRate);
+        try {
+            setSubmitting(true);
+            if (!artist?.id) {
+                toast({ variant: 'error', title: 'Missing artist session' });
+                return;
+            }
+            const depositAmount = parseInt(formData.depositAmount);
+            const sessionRate = parseInt(formData.sessionRate);
 
-        //     if (formData.dates.length === 0) {
-        //         toast({ variant: 'error', title: 'Please select at least one date' });
-        //         return;
-        //     }
+            if (formData.dates.length === 0) {
+                toast({ variant: 'error', title: 'Please select at least one date' });
+                return;
+            }
+
+            const backToBackResult = await getBackToBackResult(artist, formData.dates, String(clientId || ''));
+            if (!backToBackResult.success) {
+                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
+                return;
+            }
+
+            console.log(backToBackResult)
 
         //     const result = await createManualBooking({
         //         artistId: artist.id,
@@ -169,16 +177,16 @@ export default function ManualBooking() {
         //         duration: 3000,
         //     });
         //     router.push('/');
-        // } catch (e: any) {
-        //     toast({
-        //         variant: 'error',
-        //         title: 'Unexpected error',
-        //         description: e?.message || 'Please try again',
-        //         duration: 3000,
-        //     });
-        // } finally {
-        //     setSubmitting(false);
-        // }
+        } catch (e: any) {
+            toast({
+                variant: 'error',
+                title: 'Unexpected error',
+                description: e?.message || 'Please try again',
+                duration: 3000,
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleHome = () => {

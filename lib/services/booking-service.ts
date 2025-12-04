@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { parseYmdFromDb } from "../utils";
 import { getEventsInRange, getOffDayById, getSpotConventionById, getTempChangeById } from "./calendar-service";
 import { defaultTemplateData } from "@/components/pages/your-rule/type";
+import { getClientProjectsWithSessions } from "./clients-service";
 
 type WeekdayCode = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
 
@@ -294,7 +295,6 @@ export const getAvailableTimes = async (
     locationId: string
 ): Promise<StartTimeOption[]> => {
     if (!artist.id) throw new Error('artist is required');
-    console.log('dateYmd', dateYmd);
     const dayYmd = toYmd(parseYmd(dateYmd));
     const todayYmd = toYmd(new Date());
     if (dayYmd < todayYmd) return [];
@@ -423,22 +423,22 @@ export const getAvailableTimes = async (
 
     // Filter out start times that conflict with existing appointment events
     const appointmentEvents = events.filter((e) => e.source === 'session' || e.source === 'quick_appointment');
-    
+
     if (appointmentEvents.length > 0) {
         // Parse appointment events to get their time ranges in minutes
         const appointmentRanges: { start: number; end: number }[] = [];
-        
+
         for (const e of appointmentEvents) {
             // Extract date and time from "YYYY-MM-DD HH:mm" format
             const eventDateStr = e.start_date.substring(0, 10); // "YYYY-MM-DD"
             const eventStartTimeStr = e.start_date.substring(11, 16); // "HH:mm"
             const eventEndTimeStr = e.end_date.substring(11, 16); // "HH:mm"
-            
+
             // Only process events on the same date
             if (eventDateStr === dayYmd) {
                 const eventStartMinutes = parseHhMmToMinutes(eventStartTimeStr);
                 const eventEndMinutes = parseHhMmToMinutes(eventEndTimeStr);
-                
+
                 if (eventStartMinutes !== null && eventEndMinutes !== null) {
                     appointmentRanges.push({
                         start: eventStartMinutes,
@@ -447,14 +447,14 @@ export const getAvailableTimes = async (
                 }
             }
         }
-        
+
         // Filter out start times that conflict with appointments
         const filteredStartTimes = startTimes.filter(startTimeStr => {
             const startTimeMinutes = parseHhMmToMinutes(startTimeStr);
             if (startTimeMinutes === null) return false;
-            
+
             const sessionEndMinutes = startTimeMinutes + duration;
-            
+
             // Check if this start time conflicts with any appointment
             for (const appt of appointmentRanges) {
                 // We require a break before and after the appointment.
@@ -477,10 +477,10 @@ export const getAvailableTimes = async (
                     return false;
                 }
             }
-            
+
             return true; // Keep this start time
         });
-        
+
         startTimes.length = 0;
         startTimes.push(...filteredStartTimes);
     }
@@ -540,6 +540,132 @@ export const getAvailableTimes = async (
     }));
 
     return out;
+}
+
+export interface BackToBackResult {
+    success: boolean;
+    error?: string;
+}
+
+interface BackToBackInput {
+    artist: Artist;
+    dates: string[];
+    clientId: string;
+}
+export const getBackToBackResult = async (
+    artist: Artist,
+    dates: string[],
+    clientId: string,
+): Promise<BackToBackResult> => {
+    try {
+        if (!artist.id) throw new Error('artist is required');
+        const flows = (artist.flow || {}) as {
+            back_to_back_enabled: boolean;
+            max_back_to_back: number;
+            buffer_between_sessions: number;
+        };
+
+        if (!Array.isArray(dates) || dates.length === 0) {
+            return { success: true };
+        }
+
+        // 1) Fetch existing sessions for this client (scoped to artist)
+        const projectsWithSessions = await getClientProjectsWithSessions(artist.id, clientId);
+
+        // 2) Collect existing session dates (YYYY-MM-DD)
+        const existingDates: string[] = [];
+        for (const project of projectsWithSessions || []) {
+            const projectSessions = Array.isArray(project.sessions) ? project.sessions : [];
+            for (const s of projectSessions) {
+                if (!s?.date) continue;
+                // Handle "YYYY-MM-DD", "YYYY-MM-DDTHH:mm", or "YYYY-MM-DD HH:mm"
+                const ymd = String(s.date).split('T')[0].split(' ')[0];
+                if (ymd) existingDates.push(ymd);
+            }
+        }
+
+        // 2.5) Check if any newly selected dates already have existing sessions
+        const existingDatesSet = new Set(existingDates);
+        const duplicateDates = dates.filter(date => {
+            // Normalize the date to YYYY-MM-DD format
+            const normalizedDate = String(date).split('T')[0].split(' ')[0];
+            return existingDatesSet.has(normalizedDate);
+        });
+
+        if (duplicateDates.length > 0) {
+            return {
+                success: false,
+                error: `Cannot select dates that already have existing sessions: ${duplicateDates.join(', ')}`,
+            };
+        }
+
+        // 3) Merge existing session dates with newly selected dates
+        //    and normalize/sort (YYYY-MM-DD)
+        const allDates = Array.from(new Set([...existingDates, ...dates])).sort();
+
+        // Helper: convert YYYY-MM-DD to a day index (UTC-based) for easy diff
+        const toDayIndex = (ymd: string): number => {
+            const d = parseYmd(ymd);
+            // Use UTC to avoid DST/timezone issues for pure date math
+            return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+        };
+
+        const bufferDays = Number(flows.buffer_between_sessions || 0);
+        const backToBackEnabled = Boolean(flows.back_to_back_enabled);
+        const maxBackToBack = Number(flows.max_back_to_back || 0);
+
+        let prevDayIndex = toDayIndex(allDates[0]);
+        let currentStreak = 1; // consecutive-day streak length
+
+        for (let i = 1; i < allDates.length; i++) {
+            const curDayIndex = toDayIndex(allDates[i]);
+            const diffDays = curDayIndex - prevDayIndex;
+
+            if (diffDays <= 0) {
+                // Same day or out-of-order after sort -> invalid selection
+                return { success: false, error: 'Invalid date selection.' };
+            }
+
+            if (diffDays === 1) {
+                // Consecutive day -> part of a back-to-back streak
+                currentStreak += 1;
+
+                if (!backToBackEnabled) {
+                    return {
+                        success: false,
+                        error: 'Back-to-back bookings are not allowed for this artist.',
+                    };
+                }
+
+                if (maxBackToBack > 0 && currentStreak > maxBackToBack) {
+                    return {
+                        success: false,
+                        error: 'Selected dates exceed the maximum allowed back-to-back days.',
+                    };
+                }
+            } else {
+                // Non-consecutive day -> streak resets
+                currentStreak = 1;
+
+                // Enforce buffer between sessions in days, e.g.
+                // buffer_between_sessions = 3
+                //  12 -> 15 is allowed (diffDays = 3)
+                //  12 -> 14 is NOT allowed (diffDays = 2)
+                if (bufferDays > 0 && diffDays < bufferDays) {
+                    return {
+                        success: false,
+                        error: 'Selected dates are too close together based on the buffer setting.',
+                    };
+                }
+            }
+
+            prevDayIndex = curDayIndex;
+        }
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unexpected error' };
+    }
 }
 
 function parseDisplayTimeToHhMm(display: string): string {
