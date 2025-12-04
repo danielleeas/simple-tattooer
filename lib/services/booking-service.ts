@@ -84,7 +84,6 @@ function weekdayCodeOf(ymd: string): WeekdayCode {
 
 export const getAvailableDates = async (
     artist: Artist,
-    clientId: string | undefined,
     locationId: string | undefined,
     startDate: string,
     endDate: string
@@ -119,9 +118,17 @@ export const getAvailableDates = async (
     }
     candidateDates = flowCandidates;
 
-    const result = Array.from(candidateDates);
+    const mainLocation = artist.locations?.find(
+        (loc) => loc.is_main_studio === true
+    );
+    const isMainLocation = locationId && mainLocation?.id === locationId;
+
+    let result: string[] = [];
+    if (isMainLocation) {
+        result = Array.from(candidateDates);
+    }
+
     result.sort();
-    // const filtered = candidateDates.filter((d) => !offDaySet.has(d));
 
     const start_date_Ymd = parseYmdFromDb(start);
     const end_date_Ymd = parseYmdFromDb(end);
@@ -230,10 +237,41 @@ export const getAvailableDates = async (
         resultWithoutUnavailable.push(d);
     }
 
-    console.log('flow', flows)
+    const sessionEvents = events.filter((e) => e.source === 'session' || e.source === 'quick_appointment');
+    
+    // Count sessions per date
+    const sessionsPerDate = new Map<string, number>();
+    for (const e of sessionEvents) {
+        // Extract date part from "YYYY-MM-DD HH:mm" format
+        const dateYmd = e.start_date.substring(0, 10); // "YYYY-MM-DD"
+        const currentCount = sessionsPerDate.get(dateYmd) || 0;
+        sessionsPerDate.set(dateYmd, currentCount + 1);
+    }
+    
+    // Filter dates based on multiple_sessions_enabled and sessions_per_day
+    const datesToDisable = new Set<string>();
+    if (!flows.multiple_sessions_enabled) {
+        // If multiple sessions disabled, disable any date with sessions
+        for (const [dateYmd, count] of sessionsPerDate.entries()) {
+            if (count > 0) {
+                datesToDisable.add(dateYmd);
+            }
+        }
+    } else {
+        // If multiple sessions enabled, disable dates that have reached sessions_per_day limit
+        const maxSessionsPerDay = flows.sessions_per_day || 0;
+        for (const [dateYmd, count] of sessionsPerDate.entries()) {
+            if (count >= maxSessionsPerDay) {
+                datesToDisable.add(dateYmd);
+            }
+        }
+    }
+    
+    // Remove disabled dates from available dates
+    const resultWithoutSessionConflicts = resultWithoutUnavailable.filter((d) => !datesToDisable.has(d));
     
     // Sort and deduplicate
-    const finalResult = Array.from(new Set(resultWithoutUnavailable));
+    const finalResult = Array.from(new Set(resultWithoutSessionConflicts));
     finalResult.sort();
 
     return finalResult;
@@ -328,7 +366,8 @@ export interface CreateManualBookingInput {
     title: string;
     sessionLengthMinutes: number;
     locationId: string;
-    date: Date;
+    date?: Date; // Deprecated: use dates instead
+    dates?: string[]; // Array of date strings in YYYY-MM-DD format for multiple sessions
     startTimeDisplay: string; // e.g. "1:30 PM"
     depositAmount: number;
     sessionRate: number;
@@ -352,12 +391,21 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         if (!input.title?.trim()) return { success: false, error: 'Missing project title' };
         if (!input.sessionLengthMinutes || input.sessionLengthMinutes <= 0) return { success: false, error: 'Invalid session length' };
         if (!input.locationId) return { success: false, error: 'Missing location' };
-        if (!input.date) return { success: false, error: 'Missing date' };
+        
+        // Support both single date (deprecated) and multiple dates
+        // dates is now string[] in YYYY-MM-DD format
+        let dateStrings: string[] = [];
+        if (input.dates && input.dates.length > 0) {
+            dateStrings = input.dates;
+        } else if (input.date) {
+            dateStrings = [toYmd(input.date)];
+        }
+        
+        if (dateStrings.length === 0) return { success: false, error: 'Missing date(s)' };
         if (!input.startTimeDisplay?.trim()) return { success: false, error: 'Missing start time' };
         if (Number.isNaN(input.depositAmount)) return { success: false, error: 'Invalid deposit amount' };
         if (Number.isNaN(input.sessionRate)) return { success: false, error: 'Invalid session rate' };
 
-        const dateYmd = toYmd(input.date); // YYYY-MM-DD
         const startTimeHhMm = parseDisplayTimeToHhMm(input.startTimeDisplay); // HH:mm
 
         // 1) Create project
@@ -380,27 +428,28 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
 
         const projectId = projectRows.id as string;
 
-        // 2) Create session
+        // 2) Create sessions for each date (dateStrings are already in YYYY-MM-DD format)
+        const sessionsToInsert = dateStrings.map(dateYmd => ({
+            project_id: projectId,
+            date: dateYmd,
+            start_time: startTimeHhMm,
+            duration: input.sessionLengthMinutes,
+            location_id: input.locationId,
+            session_rate: input.sessionRate,
+            notes: input.notes ?? null,
+            source: input.source || 'manual',
+            source_id: input.sourceId || null,
+        }));
+
         const { data: sessionRows, error: sessionError } = await supabase
             .from('sessions')
-            .insert([{
-                project_id: projectId,
-                date: dateYmd,
-                start_time: startTimeHhMm,
-                duration: input.sessionLengthMinutes,
-                location_id: input.locationId,
-                session_rate: input.sessionRate,
-                notes: input.notes ?? null,
-                source: input.source || 'manual',
-                source_id: input.sourceId || null,
-            }])
-            .select('id')
-            .single();
+            .insert(sessionsToInsert)
+            .select('id');
 
-        if (sessionError || !sessionRows?.id) {
+        if (sessionError || !sessionRows || sessionRows.length === 0) {
             // Rollback: delete created project to avoid orphaned rows
             await supabase.from('projects').delete().eq('id', projectId);
-            return { success: false, error: sessionError?.message || 'Failed to create session' };
+            return { success: false, error: sessionError?.message || 'Failed to create sessions' };
         }
 
         // 3) Update link status to "need_deposit"
@@ -413,7 +462,7 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
             console.warn('Failed to update link status to need_deposit', linkError);
         }
 
-        return { success: true, projectId, sessionId: sessionRows.id as string };
+        return { success: true, projectId, sessionId: sessionRows[0].id as string };
     } catch (err: any) {
         return { success: false, error: err?.message || 'Unexpected error creating booking' };
     }
@@ -790,7 +839,8 @@ export interface ManualBookingEmailInput {
     clientId: string;
     form: {
         title: string;
-        date: Date;
+        date?: Date; // Deprecated: use dates instead
+        dates?: string[]; // Array of date strings in YYYY-MM-DD format for multiple sessions
         startTime: string;
         sessionLength: number;
         notes?: string;
@@ -874,11 +924,27 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             payment_links['Venmo'] = String(rules.venmo_method);
         }
 
+        // Support both single date (deprecated) and multiple dates
+        // dates is now string[] in YYYY-MM-DD format, convert to Date[] for formatting
+        let datesForFormatting: Date[] = [];
+        if (form.dates && form.dates.length > 0) {
+            datesForFormatting = form.dates.map(d => parseYmd(d));
+        } else if (form.date) {
+            datesForFormatting = [form.date];
+        }
+        
+        // Format dates for email
+        const formattedDates = datesForFormatting.length === 1
+            ? formatDateLong(datesForFormatting[0])
+            : datesForFormatting.length > 1
+            ? datesForFormatting.map(d => formatDateLong(d)).join(', ')
+            : '';
+
         const variables: Record<string, string> = {
             'Client First Name': firstName,
             'auto-fill-title': form.title || '',
             'auto-fill-location': locationAddress,
-            'auto-fill-date': formatDateLong(form.date),
+            'auto-fill-date': formattedDates,
             'auto-fill-session-rate': formatCurrency(form.sessionRate),
             'auto-fill-start-time': form.startTime || '',
             'auto-fill-session-length': formatDuration(form.sessionLength),

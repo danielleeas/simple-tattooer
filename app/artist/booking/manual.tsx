@@ -18,7 +18,7 @@ import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
 import { getAvailableDates, getAvailableTimes, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
-import { formatDbDate, toYmd, parseYmdToLocalDate, formatDateToYmd, makeChunks } from "@/lib/utils";
+import { formatDbDate, makeChunks } from "@/lib/utils";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -27,7 +27,7 @@ interface FormDataProps {
     title: string;
     sessionLength: number | undefined;
     locationId: string;
-    date: Date | undefined;
+    dates: string[]; // YYYY-MM-DD format strings
     startTime: string;
     depositAmount: string;
     sessionRate: string;
@@ -44,6 +44,7 @@ export default function ManualBooking() {
     const [renderStartTimes, setRenderStartTimes] = useState<{ id: number; time: string }[]>([]);
     const fetchSeqRef = useRef(0);
     const [loadingStartTimes, setLoadingStartTimes] = useState(false);
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     const shallowEqualTimes = (a: { id: number; time: string }[], b: { id: number; time: string }[]) => {
@@ -58,7 +59,7 @@ export default function ManualBooking() {
         title: '',
         sessionLength: undefined,
         locationId: '',
-        date: undefined,
+        dates: [],
         startTime: '',
         depositAmount: '',
         sessionRate: '',
@@ -68,15 +69,19 @@ export default function ManualBooking() {
     const startTimesChunks = useMemo(() => makeChunks(renderStartTimes, 2), [renderStartTimes]);
 
     const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
+        setLoadingAvailability(true);
         setAvailableDates([]);
+        setFormData((prev) => ({ ...prev, dates: [] }));
         try {
             if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, clientId as string | undefined, locationId, start, end);
+            const days = await getAvailableDates(artist as any, locationId, start, end);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);
             setAvailableDates([]);
+        } finally {
+            setLoadingAvailability(false);
         }
     };
 
@@ -139,13 +144,18 @@ export default function ManualBooking() {
             const depositAmount = parseInt(formData.depositAmount);
             const sessionRate = parseInt(formData.sessionRate);
 
+            if (formData.dates.length === 0) {
+                toast({ variant: 'error', title: 'Please select at least one date' });
+                return;
+            }
+
             const result = await createManualBooking({
                 artistId: artist.id,
                 clientId: String(clientId || ''),
                 title: formData.title,
                 sessionLengthMinutes: formData.sessionLength || 0,
                 locationId: formData.locationId,
-                date: formData.date as Date,
+                dates: formData.dates,
                 startTimeDisplay: formData.startTime,
                 depositAmount,
                 sessionRate,
@@ -168,7 +178,7 @@ export default function ManualBooking() {
                 clientId: String(clientId || ''),
                 form: {
                     title: formData.title,
-                    date: formData.date as Date,
+                    dates: formData.dates,
                     startTime: formData.startTime,
                     sessionLength: formData.sessionLength || 0,
                     notes: formData.notes,
@@ -288,17 +298,30 @@ export default function ManualBooking() {
                                     </Text>
                                 </View>
 
-                                <DatePicker
-                                    selectedDateString={formatDateToYmd(formData.date)}
-                                    onDateStringSelect={(dateStr) => setFormData({ ...formData, date: parseYmdToLocalDate(dateStr) })}
-                                    showInline={true}
-                                    showTodayButton={false}
-                                    selectionMode="single"
-                                    availableDates={availableDates}
-                                    onMonthChange={(y, m) => onChangeCalendarMonth(y, m)}
-                                    disabled={formData.sessionLength === undefined || formData.locationId === ''}
-                                    className="border border-border rounded-lg p-4"
-                                />
+                                <View className="relative">
+                                    {loadingAvailability && (
+                                        <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
+                                            <ActivityIndicator size="small" color="#ffffff" />
+                                            <Text className="text-text-secondary mt-2 text-sm">Checking availability...</Text>
+                                        </View>
+                                    )}
+                                    {!loadingAvailability && availableDates.length === 0 && (
+                                        <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
+                                            <Text className="text-text-secondary mt-2 text-sm">No availability found</Text>
+                                        </View>
+                                    )}
+                                    <DatePicker
+                                        selectedDatesStrings={formData.dates}
+                                        onDatesStringSelect={(dateStrs) => setFormData({ ...formData, dates: dateStrs })}
+                                        showInline={true}
+                                        showTodayButton={false}
+                                        selectionMode="multiple"
+                                        availableDates={availableDates}
+                                        onMonthChange={(y, m) => onChangeCalendarMonth(y, m)}
+                                        disabled={formData.sessionLength === undefined || formData.locationId === ''}
+                                        className="border border-border rounded-lg p-4"
+                                    />
+                                </View>
 
                                 {(formData.sessionLength === undefined && formData.locationId === '') && (
                                     <Text variant="small" className="font-thin leading-5 text-text-secondary">
@@ -306,11 +329,14 @@ export default function ManualBooking() {
                                     </Text>
                                 )}
 
-                                {formData.date && (
+                                {formData.dates.length > 0 && (
                                     <View className="gap-2">
                                         <View className="gap-2">
                                             <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                Selected date - {formData.date ? formatDbDate(formData.date, 'MMM DD, YYYY') : ''}
+                                                {formData.dates.length === 1
+                                                    ? `Selected date - ${formatDbDate(formData.dates[0], 'MMM DD, YYYY')}`
+                                                    : `${formData.dates.length} dates selected`
+                                                }
                                             </Text>
                                         </View>
                                         <View className="gap-2">
