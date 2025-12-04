@@ -131,52 +131,52 @@ export default function ManualBooking() {
 
             console.log(backToBackResult)
 
-        //     const result = await createManualBooking({
-        //         artistId: artist.id,
-        //         clientId: String(clientId || ''),
-        //         title: formData.title,
-        //         sessionLengthMinutes: formData.sessionLength || 0,
-        //         locationId: formData.locationId,
-        //         dates: formData.dates,
-        //         startTimeDisplay: formData.startTime,
-        //         depositAmount,
-        //         sessionRate,
-        //         notes: formData.notes,
-        //     });
+            const result = await createManualBooking({
+                artistId: artist.id,
+                clientId: String(clientId || ''),
+                title: formData.title,
+                sessionLengthMinutes: formData.sessionLength || 0,
+                locationId: formData.locationId,
+                dates: formData.dates,
+                startTimes: formData.startTimes,
+                depositAmount,
+                sessionRate,
+                notes: formData.notes,
+            });
 
-        //     if (!result.success) {
-        //         toast({
-        //             variant: 'error',
-        //             title: 'Failed to create booking',
-        //             description: result.error || 'Please try again',
-        //             duration: 3000,
-        //         });
-        //         return;
-        //     }
+            if (!result.success) {
+                toast({
+                    variant: 'error',
+                    title: 'Failed to create booking',
+                    description: result.error || 'Please try again',
+                    duration: 3000,
+                });
+                return;
+            }
 
-        //     // Send manual booking request approval email (non-blocking) via service
-        //     void sendManualBookingRequestEmail({
-        //         artist: artist as any,
-        //         clientId: String(clientId || ''),
-        //         form: {
-        //             title: formData.title,
-        //             dates: formData.dates,
-        //             startTime: formData.startTime,
-        //             sessionLength: formData.sessionLength || 0,
-        //             notes: formData.notes,
-        //             locationId: formData.locationId,
-        //             depositAmount,
-        //             sessionRate,
-        //         },
-        //     });
+            // Send manual booking request approval email (non-blocking) via service
+            void sendManualBookingRequestEmail({
+                artist: artist as any,
+                clientId: String(clientId || ''),
+                form: {
+                    title: formData.title,
+                    dates: formData.dates,
+                    startTimes: formData.startTimes,
+                    sessionLength: formData.sessionLength || 0,
+                    notes: formData.notes,
+                    locationId: formData.locationId,
+                    depositAmount,
+                    sessionRate,
+                },
+            });
 
-        //     toast({
-        //         variant: 'success',
-        //         title: 'Booking Created!',
-        //         description: 'Waiting for client response to pay deposit',
-        //         duration: 3000,
-        //     });
-        //     router.push('/');
+            toast({
+                variant: 'success',
+                title: 'Booking Created!',
+                description: 'Waiting for client response to pay deposit',
+                duration: 3000,
+            });
+            router.push('/');
         } catch (e: any) {
             toast({
                 variant: 'error',

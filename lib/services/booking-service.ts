@@ -4,6 +4,7 @@ import { parseYmdFromDb } from "../utils";
 import { getEventsInRange, getOffDayById, getSpotConventionById, getTempChangeById } from "./calendar-service";
 import { defaultTemplateData } from "@/components/pages/your-rule/type";
 import { getClientProjectsWithSessions } from "./clients-service";
+import { BASE_URL } from "../constants";
 
 type WeekdayCode = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
 
@@ -692,7 +693,7 @@ export interface CreateManualBookingInput {
     locationId: string;
     date?: Date; // Deprecated: use dates instead
     dates?: string[]; // Array of date strings in YYYY-MM-DD format for multiple sessions
-    startTimeDisplay: string; // e.g. "1:30 PM"
+    startTimes: Record<string, string>; // e.g. { "2025-01-01": "1:30 PM", "2025-01-02": "2:00 PM" }
     depositAmount: number;
     sessionRate: number;
     notes?: string;
@@ -726,11 +727,9 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         }
 
         if (dateStrings.length === 0) return { success: false, error: 'Missing date(s)' };
-        if (!input.startTimeDisplay?.trim()) return { success: false, error: 'Missing start time' };
+        if (!input.startTimes || Object.keys(input.startTimes).length === 0) return { success: false, error: 'Missing start times' };
         if (Number.isNaN(input.depositAmount)) return { success: false, error: 'Invalid deposit amount' };
         if (Number.isNaN(input.sessionRate)) return { success: false, error: 'Invalid session rate' };
-
-        const startTimeHhMm = parseDisplayTimeToHhMm(input.startTimeDisplay); // HH:mm
 
         // 1) Create project
         const { data: projectRows, error: projectError } = await supabase
@@ -751,19 +750,24 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         }
 
         const projectId = projectRows.id as string;
-
+        const startTimes = Object.values(input.startTimes);
+        const sessionsToInsert: any[] = [];
         // 2) Create sessions for each date (dateStrings are already in YYYY-MM-DD format)
-        const sessionsToInsert = dateStrings.map(dateYmd => ({
-            project_id: projectId,
-            date: dateYmd,
-            start_time: startTimeHhMm,
-            duration: input.sessionLengthMinutes,
-            location_id: input.locationId,
-            session_rate: input.sessionRate,
-            notes: input.notes ?? null,
-            source: input.source || 'manual',
-            source_id: input.sourceId || null,
-        }));
+        for (const dateYmd of dateStrings) {
+            const startTimeHhMm = parseDisplayTimeToHhMm(input.startTimes[dateYmd]);
+            const sessionToInsert = {
+                project_id: projectId,
+                date: dateYmd,
+                start_time: startTimeHhMm,
+                duration: input.sessionLengthMinutes,
+                location_id: input.locationId,
+                session_rate: input.sessionRate,
+                notes: input.notes ?? null,
+                source: input.source || 'manual',
+                source_id: input.sourceId || null,
+            };
+            sessionsToInsert.push(sessionToInsert);
+        }
 
         const { data: sessionRows, error: sessionError } = await supabase
             .from('sessions')
@@ -1165,7 +1169,7 @@ export interface ManualBookingEmailInput {
         title: string;
         date?: Date; // Deprecated: use dates instead
         dates?: string[]; // Array of date strings in YYYY-MM-DD format for multiple sessions
-        startTime: string;
+        startTimes: Record<string, string>; // e.g. { "2025-01-01": "1:30 PM", "2025-01-02": "2:00 PM" }
         sessionLength: number;
         notes?: string;
         locationId: string;
@@ -1250,19 +1254,30 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
 
         // Support both single date (deprecated) and multiple dates
         // dates is now string[] in YYYY-MM-DD format, convert to Date[] for formatting
+        let dateStrings: string[] = [];
         let datesForFormatting: Date[] = [];
         if (form.dates && form.dates.length > 0) {
+            dateStrings = form.dates;
             datesForFormatting = form.dates.map(d => parseYmd(d));
         } else if (form.date) {
+            dateStrings = [toYmd(form.date)];
             datesForFormatting = [form.date];
         }
 
-        // Format dates for email
+        // Format dates with times for email: "November 15, 2025 09:00 AM"
+        const formatDateWithTime = (date: Date, dateStr: string): string => {
+            const dateFormatted = formatDateLong(date);
+            const time = form.startTimes[dateStr] || '';
+            return time ? `${dateFormatted} ${time}` : dateFormatted;
+        };
+
         const formattedDates = datesForFormatting.length === 1
-            ? formatDateLong(datesForFormatting[0])
+            ? formatDateWithTime(datesForFormatting[0], dateStrings[0])
             : datesForFormatting.length > 1
-                ? datesForFormatting.map(d => formatDateLong(d)).join(', ')
+                ? datesForFormatting.map((d, i) => formatDateWithTime(d, dateStrings[i])).join(', ')
                 : '';
+
+                
 
         const variables: Record<string, string> = {
             'Client First Name': firstName,
@@ -1270,7 +1285,7 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             'auto-fill-location': locationAddress,
             'auto-fill-date': formattedDates,
             'auto-fill-session-rate': formatCurrency(form.sessionRate),
-            'auto-fill-start-time': form.startTime || '',
+            'auto-fill-start-time': Object.values(form.startTimes).join(', '),
             'auto-fill-session-length': formatDuration(form.sessionLength),
             'auto-fill-notes': form.notes || '',
             'auto-fill-deposit-required': formatCurrency(form.depositAmount),
@@ -1280,20 +1295,30 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             'Studio Name': (artist as any)?.studio_name || '',
         };
 
-        await supabase.functions
-            .invoke('manual-booking-request-email', {
-                body: {
-                    to,
-                    email_templates: {
-                        subject: templateSubject,
-                        body: templateBody,
-                    },
-                    avatar_url,
-                    variables,
-                    payment_links,
+        const response = await fetch(`${BASE_URL}/api/manual-booking-request-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to,
+                email_templates: {
+                    subject: templateSubject,
+                    body: templateBody,
                 },
-            })
-            .catch((err) => console.warn('Failed to send manual booking email:', err));
+                avatar_url,
+                variables,
+                payment_links,
+            }),
+        }).catch((err) => {
+            console.warn('Failed to send manual booking email:', err);
+            throw err;
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.warn('Manual booking email API error:', response.status, errorText);
+        }
     } catch (err) {
         console.warn('Manual booking email trigger error:', err);
     }
