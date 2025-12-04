@@ -1309,7 +1309,7 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
 
         console.log(templateBody)
 
-        const response = await fetch(`${BASE_URL}/api/manual-booking-request-email`, {
+        void fetch(`${BASE_URL}/api/manual-booking-request-email`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1326,13 +1326,7 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             }),
         }).catch((err) => {
             console.warn('Failed to send manual booking email:', err);
-            throw err;
         });
-
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
-            console.warn('Manual booking email API error:', response.status, errorText);
-        }
     } catch (err) {
         console.warn('Manual booking email trigger error:', err);
     }
@@ -1369,14 +1363,14 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
 
         // Artist avatar/photo and rules
         const avatar_url = (artist as any)?.avatar || (artist as any)?.photo || '';
-        const rules = (artist as any)?.rules || {};
+        const template = (artist as any)?.template || {};
 
         // Prefer artist rule templates; fallback to defaults
         const templateSubject =
-            (rules as any)?.appointment_confirmation_no_profile_subject ||
+            (template as any)?.appointment_confirmation_no_profile_subject ||
             defaultTemplateData.appointmentConfirmationNoProfileSubject;
         const templateBody =
-            (rules as any)?.appointment_confirmation_no_profile_body ||
+            (template as any)?.appointment_confirmation_no_profile_body ||
             defaultTemplateData.appointmentConfirmationNoProfileBody;
 
         // Sessions for date/time/location lines
@@ -1416,7 +1410,7 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
             })
             .filter(Boolean) as string[];
 
-        const startHere = `https://kdls.org/client-portal?id=${clientId}&artist_id=${artist.id}`;
+        const startHere = `${BASE_URL}/client-portal?id=${clientId}&artist_id=${artist.id}`;
 
         // Compose variables
         const variables: Record<string, any> = {
@@ -1427,23 +1421,25 @@ export async function sendClientPortalEmail(input: ClientPortalEmailInput): Prom
             'Start Here': startHere,
         };
 
-        // Invoke Edge Function
-        await supabase.functions
-            .invoke('client-new-email', {
-                body: {
-                    to,
-                    email_templates: {
-                        subject: templateSubject,
-                        body: templateBody,
-                    },
-                    avatar_url,
-                    variables,
-                    action_links: {
-                        'Start Here': startHere,
-                    },
+        // Invoke Edge Function via API
+        await fetch(`${BASE_URL}/api/client-new-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to,
+                email_templates: {
+                    subject: templateSubject,
+                    body: templateBody,
                 },
-            })
-            .catch((err) => console.warn('Failed to send client portal email:', err));
+                avatar_url,
+                variables,
+                action_links: {
+                    'Start Here': startHere,
+                },
+            }),
+        }).catch((err) => console.warn('Failed to send client portal email:', err));
     } catch (err) {
         console.warn('Client portal email trigger error:', err);
     }

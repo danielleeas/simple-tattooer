@@ -350,11 +350,17 @@ export async function sendWelcomeEmail(artist: Artist, artistName: string, artis
   }
 
   try {
-    void supabase.functions
-    .invoke('welcome-email', {
-      body: { to: artist.email, artistName, artistBookingLink },
-    })
-    .catch((err) => console.warn('Failed to send welcome email:', err));
+    void fetch(`${BASE_URL}/api/welcome-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: artist.email,
+        artistName,
+        artistBookingLink,
+      }),
+    }).catch((err) => console.warn('Failed to send welcome email:', err));
   } catch (err) {
     console.warn('Welcome email trigger error:', err);
   }
