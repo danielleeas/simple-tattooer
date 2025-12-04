@@ -1227,10 +1227,10 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
 
         // Email template from artist rules with fallback to defaults
         const templateSubject =
-            (artist?.rule as any)?.booking_request_approved_manual_subject ||
+            (artist?.template as any)?.booking_request_approved_manual_subject ||
             defaultTemplateData.bookingRequestApprovedManualSubject;
         const templateBody =
-            (artist?.rule as any)?.booking_request_approved_manual_body ||
+            (artist?.template as any)?.booking_request_approved_manual_body ||
             defaultTemplateData.bookingRequestApprovedManualBody;
 
         // Artist avatar/photo
@@ -1268,7 +1268,21 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
         const formatDateWithTime = (date: Date, dateStr: string): string => {
             const dateFormatted = formatDateLong(date);
             const time = form.startTimes[dateStr] || '';
-            return time ? `${dateFormatted} ${time}` : dateFormatted;
+            if (!time) return dateFormatted;
+            
+            // Check if time already has AM/PM
+            const hasAmPm = /AM|PM/i.test(time);
+            if (hasAmPm) {
+                return `${dateFormatted} ${time}`;
+            }
+            
+            // Convert HH:MM to AM/PM format
+            const minutes = parseHhMmToMinutes(time);
+            if (minutes === null) {
+                return `${dateFormatted} ${time}`; // fallback if parsing fails
+            }
+            const timeWithAmPm = minutesToDisplay(minutes);
+            return `${dateFormatted} ${timeWithAmPm}`;
         };
 
         const formattedDates = datesForFormatting.length === 1
@@ -1276,8 +1290,6 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             : datesForFormatting.length > 1
                 ? datesForFormatting.map((d, i) => formatDateWithTime(d, dateStrings[i])).join(', ')
                 : '';
-
-                
 
         const variables: Record<string, string> = {
             'Client First Name': firstName,
@@ -1294,6 +1306,8 @@ export async function sendManualBookingRequestEmail(input: ManualBookingEmailInp
             'Your Name': (artist as any)?.full_name || '',
             'Studio Name': (artist as any)?.studio_name || '',
         };
+
+        console.log(templateBody)
 
         const response = await fetch(`${BASE_URL}/api/manual-booking-request-email`, {
             method: 'POST',
