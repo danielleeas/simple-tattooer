@@ -16,6 +16,11 @@ export interface CreateClientResult {
 	error?: string;
 }
 
+export interface UpdateClientResult {
+	success: boolean;
+	error?: string;
+}
+
 /**
  * Creates a Supabase Auth user for the client and inserts a row into `clients`
  * with id = auth user id via the `create-client` Edge Function.
@@ -338,6 +343,26 @@ export async function clientHasProjectNeedingDrawing(artistId: string, clientId:
 	}
 
 	return Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * Update client information
+ */
+export async function updateClient(clientId: string, updates: Record<string, any>): Promise<UpdateClientResult> {
+	try {
+		const { error } = await supabase
+			.from('clients')
+			.update(updates)
+			.eq('id', clientId);
+
+		if (error) {
+			return { success: false, error: error.message };
+		}
+
+		return { success: true };
+	} catch (error: any) {
+		return { success: false, error: error.message || 'Failed to update client' };
+	}
 }
 
 /**

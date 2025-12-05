@@ -84,7 +84,7 @@ export default function ClientMessages() {
     }
 
     const handleMessageThread = (id: string) => {
-        router.push('/client/message/thread');
+        router.push('/client/messaging/thread');
     }
 
     return (

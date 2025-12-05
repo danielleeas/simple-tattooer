@@ -169,7 +169,7 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
                                 <View className="flex-1 justify-around">
                                     <View className="w-full flex-row items-center justify-center">
                                         <View className="h-full items-center">
-                                            <Pressable className="items-center justify-end" onPress={() => router.push('/client/message' as RelativePathString)}>
+                                            <Pressable className="items-center justify-end" onPress={() => router.push('/client/messaging' as RelativePathString)}>
                                                 <Image
                                                     source={require('@/assets/images/icons/message.png')}
                                                     style={{ width: 56, height: 56 }}
@@ -182,7 +182,7 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
                                     </View>
                                     <View className="w-full flex-row items-center justify-between">
                                         <View className="h-full w-[140px] items-center">
-                                            <Pressable className="items-center justify-end" onPress={() => router.push('/client/payment-info' as RelativePathString)}>
+                                            <Pressable className="items-center justify-end" onPress={() => router.push('/client/payments' as RelativePathString)}>
                                                 <Image
                                                     source={require('@/assets/images/icons/money_bag.png')}
                                                     style={{ width: 56, height: 56 }}
@@ -196,7 +196,7 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
                                             </Pressable>
                                         </View>
                                         <View className="h-full w-[140px] items-center">
-                                            <Pressable className="items-center justify-end" onPress={() => router.push('/client/dates' as RelativePathString)}>
+                                            <Pressable className="items-center justify-end" onPress={() => router.push('/client/appointments' as RelativePathString)}>
                                                 <Image
                                                     source={require('@/assets/images/icons/calendar.png')}
                                                     style={{ width: 56, height: 56 }}
@@ -235,7 +235,9 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
                                                 </Pressable>
                                             </View>
                                             <View className="h-full w-[140px] items-center">
-                                                <Pressable className="items-center justify-end" onPress={() => router.push('/client/findme' as RelativePathString)}>
+                                                <Pressable className="items-center justify-end" onPress={() => router.push('/client/appointments/auto-booking' as RelativePathString)}>
+                                                {/* <Pressable className="items-center justify-end" onPress={() => router.push('/client/appointments/confirm-appointment' as RelativePathString)}> */}
+                                                {/* <Pressable className="items-center justify-end" onPress={() => router.push('/client/findme' as RelativePathString)}> */}
                                                     <Image
                                                         source={require('@/assets/images/icons/how_to_find.png')}
                                                         style={{ width: 56, height: 56 }}

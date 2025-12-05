@@ -188,7 +188,34 @@ export const getClientProfile = async (clientId: string): Promise<Client | null>
   try {
     const { data, error } = await supabase
       .from('clients')
-      .select('id, full_name, email, phone_number, location, links!inner(artist_id, status, artist:artists(*))')
+      .select(`
+        id,
+        full_name,
+        email,
+        phone_number,
+        location,
+        links!inner(
+          artist_id,
+          status,
+          artist:artists!inner(
+            id,
+            email,
+            full_name,
+            photo,
+            avatar,
+            booking_link,
+            studio_name,
+            social_handler,
+            subscription_active,
+            subscription_type,
+            app:apps(*),
+            rule:rules(*),
+            flow:flows(*),
+            template:templates(*),
+            locations(*)
+          )
+        )
+      `)
       .eq('links.status', 'deposit_paid')
       .eq('id', clientId)
       .single();

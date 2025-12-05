@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { View, Modal, Pressable } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import CustomModal from '@/components/lib/custom-modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/redux/store';
 import { useToast } from '@/lib/contexts/toast-context';
@@ -32,7 +31,7 @@ export default function CancellationModal({
         onClose();
 
         setTimeout(() => {
-            router.push('/client/home' as any);
+            router.dismissTo('/');
             toast({
                 variant: 'success',
                 title: 'Cancellation request sent!',
@@ -43,13 +42,18 @@ export default function CancellationModal({
     };
 
     return (
-        <CustomModal
+        <Modal
             visible={visible}
-            onClose={onClose}
-            variant="bottom-sheet"
-            className="bg-background-secondary"
+            transparent={true}
+            animationType="slide"
+            onRequestClose={onClose}
         >
-            <View className="p-6 gap-6">
+            <View className="flex-1 justify-end bg-black/50">
+                <Pressable
+                    style={{ flex: 1 }}
+                    onPress={onClose}
+                />
+                <View className="bg-background-secondary rounded-t-3xl p-6 gap-6">
                 <Text variant="h4">Why do you want to cancel?</Text>
 
                 <Text className="text-text-secondary text-sm leading-5">
@@ -88,7 +92,8 @@ export default function CancellationModal({
                         </Button>
                     </View>
                 </View>
+                </View>
             </View>
-        </CustomModal>
+        </Modal>
     );
 }

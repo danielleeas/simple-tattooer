@@ -1,16 +1,51 @@
 import { useState, useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Image } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Text } from "@/components/ui/text";
-import { Collapse } from "@/components/lib/collapse";
 import { Icon } from "@/components/ui/icon";
-import { MessageCircle } from "lucide-react-native";
+import { Minus, Plus } from "lucide-react-native";
 import { Pressable } from "react-native";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/redux/store';
 import { getArtistFAQs } from "@/lib/services/faq-service";
 import { FAQCategoryWithItems } from "@/lib/types";
 import { useToast } from "@/lib/contexts/toast-context";
+
+// Collapsible FAQ Item Component for Client
+interface CollapsibleFAQItemProps {
+    question: string;
+    answer: string;
+    isExpanded: boolean;
+    onToggle: () => void;
+}
+
+const CollapsibleFAQItem = ({
+    question,
+    answer,
+    isExpanded,
+    onToggle
+}: CollapsibleFAQItemProps) => {
+    return (
+        <View>
+            <Pressable
+                className="flex-row items-center justify-start gap-5 py-4"
+                onPress={onToggle}
+            >
+                <View className="flex-1">
+                    <Text>{question}</Text>
+                </View>
+                <Icon as={isExpanded ? Minus : Plus} size={24} strokeWidth={1} />
+            </Pressable>
+            {isExpanded && (
+                <View>
+                    {answer.split('\n').map((line, index) => (
+                        <Text key={index} className="text-text-secondary leading-5">{line}</Text>
+                    ))}
+                </View>
+            )}
+        </View>
+    );
+};
 
 export default function FAQPage() {
     const { toast } = useToast();
@@ -80,24 +115,17 @@ export default function FAQPage() {
                         ) : (
                             <View className="gap-6">
                                 {faqs.map((faq) => (
-                                    <View key={faq.id} className="gap-4">
-                                        <Text variant="h4">{faq.category_name}</Text>
+                                    <View key={faq.id} className="gap-2">
+                                        <Text variant="h5">{faq.category_name}</Text>
                                         <View className="gap-2">
                                             {faq.faq_items.map((item, index) => (
                                                 <View key={item.id}>
-                                                    <Collapse
-                                                        title={item.question}
-                                                        open={expandedItems[item.id] || false}
-                                                        onOpenChange={() => toggleFAQItem(item.id)}
-                                                        className="gap-2"
-                                                        triggerClassName="py-4"
-                                                        contentClassName="pb-4"
-                                                        textClassName="text-xl"
-                                                    >
-                                                        <Text className="text-text-secondary leading-5">
-                                                            {item.answer}
-                                                        </Text>
-                                                    </Collapse>
+                                                    <CollapsibleFAQItem
+                                                        question={item.question}
+                                                        answer={item.answer}
+                                                        isExpanded={expandedItems[item.id] || false}
+                                                        onToggle={() => toggleFAQItem(item.id)}
+                                                    />
                                                     {index < faq.faq_items.length - 1 && (
                                                         <View className="h-px bg-border my-2" />
                                                     )}

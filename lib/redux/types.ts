@@ -42,6 +42,8 @@ export interface Client {
     email: string;
     phone_number?: string;
     location?: string;
+    reference_photos?: string[];
+    healed_photos?: string[];
     links?: {
         artist_id: string;
         status: string;

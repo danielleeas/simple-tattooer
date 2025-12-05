@@ -11,10 +11,10 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import DepositPolicyModal from "@/app/client/dates/deposit-policy-modal";
-import CancellationPolicyModal from "@/app/client/dates/cancellation-policy-modal";
-import RescheduleModal from "@/app/client/dates/reschedule-modal";
-import CancellationModal from "@/app/client/dates/cancellation-modal";
+import DepositPolicyModal from "@/app/client/appointments/modals/deposit-policy-modal";
+import CancellationPolicyModal from "@/app/client/appointments/modals/cancellation-policy-modal";
+import RescheduleModal from "@/app/client/appointments/modals/reschedule-modal";
+import CancellationModal from "@/app/client/appointments/modals/cancellation-modal";
 
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
 import { useToast } from "@/lib/contexts/toast-context";
@@ -40,54 +40,9 @@ export default function RescheduleCancel() {
         setRescheduleModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setRescheduleModalOpen(false);
-        setSessionDate(undefined);
-    };
-
-    const handleDepositPolicy = () => {
-        setDepositPolicyModalOpen(true);
-    }
-
-    const handleCancellationPolicy = () => {
-        setCancellationPolicyModalOpen(true);
-    }
-
     const handleBack = () => {
         router.back();
     };
-
-    const handleRescheduleContinue = () => {
-        setRescheduleModalOpen(false);
-        setSelectedAction(undefined);
-        setSessionDate(undefined);
-
-        setTimeout(() => {
-            router.push('/client/dashboard' as RelativePathString);
-            toast({
-                variant: 'success',
-                title: 'Reschedule request sent!',
-                description: "We’ll inform the artist to select a new date that works for you. Thank you for your patience!",
-                duration: 3000,
-            });
-        }, 500);
-    }
-
-    const handleCancelContinue = () => {
-        setCancelModalOpen(false);
-        setSelectedAction(undefined);
-        setSessionDate(undefined);
-
-        setTimeout(() => {
-            router.push('/client/dashboard' as RelativePathString);
-            toast({
-                variant: 'success',
-                title: 'Cancellation request sent!',
-                description: "We’ll inform the artist to select a new date that works for you. Thank you for your patience!",
-                duration: 3000, 
-            });
-        }, 500);
-    }  
 
     return (
         <>
@@ -125,11 +80,11 @@ export default function RescheduleCancel() {
                                     }}>
                                         <View className="flex-row items-center gap-2">
                                             <RadioGroupItem value="reschedule" id="reschedule" />
-                                            <Text className="text-text-secondary">Reschedule</Text>
+                                            <Text className="text-text-secondary" onPress={() => setSelectedAction('reschedule')}>Reschedule</Text>
                                         </View>
                                         <View className="flex-row items-center gap-2">
                                             <RadioGroupItem value="cancel" id="cancel" />
-                                            <Text className="text-text-secondary">Cancel</Text>
+                                            <Text className="text-text-secondary" onPress={() => setSelectedAction('cancel')}>Cancel</Text>
                                         </View>
                                     </RadioGroup>
                                 </View>
@@ -193,6 +148,7 @@ export default function RescheduleCancel() {
                     visible={cancellationPolicyModalOpen}
                     onClose={() => setCancellationPolicyModalOpen(false)}
                 />
+
             </SafeAreaView>
         </>
     );
