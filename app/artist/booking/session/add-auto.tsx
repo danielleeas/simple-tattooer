@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Image } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { useAuth, useToast } from "@/lib/contexts";
 import { DatePicker } from "@/components/lib/date-picker";
 import { createProjectRequest } from "@/lib/services/booking-service";
+import { getProjectById } from "@/lib/services/clients-service";
 
 interface FormDataProps {
     title: string;
@@ -36,8 +37,9 @@ interface FormDataProps {
 export default function AutoBooking() {
     const { toast } = useToast();
     const { artist } = useAuth();
-    const { clientId } = useLocalSearchParams();
+    const { projectId } = useLocalSearchParams();
     const [submitting, setSubmitting] = useState(false);
+    const [project, setProject] = useState<any>(null);
 
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
@@ -51,6 +53,28 @@ export default function AutoBooking() {
         notes: '',
     });
 
+    const loadProject = useCallback(async () => {
+        if (!artist?.id || !projectId) return;
+        try {
+            const project = await getProjectById(String(artist.id), String(projectId));
+            if (project) {
+                setProject(project);
+                setFormData((prev) => ({
+                    ...prev,
+                    title: project.title || '',
+                    depositAmount: project.deposit_amount && project.deposit_amount !== 0 ? '0' : '',
+                    notes: project.notes || '',
+                }));
+            }
+        } catch (e) {
+            console.warn('Failed to load project:', e);
+        }
+    }, [artist?.id, projectId]);
+
+    useEffect(() => {
+        loadProject();
+    }, [loadProject]);
+    
     const handleHome = () => {
         router.dismissAll();
     };
@@ -98,7 +122,7 @@ export default function AutoBooking() {
                 return;
             }
 
-            if (!clientId) {
+            if (!project?.client_id) {
                 toast({ variant: 'error', title: 'Client information not found' });
                 return;
             }
@@ -141,7 +165,7 @@ export default function AutoBooking() {
             // Create project request using booking service
             const result = await createProjectRequest({
                 artist: artist,
-                clientId: String(clientId),
+                clientId: String(project?.client_id),
                 title: formData.title.trim(),
                 dateRangeStart: formData.startDate!,
                 dateRangeEnd: formData.endDate!,
@@ -151,8 +175,8 @@ export default function AutoBooking() {
                 sessionRate: parseInt(formData.sessionRate),
                 depositAmount: parseInt(formData.depositAmount),
                 notes: formData.notes.trim() || undefined,
-                source: 'manual',
-                sourceId: null,
+                source: 'project',
+                sourceId: String(project.id),
             });
 
             if (!result.success) {

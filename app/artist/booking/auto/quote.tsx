@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Image, ActivityIndicator } from "react-native";
+import { useState } from "react";
+import { View, Image } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -7,137 +7,132 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { DatePicker } from '@/components/lib/date-picker';
 import { TimeDurationPicker } from '@/components/lib/time-duration-picker';
 import { Textarea } from "@/components/ui/textarea";
 import { DollarSignIcon } from "lucide-react-native";
-import { Note } from "@/components/ui/note";
-import { Input } from "@/components/ui/input";
-import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
-import { useAuth, useToast } from "@/lib/contexts";
 import { Collapse } from "@/components/lib/collapse";
-import { createClientWithAuth } from "@/lib/services/clients-service";
-import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
-import { formatDbDate } from "@/lib/utils";
-import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import { Input } from "@/components/ui/input";
+import { DropdownPicker } from "@/components/lib/dropdown-picker";
+import { useAuth, useToast } from "@/lib/contexts";
+import { DatePicker } from "@/components/lib/date-picker";
+import { createProjectRequest } from "@/lib/services/booking-service";
+import { createClientWithAuth } from "@/lib/services/clients-service";
 
 interface FormDataProps {
     title: string;
-    sessionLength: number | undefined;
+    startDate: string | null;
+    endDate: string | null;
     locationId: string;
-    dates: string[]; // YYYY-MM-DD format strings
-    startTimes: Record<string, string>;
+    sessionCount: string;
+    sessionLength: number | undefined;
     depositAmount: string;
     sessionRate: string;
     notes: string;
 }
 
-export default function QuoteBooking() {
+export default function AutoBookingQuote() {
     const { toast } = useToast();
     const { artist } = useAuth();
     const { clientId, full_name, email, phone_number, project_notes } = useLocalSearchParams();
-    const [availableDates, setAvailableDates] = useState<string[]>([]);
-    const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
-    const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
-    const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
-        sessionLength: undefined,
+        startDate: null,
+        endDate: null,
         locationId: '',
-        dates: [],
-        startTimes: {},
+        sessionCount: '',
+        sessionLength: undefined,
         depositAmount: '',
         sessionRate: '',
-        notes: typeof project_notes === 'string' ? project_notes : '',
+        notes: '',
     });
-
-    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
-        setLoadingAvailability(true);
-        setAvailableDates([]);
-        try {
-            if (!artist?.id || !locationId) return;
-            const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, locationId, start, end);
-            setAvailableDates(days);
-        } catch (e) {
-            console.warn('Failed to load availability:', e);
-            setAvailableDates([]);
-        } finally {
-            setLoadingAvailability(false);
-        }
-    };
-
-    const onChangeCalendarMonth = (year: number, month: number) => {
-        setCalendarYear(year);
-        setCalendarMonth(month);
-    }
-
-    const onChangeLocation = (locationId: string) => {
-        setFormData((prev) => ({ ...prev, locationId: locationId, dates: [] }));
-    }
-
-    const handleDatesSelect = (dates: string[]) => {
-        const sortedDates = [...dates].sort();
-        // Remove start times for dates that are no longer selected
-        const updatedStartTimes = { ...formData.startTimes };
-        Object.keys(updatedStartTimes).forEach(date => {
-            if (!sortedDates.includes(date)) {
-                delete updatedStartTimes[date];
-            }
-        });
-        setFormData((prev) => ({ ...prev, dates: sortedDates, startTimes: updatedStartTimes }));
-    }
-
-    const handleTimeSelect = (date: string, time: string) => {
-        setFormData((prev) => ({
-            ...prev,
-            startTimes: {
-                ...prev.startTimes,
-                [date]: time
-            }
-        }));
-    }
-
-    useEffect(() => {
-        if (!artist?.id || !formData.locationId) return;
-        loadAvailabilityForMonth(calendarYear, calendarMonth, formData.locationId);
-    }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
 
     const handleHome = () => {
         router.dismissAll();
-    }
+    };
 
     const handleMenu = () => {
         router.push('/artist/menu');
+    };
+
+    const buildRangeDates = (start?: string | null, end?: string | null): string[] => {
+        if (!start || !end) return [];
+        const startDate = new Date(start + 'T12:00:00');
+        const endDate = new Date(end + 'T12:00:00');
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return [];
+        const s = startDate <= endDate ? startDate : endDate;
+        const e = endDate >= startDate ? endDate : startDate;
+        const dates: string[] = [];
+        const cursor = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 12);
+        while (cursor <= e) {
+            const y = cursor.getFullYear();
+            const m = String(cursor.getMonth() + 1).padStart(2, '0');
+            const d = String(cursor.getDate()).padStart(2, '0');
+            dates.push(`${y}-${m}-${d}`);
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return dates;
+    };
+
+    const handleDatesStringSelect = (dates: string[]) => {
+        if (!dates || dates.length === 0) {
+            setFormData(prev => ({ ...prev, startDate: null, endDate: null }));
+            return;
+        }
+        const sorted = [...dates].sort();
+        const start = sorted[0];
+        const end = sorted[sorted.length - 1];
+        setFormData(prev => ({ ...prev, startDate: start, endDate: end }));
     };
 
     const handleCompleteBooking = async () => {
         try {
             setSubmitting(true);
             if (!artist?.id) {
-                toast({ variant: 'error', title: 'Missing artist session' });
-                return;
-            }
-            const depositAmount = parseInt(formData.depositAmount);
-            const sessionRate = parseInt(formData.sessionRate);
-
-            if (formData.dates.length === 0) {
-                toast({ variant: 'error', title: 'Please select at least one date' });
+                toast({ variant: 'error', title: 'Artist information not found' });
                 return;
             }
 
-            const backToBackResult = await getBackToBackResult(artist, formData.dates);
-            if (!backToBackResult.success) {
-                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
+            if (!formData.title.trim()) {
+                toast({ variant: 'error', title: 'Please enter a project title' });
                 return;
             }
 
-            // Ensure we have a client; create one if not provided via params
+            if (!formData.startDate || !formData.endDate) {
+                toast({ variant: 'error', title: 'Please select a date range' });
+                return;
+            }
+
+            if (!formData.locationId) {
+                toast({ variant: 'error', title: 'Please select a location' });
+                return;
+            }
+
+            if (!formData.sessionCount || parseInt(formData.sessionCount) <= 0) {
+                toast({ variant: 'error', title: 'Please enter a valid session count' });
+                return;
+            }
+
+            if (!formData.sessionLength || formData.sessionLength <= 0) {
+                toast({ variant: 'error', title: 'Please select a session length' });
+                return;
+            }
+
+            if (!formData.sessionRate || parseInt(formData.sessionRate) <= 0) {
+                toast({ variant: 'error', title: 'Please enter a valid session rate' });
+                return;
+            }
+
+            if (!formData.depositAmount || parseInt(formData.depositAmount) < 0) {
+                toast({ variant: 'error', title: 'Please enter a valid deposit amount' });
+                return;
+            }
+
             let resolvedClientId = String(clientId || '');
             if (!resolvedClientId) {
                 const nameVal = typeof full_name === 'string' ? full_name : '';
@@ -176,44 +171,32 @@ export default function QuoteBooking() {
                 resolvedClientId = created.client.id;
             }
 
-            const result = await createManualBooking({
-                artistId: artist.id,
+            // Create project request using booking service
+            const result = await createProjectRequest({
+                artist: artist,
                 clientId: resolvedClientId,
-                title: formData.title,
-                sessionLengthMinutes: formData.sessionLength || 0,
+                title: formData.title.trim(),
+                dateRangeStart: formData.startDate!,
+                dateRangeEnd: formData.endDate!,
                 locationId: formData.locationId,
-                dates: formData.dates,
-                startTimes: formData.startTimes,
-                depositAmount,
-                sessionRate,
-                notes: formData.notes,
+                sessionCount: parseInt(formData.sessionCount),
+                sessionLength: formData.sessionLength!,
+                sessionRate: parseInt(formData.sessionRate),
+                depositAmount: parseInt(formData.depositAmount),
+                notes: formData.notes.trim() || undefined,
+                source: 'manual',
+                sourceId: null,
             });
 
             if (!result.success) {
                 toast({
                     variant: 'error',
-                    title: 'Failed to create booking',
-                    description: result.error || 'Please try again',
+                    title: 'Error',
+                    description: result.error || 'Failed to create booking',
                     duration: 3000,
                 });
                 return;
             }
-
-            // Send manual booking request approval email (non-blocking) via service
-            void sendManualBookingRequestEmail({
-                artist: artist as any,
-                clientId: resolvedClientId,
-                form: {
-                    title: formData.title,
-                    dates: formData.dates,
-                    startTimes: formData.startTimes,
-                    sessionLength: formData.sessionLength || 0,
-                    notes: formData.notes,
-                    locationId: formData.locationId,
-                    depositAmount,
-                    sessionRate,
-                },
-            });
 
             toast({
                 variant: 'success',
@@ -221,12 +204,15 @@ export default function QuoteBooking() {
                 description: 'Waiting for client response to pay deposit',
                 duration: 3000,
             });
+
+            // Optionally navigate back or to a success page
             router.push('/');
-        } catch (e: any) {
+        } catch (error) {
+            console.error('Unexpected error creating project request:', error);
             toast({
                 variant: 'error',
-                title: 'Unexpected error',
-                description: e?.message || 'Please try again',
+                title: 'Error',
+                description: 'An unexpected error occurred. Please try again.',
                 duration: 3000,
             });
         } finally {
@@ -246,9 +232,13 @@ export default function QuoteBooking() {
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
                 />
-                <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
+                <View className="flex-1 bg-background p-4 pt-2 gap-6">
                     <View className="flex-1">
-                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                        <KeyboardAwareScrollView
+                            bottomOffset={50}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                        >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-[22px] h-[180px]">
                                     <Image
@@ -258,38 +248,34 @@ export default function QuoteBooking() {
                                     />
                                     <Text variant="h6" className="text-center uppercase">Create</Text>
                                     <Text variant="h6" className="text-center uppercase leading-none">Quote</Text>
-                                    <Text className="text-center mt-2 text-text-secondary">Pick the dates and</Text>
-                                    <Text className="text-center text-text-secondary leading-none">times for this project.</Text>
+                                    <Text className="text-center mt-2 text-text-secondary">Set the parameters</Text>
+                                    <Text className="text-center text-text-secondary leading-none">for this project.</Text>
                                 </View>
-
-                                <Note
-                                    message="Only use  manual  booking  if  you  have confirmed the  dates with  the  client.  Get rid of the back forth."
-                                />
 
                                 <View className="gap-2">
                                     <Text variant="h5">Project Title</Text>
                                     <Input
                                         value={formData.title}
-                                        onChangeText={(text) => setFormData({ ...formData, title: text })}
+                                        onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
                                     />
                                 </View>
 
                                 <View className="items-start gap-2">
-                                    <Collapse title="Session Length" textClassName="text-xl">
-                                        <TimeDurationPicker
-                                            selectedDuration={formData.sessionLength}
-                                            onDurationSelect={(duration) => setFormData({ ...formData, sessionLength: duration })}
-                                            minuteInterval={15}
-                                            minDuration={15}
-                                            maxDuration={525}
-                                            disabled={formData.title === ''}
-                                            modalTitle="Select Session Duration"
-                                        />
-                                        {formData.title === '' && (
-                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                Please add project title first
-                                            </Text>
-                                        )}
+                                    <Collapse
+                                        title="Date Range"
+                                        textClassName="text-xl"
+                                        description="Choose the date range this project should be booked within"
+                                    >
+                                        <View className="flex-row items-center w-full gap-2">
+                                            <DatePicker
+                                                selectedDatesStrings={buildRangeDates(formData.startDate, formData.endDate)}
+                                                onDatesStringSelect={handleDatesStringSelect}
+                                                showInline={true}
+                                                showTodayButton={false}
+                                                selectionMode="range"
+                                                className="border border-border rounded-sm p-2"
+                                            />
+                                        </View>
                                     </Collapse>
                                 </View>
 
@@ -298,106 +284,68 @@ export default function QuoteBooking() {
                                         <DropdownPicker
                                             options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
                                             value={formData.locationId}
-                                            onValueChange={(value: string) => onChangeLocation(value as string)}
+                                            onValueChange={(value) => setFormData(prev => ({ ...prev, locationId: value }))}
                                             placeholder="Select location"
                                             modalTitle="Select Location"
-                                            disabled={formData.sessionLength === undefined}
                                         />
-                                        {formData.sessionLength === undefined && (
-                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                Please add session length first
-                                            </Text>
-                                        )}
                                     </Collapse>
                                 </View>
-                                <View className="gap-2">
-                                    <Text variant="h4">Choose Dates</Text>
-                                    <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                        Tap on date(s) to view start times(s)
-                                    </Text>
-                                </View>
 
-                                <View className="relative">
-                                    {loadingAvailability && (
-                                        <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
-                                            <ActivityIndicator size="small" color="#ffffff" />
-                                            <Text className="text-text-secondary mt-2 text-sm">Checking availability...</Text>
-                                        </View>
-                                    )}
-                                    {!loadingAvailability && availableDates.length === 0 && formData.locationId !== '' && (
-                                        <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
-                                            <Text className="text-text-secondary mt-2 text-sm">No availability found</Text>
-                                        </View>
-                                    )}
-                                    <DatePicker
-                                        selectedDatesStrings={formData.dates}
-                                        onDatesStringSelect={(dateStrs) => handleDatesSelect(dateStrs)}
-                                        showInline={true}
-                                        showTodayButton={false}
-                                        selectionMode="multiple"
-                                        availableDates={availableDates}
-                                        onMonthChange={(y, m) => onChangeCalendarMonth(y, m)}
-                                        disabled={formData.sessionLength === undefined || formData.locationId === ''}
-                                        className="border border-border rounded-lg p-4"
-                                    />
-                                </View>
-
-                                {(formData.sessionLength === undefined && formData.locationId === '') && (
-                                    <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                        Please add session length and location first
-                                    </Text>
-                                )}
-
-                                {formData.dates.length > 0 && artist && formData.locationId !== '' && (
-                                    <View className="gap-4">
-                                        <View className="gap-2">
-                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                {formData.dates.length === 1
-                                                    ? `Selected date - ${formatDbDate(formData.dates[0], 'MMM DD, YYYY')}`
-                                                    : `${formData.dates.length} dates selected`
-                                                }
-                                            </Text>
-                                        </View>
-                                        <View className="gap-4">
-                                            {formData.dates.map((date) => {
-                                                return (
-                                                    <View key={date} className="gap-2">
-                                                        <Text variant="h5" className="text-foreground">
-                                                            {formatDbDate(date, 'MMM DD, YYYY')}
-                                                        </Text>
-                                                        <StartTimes 
-                                                            date={date} 
-                                                            sessionLength={formData.sessionLength || 0} 
-                                                            breakTime={30} 
-                                                            artist={artist} 
-                                                            locationId={formData.locationId}
-                                                            selectedTime={formData.startTimes[date]}
-                                                            onTimeSelect={handleTimeSelect}
-                                                        />
-                                                    </View>
-                                                );
-                                            })}
-                                        </View>
+                                <View className="flex-row items-center gap-2">
+                                    <View className="flex-1 gap-2">
+                                        <Text variant="h5" className="w-[200px]">How Many Sessions Will This Take?</Text>
                                     </View>
-                                )}
+                                    <View className="w-20">
+                                        <Input
+                                            keyboardType="numeric"
+                                            value={formData.sessionCount}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, sessionCount: text }))}
+                                        />
+                                    </View>
+                                </View>
+
+                                <View className="items-start gap-2">
+                                    <Collapse title="How Long Is Each Session?" textClassName="text-xl">
+                                        <TimeDurationPicker
+                                            selectedDuration={formData.sessionLength}
+                                            onDurationSelect={(duration) => setFormData(prev => ({ ...prev, sessionLength: duration }))}
+                                            minuteInterval={15}
+                                            minDuration={15}
+                                            maxDuration={525}
+                                            modalTitle="Select Session Duration"
+                                        />
+                                    </Collapse>
+                                </View>
 
                                 <View className="flex-row items-center justify-between gap-3">
                                     <View className="flex-1 gap-2">
                                         <Text variant="h5">Deposit Amount</Text>
-                                        <Input value={formData.depositAmount} onChangeText={(text) => setFormData({ ...formData, depositAmount: text })} leftIcon={DollarSignIcon} />
+                                        <Input
+                                            keyboardType="numeric"
+                                            value={formData.depositAmount}
+                                            leftIcon={DollarSignIcon}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, depositAmount: text }))} />
                                     </View>
                                     <View className="flex-1 gap-2">
                                         <Text variant="h5">Session rate</Text>
-                                        <Input value={formData.sessionRate} onChangeText={(text) => setFormData({ ...formData, sessionRate: text })} leftIcon={DollarSignIcon} />
+                                        <Input
+                                            keyboardType="numeric"
+                                            value={formData.sessionRate}
+                                            leftIcon={DollarSignIcon}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, sessionRate: text }))} />
                                     </View>
                                 </View>
 
                                 <View className="gap-2">
                                     <Textarea
+                                        spellCheck={false}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        autoComplete="off"
                                         placeholder="Project Notes"
                                         className="min-h-28"
                                         value={formData.notes}
-                                        onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                                        onChangeText={(text) => setFormData(prev => ({ ...prev, notes: text }))}
                                     />
                                     <Text variant="small" className="font-thin leading-5 text-text-secondary">These  notes  will  be  sent  to  the  client</Text>
                                 </View>
@@ -407,14 +355,7 @@ export default function QuoteBooking() {
 
                     <View className="gap-4 items-center justify-center">
                         <Button variant="outline" onPress={handleCompleteBooking} className="w-full" disabled={submitting}>
-                            {submitting ? (
-                                <View className="flex-row items-center justify-center gap-2">
-                                    <ActivityIndicator size="small" color="#000000" />
-                                    <Text variant='h5'>Creating...</Text>
-                                </View>
-                            ) : (
-                                <Text variant='h5'>Send Quote & Deposit</Text>
-                            )}
+                            <Text variant='h5'>{submitting ? 'Sending...' : 'Send Quote & Deposit'}</Text>
                         </Button>
                     </View>
                 </View>

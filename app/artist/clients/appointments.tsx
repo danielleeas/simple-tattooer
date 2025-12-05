@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { View, Image, type ImageStyle, Pressable, Linking, Modal, Dimensions, Animated } from "react-native";
+import { View, Image, type ImageStyle, Pressable, Linking, Modal, Dimensions, Animated, TouchableOpacity } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -10,7 +10,7 @@ import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDownIcon, ChevronUpIcon, FileSearch, FileText, X, CalendarPlus, Calendar } from "lucide-react-native";
+import { ChevronDownIcon, ChevronUpIcon, FileSearch, FileText, X, ChevronRight, Plus } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
 import { useAuth, useToast } from "@/lib/contexts";
 import { getClientById, getClientProjectsWithSessions, updateProjectWaiverSigned, updateProjectNotes } from "@/lib/services/clients-service";
@@ -388,7 +388,12 @@ export default function ClientAppointments() {
         setAddSessionModalVisible(false);
         // Find the currently expanded project
         const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
-        // TODO: Navigate to auto add session
+        if (expandedProjectId) {
+            router.push({
+                pathname: '/artist/booking/session/add-auto',
+                params: { projectId: expandedProjectId }
+            });
+        }
     };
 
     const handleDetailSession = (clientId: string, projectId: string, sessionId: string) => {
@@ -721,54 +726,50 @@ export default function ClientAppointments() {
 
                 <Modal
                     visible={addSessionModalVisible}
-                    onRequestClose={() => setAddSessionModalVisible(false)}
-                    transparent={true}
+                    transparent
                     animationType="fade"
+                    onRequestClose={() => setAddSessionModalVisible(false)}
                 >
-                    <Pressable
-                        className="flex-1 bg-black/50 justify-center items-center"
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        className="flex-1 bg-black/50 items-center justify-center p-4"
                         onPress={() => setAddSessionModalVisible(false)}
                     >
-                        <Pressable
-                            className="w-[85%] bg-background-secondary rounded-2xl p-6 gap-6"
+                        <TouchableOpacity
+                            activeOpacity={1}
                             onPress={(e) => e.stopPropagation()}
+                            className="w-full max-w-[250px] bg-background-secondary rounded-xl border border-border p-4 gap-6"
                         >
-                            <View className="items-center justify-center gap-2">
-                                <Text variant="h5" className="text-center">Add Session</Text>
-                                <Text variant="small" className="text-text-secondary text-center">
-                                    Choose how you want to add a new session
-                                </Text>
-                            </View>
-
-                            <View className="gap-3">
-                                <Button
-                                    variant="outline"
-                                    className="w-full flex-row items-center"
-                                    onPress={handleManualAddSession}
-                                >
-                                    <Text variant="h5">Manual Add Session</Text>
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    className="w-full flex-row items-center"
-                                    onPress={handleAutoAddSession}
-                                >
-                                    <Text variant="h5">Auto Add Session</Text>
-                                </Button>
-                            </View>
-
-                            <Button
-                                variant="outline"
-                                className="w-full"
-                                onPress={() => setAddSessionModalVisible(false)}
+                            <Pressable
+                                className="flex-row items-center gap-1"
+                                onPress={handleManualAddSession}
+                                accessibilityRole="button"
+                                accessibilityLabel="Add Event/ Block Time"
                             >
-                                <Text variant="h5">Cancel</Text>
-                            </Button>
-                        </Pressable>
-                    </Pressable>
-                </Modal>
+                                <Icon as={Plus} strokeWidth={2} size={18} />
+                                <View className="flex-1 gap-1">
+                                    <Text className="leading-5 text-sm">Manual Add Session </Text>
+                                </View>
+                                <Icon as={ChevronRight} strokeWidth={1} size={24} />
+                            </Pressable>
 
+                            <Pressable
+                                className="flex-row items-center gap-1"
+                                onPress={handleAutoAddSession}
+                                accessibilityRole="button"
+                                accessibilityLabel="Quick Add Appointment"
+                            >
+                                <Icon as={Plus} strokeWidth={2} size={18} />
+                                <View className="flex-1 gap-1">
+                                    <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                        Auto Add Session
+                                    </Text>
+                                </View>
+                                <Icon as={ChevronRight} strokeWidth={1} size={24} />
+                            </Pressable>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
 
             </SafeAreaView >
         </>

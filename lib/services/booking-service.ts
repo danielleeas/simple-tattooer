@@ -1744,15 +1744,17 @@ export async function createProjectRequest(input: CreateProjectRequestInput): Pr
             return { success: false, error: linkError.message || 'Failed to fetch link' };
         }
 
-        if (!linkData?.id) {
-            return { success: false, error: 'Failed to fetch link: no ID returned' };
-        }
+        console.log('linkData', linkData);
+
+        const isNewClient = linkData?.is_new === true;
+
+        console.log('isNewClient', isNewClient);
 
         void sendAutoBookingRequestEmail({
             artist: input.artist,
             clientId: input.clientId,
             projectId: data.id as string,
-            isNewClient: linkData.is_new,
+            isNewClient: isNewClient,
             form: {
                 title: input.title,
                 locationId: input.locationId,
