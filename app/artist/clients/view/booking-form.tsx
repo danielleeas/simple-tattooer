@@ -115,7 +115,7 @@ export default function BookingFormScreen() {
                             bottomOffset={50}
                             contentContainerClassName="w-full"
                             showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
+                            
                         >
                             <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
                                 <View className="items-center justify-center" style={{ height: 180 }}>
@@ -291,7 +291,7 @@ export default function BookingFormScreen() {
                                     bottomOffset={20}
                                     contentContainerClassName="w-full"
                                     showsVerticalScrollIndicator={false}
-                                    keyboardShouldPersistTaps="handled"
+                                    
 
                                 >
                                     <View className="gap-6">

@@ -126,7 +126,7 @@ export default function SigninPage() {
         />
         <KeyboardAwareScrollView
           bottomOffset={50}
-          keyboardShouldPersistTaps="handled"
+          
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 gap-6">

@@ -180,7 +180,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                                     bottomOffset={20}
                                     contentContainerClassName="w-full"
                                     showsVerticalScrollIndicator={false}
-                                    keyboardShouldPersistTaps="handled"
+                                    
 
                                 >
                                     <View className="gap-6">

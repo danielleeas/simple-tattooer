@@ -248,7 +248,7 @@ export default function QuoteBooking() {
                 />
                 <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
                     <View className="flex-1">
-                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-[22px] h-[180px]">
                                     <Image

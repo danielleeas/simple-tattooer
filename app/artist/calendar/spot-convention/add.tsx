@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { View, Pressable, Modal } from "react-native";
+import { View, Pressable, Modal, Keyboard, TouchableWithoutFeedback } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from "expo-router";
 
-import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -114,6 +113,7 @@ export default function AddSpotConventionPage() {
     };
 
     const handleLocationSelect = async (location: Locations) => {
+        Keyboard.dismiss();
         setFormData(prev => ({ ...prev, location }));
         setLocationData(prev => [...prev, location]);
         setOpenTempLocationModal(false);
@@ -198,7 +198,6 @@ export default function AddSpotConventionPage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">
@@ -445,7 +444,10 @@ export default function AddSpotConventionPage() {
 
                 <LocationModal
                     visible={openTempLocationModal}
-                    onClose={() => setOpenTempLocationModal(false)}
+                    onClose={() => {
+                        Keyboard.dismiss();
+                        setOpenTempLocationModal(false);
+                    }}
                     onLocationSelect={(loc) =>
                         handleLocationSelect({
                             address: loc.address,

@@ -383,7 +383,7 @@ export default function FAQPage() {
         <View style={{ width }} className="flex-1">
             <KeyboardAwareScrollView
                 bottomOffset={100}
-                keyboardShouldPersistTaps="handled"
+                
                 contentContainerClassName="w-full px-4"
                 showsVerticalScrollIndicator={false}
             >

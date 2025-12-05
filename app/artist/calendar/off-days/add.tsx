@@ -213,7 +213,7 @@ export default function AddOffDaysPage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
+                        
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">

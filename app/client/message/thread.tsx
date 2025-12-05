@@ -311,7 +311,7 @@ export default function MessageThread() {
                                 renderItem={({ item }) => <MessageBubble message={item} />}
                                 keyExtractor={(item) => item.id}
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                                 contentContainerStyle={{
                                     paddingTop: 20,
                                     paddingBottom: 20,

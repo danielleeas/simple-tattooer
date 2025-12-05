@@ -385,7 +385,7 @@ export default function UploadPortfolios() {
                 contentContainerClassName="w-full"
                 showsVerticalScrollIndicator={false}
                 bottomOffset={80}
-                keyboardShouldPersistTaps="handled"
+                
             >
                 <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
                     <View className="items-center justify-center" style={{ height: 180 }}>

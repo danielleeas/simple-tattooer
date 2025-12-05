@@ -333,7 +333,7 @@ export default function UploadDrawings() {
                                 bottomOffset={80}
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                             >
                                 <View className="gap-6 pb-6">
                                     <View className="items-center justify-center pb-[22px] h-[180px]">

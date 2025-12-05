@@ -438,7 +438,7 @@ export default function YourApp() {
                             <KeyboardAwareScrollView
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                                 bottomOffset={20}
                                 contentContainerStyle={{
                                     paddingBottom: 80,
