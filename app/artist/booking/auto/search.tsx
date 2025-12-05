@@ -98,7 +98,7 @@ export default function SearchClients() {
         router.push('/artist/booking/auto/all-clients');
     };
 
-    const handleManualBooking = (clientId?: string) => {
+    const handleAutoBooking = (clientId?: string) => {
         if (!clientId) return;
 
         router.push({
@@ -182,7 +182,7 @@ export default function SearchClients() {
                                                     <Pressable
                                                         key={index}
                                                         onPress={() => {
-                                                            handleManualBooking(client.id);
+                                                            handleAutoBooking(client.id);
                                                             setTimeout(() => {
                                                                 setShowResults(false);
                                                             }, 500);
@@ -242,7 +242,7 @@ export default function SearchClients() {
                                     ) : recentClients.length > 0 ? (
                                         <>
                                             {recentClients.map((client: any, index: number) => (
-                                                <Pressable onPress={() => handleManualBooking(client.id)} key={index} className='items-center justify-between flex-row py-1 gap-4'>
+                                                <Pressable onPress={() => handleAutoBooking(client.id)} key={index} className='items-center justify-between flex-row py-1 gap-4'>
                                                     <Text variant="h5" className='flex-1'>{client.name}</Text>
                                                     {client.status === 'pending' && <Image source={WARNING_IMAGE} style={BUTTON_ICON_STYLE} />}
                                                     {client.status === 'blacklisted' && <Image source={SKELETON_IMAGE} style={BUTTON_ICON_STYLE} />}

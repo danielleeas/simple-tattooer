@@ -65,6 +65,7 @@ function DateInput({
                 modalTitle={modalTitle}
                 dateFormat={dateFormat}
                 showCalendarIcon={showCalendarIcon}
+                showTodayButton={false}
                 className={cn(
                     'flex-row items-center justify-between h-10 px-3 py-2 border border-border-white rounded-lg',
                     error && 'border-destructive',

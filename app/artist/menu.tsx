@@ -37,9 +37,8 @@ export default function Menu() {
         // router.push('/preview/clients/import-clients');
     };
 
-
     const handleNewAppointment = () => {
-        // router.push('/preview/booking/search');
+        router.push('/artist/booking/auto/search');
     };
 
     const handleManualAppointment = () => {

@@ -14,28 +14,43 @@ import { ChevronDown, ChevronUp, DollarSignIcon } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
 import { DateInput } from "@/components/lib/date-input";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
+import { Collapse } from "@/components/lib/collapse";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
 import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { useAuth, useToast } from "@/lib/contexts";
+import { DatePicker } from "@/components/lib/date-picker";
+
+interface FormDataProps {
+    title: string;
+    startDate: string | null;
+    endDate: string | null;
+    locationId: string;
+    sessionCount: string;
+    sessionLength: number | undefined;
+    depositAmount: string;
+    sessionRate: string;
+    notes: string;
+}
 
 export default function AutoBooking() {
     const { toast } = useToast();
     const { artist } = useAuth();
     const { clientId } = useLocalSearchParams();
-    const [dateRangeOpened, setDateRangeOpened] = useState<boolean>(false);
-    const [sessionDurationColOpened, setSessionDurationColOpened] = useState<boolean>(false);
-    const [locationColOpened, setLocationColOpened] = useState<boolean>(false);
-    const [sessionDuration, setSessionDuration] = useState<number | undefined>(undefined);
-    const [location, setLocation] = useState<string>('');
-    const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-    const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-    const [sessionCount, setSessionCount] = useState<string | "">("");
 
-    const [project, setProject] = useState<any>(null);
-
+    const [formData, setFormData] = useState<FormDataProps>({
+        title: '',
+        startDate: null,
+        endDate: null,
+        locationId: '',
+        sessionCount: '',
+        sessionLength: undefined,
+        depositAmount: '',
+        sessionRate: '',
+        notes: '',
+    });
 
     const handleBack = () => {
         router.back();
@@ -45,8 +60,39 @@ export default function AutoBooking() {
         router.push('/artist/menu');
     };
 
+    const buildRangeDates = (start?: string | null, end?: string | null): string[] => {
+        if (!start || !end) return [];
+        const startDate = new Date(start + 'T12:00:00');
+        const endDate = new Date(end + 'T12:00:00');
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return [];
+        const s = startDate <= endDate ? startDate : endDate;
+        const e = endDate >= startDate ? endDate : startDate;
+        const dates: string[] = [];
+        const cursor = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 12);
+        while (cursor <= e) {
+            const y = cursor.getFullYear();
+            const m = String(cursor.getMonth() + 1).padStart(2, '0');
+            const d = String(cursor.getDate()).padStart(2, '0');
+            dates.push(`${y}-${m}-${d}`);
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return dates;
+    };
+
+    const handleDatesStringSelect = (dates: string[]) => {
+        if (!dates || dates.length === 0) {
+            setFormData(prev => ({ ...prev, startDate: null, endDate: null }));
+            return;
+        }
+        const sorted = [...dates].sort();
+        const start = sorted[0];
+        const end = sorted[sorted.length - 1];
+        setFormData(prev => ({ ...prev, startDate: start, endDate: end }));
+    };
+
     const handleCompleteBooking = () => {
-        router.push('/');
+        console.log(formData);
+        // router.push('/');
         toast({
             variant: 'success',
             title: 'Booking Created!',
@@ -57,7 +103,7 @@ export default function AutoBooking() {
 
     return (
         <>
-            <Stack.Screen options={{headerShown: false, animation: 'slide_from_right'}} />
+            <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
             <SafeAreaView className='flex-1 bg-background'>
                 <Header
                     leftButtonImage={HOME_IMAGE}
@@ -67,145 +113,129 @@ export default function AutoBooking() {
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
                 />
-                <StableGestureWrapper
-                    onSwipeRight={handleBack}
-                    threshold={80}
-                    enabled={true}
-                >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
-                        <View className="flex-1">
-                            <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
-                                <View className="gap-6 pb-6">
-                                    <View className="items-center justify-center pb-[22px] h-[180px]">
-                                        <Image
-                                            source={require('@/assets/images/icons/appointment.png')}
-                                            style={{ width: 56, height: 56 }}
-                                            resizeMode="contain"
-                                        />
-                                        <Text variant="h6" className="text-center uppercase">Create</Text>
-                                        <Text variant="h6" className="text-center uppercase leading-none">Quote</Text>
-                                        <Text className="text-center mt-2 text-text-secondary">Set the parameters</Text>
-                                        <Text className="text-center text-text-secondary leading-none">for this project.</Text>
-                                    </View>
+                <View className="flex-1 bg-background p-4 pt-2 gap-6">
+                    <View className="flex-1">
+                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
+                            <View className="gap-6 pb-6">
+                                <View className="items-center justify-center pb-[22px] h-[180px]">
+                                    <Image
+                                        source={require('@/assets/images/icons/appointment.png')}
+                                        style={{ width: 56, height: 56 }}
+                                        resizeMode="contain"
+                                    />
+                                    <Text variant="h6" className="text-center uppercase">Create</Text>
+                                    <Text variant="h6" className="text-center uppercase leading-none">Quote</Text>
+                                    <Text className="text-center mt-2 text-text-secondary">Set the parameters</Text>
+                                    <Text className="text-center text-text-secondary leading-none">for this project.</Text>
+                                </View>
 
-                                    <View className="gap-2">
-                                        <Text variant="h5">Project Title</Text>
+                                <View className="gap-2">
+                                    <Text variant="h5">Project Title</Text>
+                                    <Input
+                                        value={formData.title}
+                                        onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
+                                    />
+                                </View>
+
+                                <View className="items-start gap-2">
+                                    <Collapse
+                                        title="Date Range"
+                                        textClassName="text-xl"
+                                        description="Choose the date range this project should be booked within"
+                                    >
+                                        <View className="flex-row items-center w-full gap-2">
+                                            <DatePicker
+                                                selectedDatesStrings={buildRangeDates(formData.startDate, formData.endDate)}
+                                                onDatesStringSelect={handleDatesStringSelect}
+                                                showInline={true}
+                                                showTodayButton={false}
+                                                selectionMode="range"
+                                                className="border border-border rounded-sm p-2"
+                                            />
+                                        </View>
+                                    </Collapse>
+                                </View>
+
+                                <View className="items-start gap-2">
+                                    <Collapse title="Location" textClassName="text-xl">
+                                        <DropdownPicker
+                                            options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
+                                            value={formData.locationId}
+                                            onValueChange={(value) => setFormData(prev => ({ ...prev, locationId: value }))}
+                                            placeholder="Select location"
+                                            modalTitle="Select Location"
+                                        />
+                                    </Collapse>
+                                </View>
+
+                                <View className="flex-row items-center gap-2">
+                                    <View className="flex-1 gap-2">
+                                        <Text variant="h5" className="w-[200px]">How Many Sessions Will This Take?</Text>
+                                    </View>
+                                    <View className="w-20">
                                         <Input
-                                            value={sessionCount.toString()}
-                                            onChangeText={() => { }}
+                                            keyboardType="numeric"
+                                            value={formData.sessionCount}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, sessionCount: text }))}
                                         />
-                                    </View>
-
-                                    <View className="items-start gap-2">
-                                        <Pressable className="w-full flex-row items-start justify-between" onPress={() => setDateRangeOpened(!dateRangeOpened)}>
-                                            <View className="w-[318px] gap-2">
-                                                <Text variant="h5">Date Range</Text>
-                                                <Text className="text-text-secondary leading-5">Choose the date range this project should be booked within</Text>
-                                            </View>
-                                            <Icon as={dateRangeOpened ? ChevronUp : ChevronDown} size={20} />
-                                        </Pressable>
-                                        {dateRangeOpened && (
-                                            <View className="flex-row items-center w-full gap-2">
-                                                <View className="flex-1">
-                                                    <DateInput
-                                                        selectedDate={startDate}
-                                                        onDateSelect={setStartDate}
-                                                        placeholder="Select date"
-                                                        dateFormat="MM DD"
-                                                        modalTitle="Select Start Date"
-                                                        showCalendarIcon={false}
-                                                    />
-                                                </View>
-                                                <Text variant="h5">-</Text>
-                                                <View className="flex-1">
-                                                    <DateInput
-                                                        selectedDate={endDate}
-                                                        onDateSelect={setEndDate}
-                                                        placeholder="Select date"
-                                                        dateFormat="MM DD"
-                                                        modalTitle="Select End Date"
-                                                        showCalendarIcon={false}
-                                                    />
-                                                </View>
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    <View className="items-start gap-2">
-                                        <Pressable className="w-full flex-row items-center justify-between" onPress={() => setLocationColOpened(!locationColOpened)}>
-                                            <Text variant="h5">Location</Text>
-                                            <Icon as={locationColOpened ? ChevronUp : ChevronDown} size={20} />
-                                        </Pressable>
-                                        {locationColOpened && (
-                                            <View className="gap-2 w-full">
-                                                <DropdownPicker
-                                                    options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
-                                                    value={location}
-                                                    onValueChange={setLocation}
-                                                    placeholder="Select location"
-                                                    modalTitle="Select Location"
-                                                />
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    <View className="flex-row items-center gap-2">
-                                        <View className="flex-1 gap-2">
-                                            <Text variant="h5" className="w-[200px]">How Many Sessions Will This Take?</Text>
-                                        </View>
-                                        <View className="w-20">
-                                            <Input value={sessionCount.toString()} />
-                                        </View>
-                                    </View>
-
-                                    <View className="items-start gap-2">
-                                        <Pressable className="w-full flex-row items-center justify-between" onPress={() => setSessionDurationColOpened(!sessionDurationColOpened)}>
-                                            <Text variant="h5">How Long Is Each Session?</Text>
-                                            <Icon as={sessionDurationColOpened ? ChevronUp : ChevronDown} size={20} />
-                                        </Pressable>
-                                        {sessionDurationColOpened && (
-                                            <View className="gap-2 w-full">
-                                                <TimeDurationPicker
-                                                    selectedDuration={sessionDuration}
-                                                    onDurationSelect={(duration) => setSessionDuration(duration)}
-                                                    minuteInterval={15}
-                                                    minDuration={15}
-                                                    maxDuration={525}
-                                                    modalTitle="Select Session Duration"
-                                                />
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    <View className="flex-row items-center justify-between gap-3">
-                                        <View className="flex-1 gap-2">
-                                            <Text variant="h5">Deposit Amount</Text>
-                                            <Input value={project?.deposit.amount.toString()} leftIcon={DollarSignIcon} />
-                                        </View>
-                                        <View className="flex-1 gap-2">
-                                            <Text variant="h5">Session rate</Text>
-                                            <Input value={project?.sessions[0]?.rate.toString()} leftIcon={DollarSignIcon} />
-                                        </View>
-                                    </View>
-
-                                    <View className="gap-2">
-                                        <Textarea
-                                            placeholder="Project Notes"
-                                            className="min-h-28"
-                                        />
-                                        <Text variant="small" className="font-thin leading-5 text-text-secondary">These  notes  will  be  sent  to  the  client</Text>
                                     </View>
                                 </View>
-                            </KeyboardAwareScrollView>
-                        </View>
 
-                        <View className="gap-4 items-center justify-center">
-                            <Button onPress={handleCompleteBooking} size="lg" className="w-full">
-                                <Text variant='h5'>Send Quote & Deposit</Text>
-                            </Button>
-                        </View>
+                                <View className="items-start gap-2">
+                                    <Collapse title="How Long Is Each Session?" textClassName="text-xl">
+                                        <TimeDurationPicker
+                                            selectedDuration={formData.sessionLength}
+                                            onDurationSelect={(duration) => setFormData(prev => ({ ...prev, sessionLength: duration }))}
+                                            minuteInterval={15}
+                                            minDuration={15}
+                                            maxDuration={525}
+                                            modalTitle="Select Session Duration"
+                                        />
+                                    </Collapse>
+                                </View>
+
+                                <View className="flex-row items-center justify-between gap-3">
+                                    <View className="flex-1 gap-2">
+                                        <Text variant="h5">Deposit Amount</Text>
+                                        <Input
+                                            keyboardType="numeric"
+                                            value={formData.depositAmount}
+                                            leftIcon={DollarSignIcon}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, depositAmount: text }))} />
+                                    </View>
+                                    <View className="flex-1 gap-2">
+                                        <Text variant="h5">Session rate</Text>
+                                        <Input
+                                            keyboardType="numeric"
+                                            value={formData.sessionRate}
+                                            leftIcon={DollarSignIcon}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, sessionRate: text }))} />
+                                    </View>
+                                </View>
+
+                                <View className="gap-2">
+                                    <Textarea
+                                        spellCheck={false}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        autoComplete="off"
+                                        placeholder="Project Notes"
+                                        className="min-h-28"
+                                        value={formData.notes}
+                                        onChangeText={(text) => setFormData(prev => ({ ...prev, notes: text }))}
+                                    />
+                                    <Text variant="small" className="font-thin leading-5 text-text-secondary">These  notes  will  be  sent  to  the  client</Text>
+                                </View>
+                            </View>
+                        </KeyboardAwareScrollView>
                     </View>
-                </StableGestureWrapper>
+
+                    <View className="gap-4 items-center justify-center">
+                        <Button variant="outline" onPress={handleCompleteBooking} className="w-full">
+                            <Text variant='h5'>Send Quote & Deposit</Text>
+                        </Button>
+                    </View>
+                </View>
             </SafeAreaView>
         </>
     );

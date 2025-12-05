@@ -706,7 +706,6 @@ CREATE INDEX IF NOT EXISTS idx_booking_requests_updated_at ON booking_requests(u
 CREATE TABLE IF NOT EXISTS project_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
-  booking_request_id UUID NOT NULL REFERENCES booking_requests(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   date_range_start TEXT NOT NULL,
   date_range_end TEXT NOT NULL,
@@ -716,15 +715,16 @@ CREATE TABLE IF NOT EXISTS project_requests (
   session_rate INTEGER NOT NULL,
   deposit_amount INTEGER NOT NULL,
   notes TEXT NULL,
-  selected_days TEXT[] NOT NULL DEFAULT '{}'::text[],   
+  selected_days TEXT[] NOT NULL DEFAULT '{}'::text[],
   start_times JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(start_times) = 'object'),
+  source TEXT NOT NULL DEFAULT 'request',
+  source_id UUID NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Optimized indexes for project requests
 CREATE INDEX IF NOT EXISTS idx_project_requests_artist_id ON project_requests(artist_id);
-CREATE INDEX IF NOT EXISTS idx_project_requests_booking_request_id ON project_requests(booking_request_id);
 CREATE INDEX IF NOT EXISTS idx_project_requests_title ON project_requests(title);
 CREATE INDEX IF NOT EXISTS idx_project_requests_date_range_start ON project_requests(date_range_start);
 CREATE INDEX IF NOT EXISTS idx_project_requests_date_range_end ON project_requests(date_range_end);
@@ -736,6 +736,8 @@ CREATE INDEX IF NOT EXISTS idx_project_requests_deposit_amount ON project_reques
 CREATE INDEX IF NOT EXISTS idx_project_requests_notes ON project_requests(notes);
 CREATE INDEX IF NOT EXISTS idx_project_requests_selected_days ON project_requests(selected_days);
 CREATE INDEX IF NOT EXISTS idx_project_requests_start_times ON project_requests(start_times);
+CREATE INDEX IF NOT EXISTS idx_project_requests_source ON project_requests(source);
+CREATE INDEX IF NOT EXISTS idx_project_requests_source_id ON project_requests(source_id);
 CREATE INDEX IF NOT EXISTS idx_project_requests_created_at ON project_requests(created_at);
 CREATE INDEX IF NOT EXISTS idx_project_requests_updated_at ON project_requests(updated_at);
 
