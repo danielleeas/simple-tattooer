@@ -43,7 +43,7 @@ export default function Menu() {
     };
 
     const handleManualAppointment = () => {
-        router.push('/artist/booking/search');
+        router.push('/artist/booking/manual/search');
     };
 
     const handleFAQ = () => {

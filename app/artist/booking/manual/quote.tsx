@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { View, Image, Pressable, ActivityIndicator } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Image, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -16,10 +16,10 @@ import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
-import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail, createProjectSession } from "@/lib/services/booking-service";
-import { getProjectById } from "@/lib/services/clients-service";
 import { Collapse } from "@/components/lib/collapse";
-import { formatDbDate, makeChunks } from "@/lib/utils";
+import { createClientWithAuth } from "@/lib/services/clients-service";
+import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
+import { formatDbDate } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
@@ -36,17 +36,15 @@ interface FormDataProps {
     notes: string;
 }
 
-export default function ManualBooking() {
+export default function QuoteBooking() {
     const { toast } = useToast();
     const { artist } = useAuth();
-    const { projectId } = useLocalSearchParams();
+    const { clientId, full_name, email, phone_number, project_notes } = useLocalSearchParams();
     const [availableDates, setAvailableDates] = useState<string[]>([]);
     const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
     const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
     const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [project, setProject] = useState<any>(null);
-
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
         sessionLength: undefined,
@@ -55,27 +53,8 @@ export default function ManualBooking() {
         startTimes: {},
         depositAmount: '',
         sessionRate: '',
-        notes: '',
+        notes: typeof project_notes === 'string' ? project_notes : '',
     });
-
-    const loadProject = useCallback(async () => {
-        if (!artist?.id || !projectId) return;
-        try {
-            const project = await getProjectById(String(artist.id), String(projectId));
-            if (project) {
-                setProject(project);
-                setFormData((prev) => ({
-                    ...prev,
-                    title: project.title || '',
-                    depositAmount: project.deposit_amount && project.deposit_amount !== 0 ? '0' : '',
-                    sessionRate: '', // Session rate is per session, not stored on project
-                    notes: project.notes || '',
-                }));
-            }
-        } catch (e) {
-            console.warn('Failed to load project:', e);
-        }
-    }, [artist?.id, projectId]);
 
     const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
         setLoadingAvailability(true);
@@ -98,7 +77,7 @@ export default function ManualBooking() {
         setCalendarMonth(month);
     }
 
-    const onChangeLocation = (locationId: string) =>{
+    const onChangeLocation = (locationId: string) => {
         setFormData((prev) => ({ ...prev, locationId: locationId, dates: [] }));
     }
 
@@ -129,113 +108,130 @@ export default function ManualBooking() {
         loadAvailabilityForMonth(calendarYear, calendarMonth, formData.locationId);
     }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
 
-    useEffect(() => {
-        loadProject();
-    }, [loadProject]);
-
-    const handleAddManualSession = async () => {
-        try {
-            setSubmitting(true);
-            if (!artist?.id) {
-                toast({ variant: 'error', title: 'Missing artist session' });
-                return;
-            }
-
-            if (!project?.id) {
-                toast({ variant: 'error', title: 'Missing project' });
-                return;
-            }
-
-            if (!project?.client_id) {
-                toast({ variant: 'error', title: 'Missing client' });
-                return;
-            }
-
-            if (formData.dates.length === 0) {
-                toast({ variant: 'error', title: 'Please select at least one date' });
-                return;
-            }
-
-            if (!formData.sessionLength) {
-                toast({ variant: 'error', title: 'Please select session length' });
-                return;
-            }
-
-            if (!formData.locationId) {
-                toast({ variant: 'error', title: 'Please select location' });
-                return;
-            }
-
-            // Validate that each date has a start time
-            for (const date of formData.dates) {
-                if (!formData.startTimes[date]) {
-                    toast({ variant: 'error', title: `Please select a start time for ${formatDbDate(date, 'MMM DD, YYYY')}` });
-                    return;
-                }
-            }
-
-            const backToBackResult = await getBackToBackResult(artist, formData.dates, String(project.client_id));
-            if (!backToBackResult.success) {
-                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
-                return;
-            }
-
-            const depositAmount = parseInt(formData.depositAmount) || 0;
-            const sessionRate = parseInt(formData.sessionRate) || 0;
-
-            // Convert YYYY-MM-DD string to Date object
-            const parseYmdToDate = (ymd: string): Date => {
-                const [y, m, d] = ymd.split('-').map(Number);
-                return new Date(y, m - 1, d, 12);
-            };
-
-            // Create sessions for each selected date
-            const sessionResults = [];
-            for (const dateYmd of formData.dates) {
-                const startTimeDisplay = formData.startTimes[dateYmd];
-                const date = parseYmdToDate(dateYmd);
-                
-                const result = await createProjectSession({
-                    projectId: String(project.id),
-                    date: date,
-                    startTimeDisplay: startTimeDisplay,
-                    sessionLengthMinutes: formData.sessionLength,
-                    locationId: formData.locationId,
-                    sessionRate: sessionRate || undefined,
-                    notes: formData.notes || undefined,
-                });
-
-                if (!result.success) {
-                    toast({ variant: 'error', title: result.error || `Failed to create session for ${formatDbDate(dateYmd, 'MMM DD, YYYY')}` });
-                    return;
-                }
-
-                sessionResults.push(result);
-            }
-
-            // Update project if needed (title, notes, deposit)
-            // Note: deposit_amount update might be handled elsewhere, but we can update title and notes here
-            if (formData.title !== project.title || formData.notes !== (project.notes || '')) {
-                // You may want to add a service function to update project details
-                // For now, we'll just show success
-            }
-
-            toast({ variant: 'success', title: `Successfully added ${sessionResults.length} session(s)` });
-            router.back();
-        } catch (e) {
-            console.warn('Failed to add manual session:', e);
-            toast({ variant: 'error', title: 'Failed to add session. Please try again.' });
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     const handleHome = () => {
         router.dismissAll();
     }
 
     const handleMenu = () => {
         router.push('/artist/menu');
+    };
+
+    const handleCompleteBooking = async () => {
+        try {
+            setSubmitting(true);
+            if (!artist?.id) {
+                toast({ variant: 'error', title: 'Missing artist session' });
+                return;
+            }
+            const depositAmount = parseInt(formData.depositAmount);
+            const sessionRate = parseInt(formData.sessionRate);
+
+            if (formData.dates.length === 0) {
+                toast({ variant: 'error', title: 'Please select at least one date' });
+                return;
+            }
+
+            const backToBackResult = await getBackToBackResult(artist, formData.dates);
+            if (!backToBackResult.success) {
+                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
+                return;
+            }
+
+            // Ensure we have a client; create one if not provided via params
+            let resolvedClientId = String(clientId || '');
+            if (!resolvedClientId) {
+                const nameVal = typeof full_name === 'string' ? full_name : '';
+                const emailVal = typeof email === 'string' ? email : '';
+                const phoneVal = typeof phone_number === 'string' ? phone_number : '';
+                const notesVal = typeof project_notes === 'string' ? project_notes : null;
+
+                if (!nameVal.trim() || !emailVal.trim() || !phoneVal.trim()) {
+                    toast({
+                        variant: 'error',
+                        title: 'Missing client info',
+                        description: 'Full name, email, and phone are required.',
+                        duration: 3000,
+                    });
+                    return;
+                }
+
+                const created = await createClientWithAuth({
+                    full_name: nameVal,
+                    email: emailVal,
+                    phone_number: phoneVal,
+                    project_notes: notesVal,
+                    artist_id: artist.id,
+                });
+
+                if (!created?.success) {
+                    toast({
+                        variant: 'error',
+                        title: 'Failed to create client',
+                        description: created?.error || 'Please try again',
+                        duration: 3000,
+                    });
+                    return;
+                }
+
+                resolvedClientId = created.client.id;
+            }
+
+            const result = await createManualBooking({
+                artistId: artist.id,
+                clientId: resolvedClientId,
+                title: formData.title,
+                sessionLengthMinutes: formData.sessionLength || 0,
+                locationId: formData.locationId,
+                dates: formData.dates,
+                startTimes: formData.startTimes,
+                depositAmount,
+                sessionRate,
+                notes: formData.notes,
+            });
+
+            if (!result.success) {
+                toast({
+                    variant: 'error',
+                    title: 'Failed to create booking',
+                    description: result.error || 'Please try again',
+                    duration: 3000,
+                });
+                return;
+            }
+
+            // Send manual booking request approval email (non-blocking) via service
+            void sendManualBookingRequestEmail({
+                artist: artist as any,
+                clientId: resolvedClientId,
+                form: {
+                    title: formData.title,
+                    dates: formData.dates,
+                    startTimes: formData.startTimes,
+                    sessionLength: formData.sessionLength || 0,
+                    notes: formData.notes,
+                    locationId: formData.locationId,
+                    depositAmount,
+                    sessionRate,
+                },
+            });
+
+            toast({
+                variant: 'success',
+                title: 'Booking Created!',
+                description: 'Waiting for client response to pay deposit',
+                duration: 3000,
+            });
+            router.push('/');
+        } catch (e: any) {
+            toast({
+                variant: 'error',
+                title: 'Unexpected error',
+                description: e?.message || 'Please try again',
+                duration: 3000,
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -250,7 +246,7 @@ export default function ManualBooking() {
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
                 />
-                <View className="flex-1 bg-background p-4 gap-6">
+                <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
                     <View className="flex-1">
                         <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                             <View className="gap-6 pb-6">
@@ -410,14 +406,14 @@ export default function ManualBooking() {
                     </View>
 
                     <View className="gap-4 items-center justify-center">
-                        <Button variant="outline" onPress={handleAddManualSession} className="w-full" disabled={submitting}>
+                        <Button variant="outline" onPress={handleCompleteBooking} className="w-full" disabled={submitting}>
                             {submitting ? (
                                 <View className="flex-row items-center justify-center gap-2">
                                     <ActivityIndicator size="small" color="#000000" />
-                                    <Text variant='h5'>Adding...</Text>
+                                    <Text variant='h5'>Creating...</Text>
                                 </View>
                             ) : (
-                                <Text variant='h5'>Add Manual Session</Text>
+                                <Text variant='h5'>Send Quote & Deposit</Text>
                             )}
                         </Button>
                     </View>

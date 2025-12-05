@@ -7,13 +7,12 @@ import { ChevronRightIcon, SearchIcon, XIcon, PlusIcon } from "lucide-react-nati
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useAuth } from "@/lib/contexts/auth-context";
-import { getRecentClients, searchClients } from "@/lib/services/clients-service";
+import { getAllClients, searchClients } from "@/lib/services/clients-service";
 
-import HOME_IMAGE from "@/assets/images/icons/home.png";
-import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
+import LOVE_THIN_IMAGE from "@/assets/images/icons/love_thin.png";
 import SKELETON_IMAGE from "@/assets/images/icons/skeleton.png";
 import CURRENCY_DOLLAR_IMAGE from "@/assets/images/icons/currency_dollar.png";
 import WARNING_IMAGE from "@/assets/images/icons/warning_circle.png";
@@ -23,13 +22,13 @@ const BUTTON_ICON_STYLE: ImageStyle = {
     width: 24,
 }
 
-export default function SearchClients() {
+export default function AllClients() {
     const [localSearchQuery, setLocalSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
-    const [recentClients, setRecentClients] = useState([]);
-    const [loadingRecent, setLoadingRecent] = useState(false);
+    const [allClients, setAllClients] = useState([]);
+    const [loadingAll, setLoadingAll] = useState(false);
     const inputRef = useRef<TextInput>(null);
     const { artist } = useAuth();
 
@@ -43,13 +42,13 @@ export default function SearchClients() {
         setIsSearching(true);
         const timeoutId = setTimeout(async () => {
             try {
-				if (!artist?.id) {
-					setSearchResults([]);
-					return;
-				}
+                if (!artist?.id) {
+                    setSearchResults([]);
+                    return;
+                }
 
-				const results = await searchClients(artist.id, localSearchQuery, 10);
-				setSearchResults(results as any);
+                const results = await searchClients(artist.id, localSearchQuery, 10);
+                setSearchResults(results as any);
             } catch (error) {
                 console.error('Search error:', error);
                 setSearchResults([]);
@@ -59,43 +58,31 @@ export default function SearchClients() {
         }, 500);
 
         return () => clearTimeout(timeoutId);
-	}, [localSearchQuery, artist?.id]);
+    }, [localSearchQuery, artist?.id]);
 
-    const loadRecentClients = useCallback(async () => {
+    const loadAllClients = useCallback(async () => {
         if (!artist?.id) return;
         try {
-            setLoadingRecent(true);
-            const result = await getRecentClients(artist.id);
-            setRecentClients(result as any);
+            setLoadingAll(true);
+            const result = await getAllClients(artist.id);
+            setAllClients(result as any);
         } catch (e) {
-            setRecentClients([] as any);
+            setAllClients([] as any);
         } finally {
-            setLoadingRecent(false);
+            setLoadingAll(false);
         }
     }, [artist?.id]);
 
     useEffect(() => {
-        loadRecentClients();
-    }, [loadRecentClients]);
+        loadAllClients();
+    }, [loadAllClients]);
 
     const handleBack = () => {
         router.back();
     };
 
-    const handleHome = () => {
-        router.dismissAll();
-    }
-
-    const handleMenu = () => {
-        router.push('/artist/menu');
-    };
-
     const handleAddClient = () => {
-        router.push('/artist/booking/add-client');
-    };
-
-    const handleAllClients = () => {
-        router.push('/artist/booking/all-clients');
+        router.push('/artist/booking/manual/add-client');
     };
 
     const handleManualBooking = (clientId?: string) => {
@@ -127,23 +114,20 @@ export default function SearchClients() {
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
             <SafeAreaView className='flex-1 bg-background'>
-                <Header
-                    leftButtonImage={HOME_IMAGE}
-                    leftButtonTitle="Home"
-                    onLeftButtonPress={handleHome}
-                    rightButtonImage={MENU_IMAGE}
-                    rightButtonTitle="Menu"
-                    onRightButtonPress={handleMenu}
-                />
+                <Header leftButtonImage={BACK_IMAGE} leftButtonTitle="Back" onLeftButtonPress={handleBack} />
                 <StableGestureWrapper
                     onSwipeRight={handleBack}
                     threshold={80}
                     enabled={true}
                 >
                     <View className="flex-1 bg-background px-4 py-2 pb-6 gap-6">
-                        <View>
-                            <Text variant="h3" className="text-center">Search Less.</Text>
-                            <Text variant="h3" className="text-center">Tattoo More</Text>
+                        <View className="items-center justify-center pb-9">
+                            <Image
+                                source={LOVE_THIN_IMAGE}
+                                style={{ width: 56, height: 56 }}
+                                resizeMode="contain"
+                            />
+                            <Text variant="h6" className="text-center uppercase">See All Clients</Text>
                         </View>
                         <View className="gap-1">
                             <View className="relative z-20">
@@ -220,7 +204,7 @@ export default function SearchClients() {
                                         </Pressable>
                                     </View>
                                 )}
-                                <Text className="text-text-secondary mt-3">Type name/email/ or phone number to find an Existing Client or Add New Client.</Text>
+                                <Text className="text-text-secondary mt-3">Type a name top find any client, instantly.</Text>
                             </View>
                         </View>
                         {showResults && (
@@ -235,13 +219,13 @@ export default function SearchClients() {
                         <View className="flex-1">
                             <ScrollView contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
                                 <View className="gap-6 ">
-                                    {loadingRecent ? (
+                                    {loadingAll ? (
                                         <View className="items-center justify-center px-4 py-3">
                                             <Text variant="h5" className="text-text-secondary">Loading...</Text>
                                         </View>
-                                    ) : recentClients.length > 0 ? (
+                                    ) : allClients.length > 0 ? (
                                         <>
-                                            {recentClients.map((client: any, index: number) => (
+                                            {allClients.map((client: any, index: number) => (
                                                 <Pressable onPress={() => handleManualBooking(client.id)} key={index} className='items-center justify-between flex-row py-1 gap-4'>
                                                     <Text variant="h5" className='flex-1'>{client.name}</Text>
                                                     {client.status === 'pending' && <Image source={WARNING_IMAGE} style={BUTTON_ICON_STYLE} />}
@@ -258,11 +242,6 @@ export default function SearchClients() {
                                     )}
                                 </View>
                             </ScrollView>
-                        </View>
-                        <View className="gap-3">
-                            <Button variant="outline" size="lg" className="w-full" onPress={handleAllClients}>
-                                <Text variant='h5'>See All Clients</Text>
-                            </Button>
                         </View>
                     </View>
                 </StableGestureWrapper>

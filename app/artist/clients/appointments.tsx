@@ -376,12 +376,12 @@ export default function ClientAppointments() {
         // Find the currently expanded project
         const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
         // TODO: Navigate to manual add session
-        // if (expandedProjectId) {
-        //     router.push({
-        //         pathname: '/artist/clients/add-session',
-        //         params: { projectId: expandedProjectId }
-        //     });
-        // }
+        if (expandedProjectId) {
+            router.push({
+                pathname: '/artist/booking/session/add-manual',
+                params: { projectId: expandedProjectId }
+            });
+        }
     };
 
     const handleAutoAddSession = () => {

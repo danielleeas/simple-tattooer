@@ -82,14 +82,14 @@ export default function AllClients() {
     };
 
     const handleAddClient = () => {
-        router.push('/artist/clients/add');
+        router.push('/artist/booking/auto/add-client');
     };
 
     const handleManualBooking = (clientId?: string) => {
         if (!clientId) return;
 
         router.push({
-            pathname: '/artist/booking/manual',
+            pathname: '/artist/booking/auto',
             params: { clientId: clientId }
         });
     };

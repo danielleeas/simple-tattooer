@@ -53,7 +53,7 @@ export default function AddClient() {
 		}
 
         router.push({
-            pathname: '/artist/booking/quote',
+            pathname: '/artist/booking/manual/quote',
             params: {
                 full_name: formData.full_name,
                 email: formData.email,

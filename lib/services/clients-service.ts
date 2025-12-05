@@ -720,6 +720,40 @@ export async function updateSessionNotes(sessionId: string, notes: string): Prom
 }
 
 /**
+ * Fetch a single project by id (scoped to artist).
+ */
+export async function getProjectById(artistId: string, projectId: string): Promise<any | null> {
+	if (!artistId || !projectId) return null;
+
+	const { data, error } = await supabase
+		.from('projects')
+		.select(`
+			id,
+			artist_id,
+			client_id,
+			title,
+			deposit_amount,
+			deposit_paid,
+			deposit_paid_date,
+			deposit_payment_method,
+			notes,
+			waiver_signed,
+			created_at,
+			updated_at
+		`)
+		.eq('id', projectId)
+		.eq('artist_id', artistId)
+		.single();
+
+	if (error) {
+		console.error('Error fetching project by id:', error);
+		return null;
+	}
+
+	return data ?? null;
+}
+
+/**
  * Fetch a single session by id, including related project, client, and location data.
  */
 export async function getSessionById(sessionId: string): Promise<any | null> {
