@@ -481,7 +481,7 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                 </View>
             </Collapse>
 
-            <Collapse title="Social Media Handle" textClassName="text-xl">
+            <Collapse title="Social Media Url" textClassName="text-xl">
                 <View className="gap-2">
                     <Input placeholder="@instagram_handle" value={brandingData.socialMediaHandle} onChangeText={(text) => { updateBrandingData({ socialMediaHandle: text }) }} />
                     <Text className='text-text-secondary leading-none'>Show clients where to find you</Text>

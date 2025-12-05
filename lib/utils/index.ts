@@ -287,3 +287,18 @@ export const makeChunks = <T>(arr: T[], chunkSize: number = 2): T[][] => {
   }
   return chunks;
 };
+
+export const getHandler = (full_name: string) => {
+  // First try splitting by spaces
+  const parts = full_name.split(' ');
+  
+  // If no spaces found, try splitting by capital letters (e.g., "DanielLee" -> ["Daniel", "Lee"])
+  if (parts.length === 1) {
+    const match = full_name.match(/[A-Z][a-z]*/g);
+    if (match && match.length > 1) {
+      return `@${match.map(part => part.toLowerCase()).join('.')}`;
+    }
+  }
+  
+  return `@${parts.map(part => part.toLowerCase()).join('.')}`;
+};

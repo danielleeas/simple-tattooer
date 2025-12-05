@@ -4,6 +4,7 @@ import { Stack, router } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import { useAuth } from "@/lib/contexts";
+import { getHandler } from "@/lib/utils";
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -34,7 +35,7 @@ export default function BookingScreen() {
                         <View className="justify-around flex-1">
                             <View className="items-center justify-center">
                                 <Text variant="h2" className="text-center">{artist?.full_name}</Text>
-                                <Text variant="h5">{artist?.social_handler ? `${artist?.social_handler}` : '@artist.instagram'}</Text>
+                                <Text variant="h5">{getHandler(artist?.full_name || 'Artist Instagram')}</Text>
                             </View>
                             <View className="w-full items-center justify-between flex-row">
                                 <View className='h-full items-center w-[120px]' >

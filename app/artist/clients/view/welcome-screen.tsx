@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
 import { Text } from "@/components/ui/text";
 import { useAuth } from "@/lib/contexts";
+import { getHandler } from "@/lib/utils";
 
 export default function WelcomeScreen() {
     const { artist } = useAuth();
@@ -28,7 +29,7 @@ export default function WelcomeScreen() {
                     <View className="flex-1 bg-background pt-4 pb-2 gap-6">
                         <View className="items-center justify-center">
                             <Text variant="h2" className="text-center">{artist?.full_name}</Text>
-                            <Text variant="h5">{artist?.social_handler ? `${artist?.social_handler}` : '@artist.instagram'}</Text>
+                            <Text variant="h5">{getHandler(artist?.full_name || 'Artist Instagram')}</Text>
                         </View>
                         <View className="flex-1">
                             <Image
