@@ -34,17 +34,17 @@ export default function ClientProfile() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     useEffect(() => {
-        if (id) {
+        if (id && !client || client?.id !== id) {
             loadClient(String(id));
         }
-    }, [id, loadClient]);
+    }, [id, loadClient, client]);
 
     useFocusEffect(
         useCallback(() => {
-            if (id) {
+            if (id && !client || client?.id !== id) {
                 loadClient(String(id));
             }
-        }, [id, loadClient])
+        }, [id, loadClient, client])
     );
 
     const handleBack = () => {
@@ -250,7 +250,7 @@ export default function ClientProfile() {
                 <Modal
                     visible={isDeleteModalOpen}
                     transparent={true}
-                    animationType="fade"
+                    animationType="slide"
                     onRequestClose={() => setIsDeleteModalOpen(false)}
                 >
                     <View className="flex-1 bg-black/50 justify-end items-center">

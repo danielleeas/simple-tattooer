@@ -69,18 +69,39 @@ export const ClientProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }): Promise<boolean> => {
     if (!artist?.id || !client?.id) return false;
 
+    // Store previous state for rollback
+    const previousClient = client;
+
+    // Optimistic UI update - update state directly
+    setClient((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        name: formData.name,
+        email: formData.email,
+        phone_number: formData.phone_number,
+        location: formData.location,
+        links: prev.links?.map((link: any, index: number) => 
+          index === 0 ? { ...link, notes: formData.notes } : link
+        ) || [{ notes: formData.notes }],
+      };
+    });
+
     try {
       const success = await updateClient(artist.id, client.id, formData);
-      if (success) {
-        // Refresh client data after successful update
-        await refreshClient();
+      if (!success) {
+        // Revert on failure
+        setClient(previousClient);
+        return false;
       }
-      return success;
+      return true;
     } catch (error) {
       console.error('Error updating client:', error);
+      // Revert on error
+      setClient(previousClient);
       return false;
     }
-  }, [artist?.id, client?.id, refreshClient]);
+  }, [artist?.id, client]);
 
   const clearClient = useCallback(() => {
     setClient(null);

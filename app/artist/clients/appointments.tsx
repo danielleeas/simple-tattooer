@@ -10,7 +10,7 @@ import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDownIcon, ChevronUpIcon, FileSearch, FileText, X } from "lucide-react-native";
+import { ChevronDownIcon, ChevronUpIcon, FileSearch, FileText, X, CalendarPlus, Calendar } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
 import { useAuth, useToast } from "@/lib/contexts";
 import { getClientById, getClientProjectsWithSessions, updateProjectWaiverSigned, updateProjectNotes } from "@/lib/services/clients-service";
@@ -287,6 +287,7 @@ export default function ClientAppointments() {
     const [waiverModalVisible, setWaiverModalVisible] = useState(false);
     const [agreeChecked, setAgreeChecked] = useState<boolean>(false);
     const [waiverSigned, setWaiverSigned] = useState<boolean>(false);
+    const [addSessionModalVisible, setAddSessionModalVisible] = useState(false);
 
     const handleOpenWaiver = () => {
         if (!waiverUrl) return;
@@ -367,8 +368,14 @@ export default function ClientAppointments() {
     };
 
     const handleAddSession = () => {
+        setAddSessionModalVisible(true);
+    };
+
+    const handleManualAddSession = () => {
+        setAddSessionModalVisible(false);
         // Find the currently expanded project
-        // const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
+        const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
+        // TODO: Navigate to manual add session
         // if (expandedProjectId) {
         //     router.push({
         //         pathname: '/artist/clients/add-session',
@@ -377,9 +384,16 @@ export default function ClientAppointments() {
         // }
     };
 
+    const handleAutoAddSession = () => {
+        setAddSessionModalVisible(false);
+        // Find the currently expanded project
+        const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
+        // TODO: Navigate to auto add session
+    };
+
     const handleDetailSession = (clientId: string, projectId: string, sessionId: string) => {
         router.push({
-            pathname: '/artist/clients/detail-session',
+            pathname: '/artist/booking/session/detail-session',
             params: { client_id: clientId, project_id: projectId, session_id: sessionId }
         });
     };
@@ -548,7 +562,7 @@ export default function ClientAppointments() {
                                                                         <View style={{ width: project.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${project.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
                                                                             <Text className={`text-xs items-center justify-center ${project.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{project.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
                                                                         </View>
-                                                                        <Text variant="small">{waiverFileName? 'Waiver.pdf': 'No waiver uploaded'}</Text>
+                                                                        <Text variant="small">{waiverFileName ? 'Waiver.pdf' : 'No waiver uploaded'}</Text>
                                                                         <View className="flex-row items-center gap-1">
                                                                             <Text variant="small">{project.waiverSigned ? 'Preview' : 'Preview and Signed'}</Text>
                                                                             <Icon as={FileSearch} strokeWidth={1} size={16} />
@@ -704,6 +718,58 @@ export default function ClientAppointments() {
                         </Pressable>
                     </View>
                 </Modal>
+
+                <Modal
+                    visible={addSessionModalVisible}
+                    onRequestClose={() => setAddSessionModalVisible(false)}
+                    transparent={true}
+                    animationType="fade"
+                >
+                    <Pressable
+                        className="flex-1 bg-black/50 justify-center items-center"
+                        onPress={() => setAddSessionModalVisible(false)}
+                    >
+                        <Pressable
+                            className="w-[85%] bg-background-secondary rounded-2xl p-6 gap-6"
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View className="items-center justify-center gap-2">
+                                <Text variant="h5" className="text-center">Add Session</Text>
+                                <Text variant="small" className="text-text-secondary text-center">
+                                    Choose how you want to add a new session
+                                </Text>
+                            </View>
+
+                            <View className="gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="w-full flex-row items-center"
+                                    onPress={handleManualAddSession}
+                                >
+                                    <Text variant="h5">Manual Add Session</Text>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    className="w-full flex-row items-center"
+                                    onPress={handleAutoAddSession}
+                                >
+                                    <Text variant="h5">Auto Add Session</Text>
+                                </Button>
+                            </View>
+
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onPress={() => setAddSessionModalVisible(false)}
+                            >
+                                <Text variant="h5">Cancel</Text>
+                            </Button>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+
+
             </SafeAreaView >
         </>
     );

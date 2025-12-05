@@ -19,7 +19,7 @@ import MENU_IMAGE from "@/assets/images/icons/menu.png";
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
 
 export default function ClientDetailSession() {
-    const _params = (useLocalSearchParams<'/artist/clients/detail-session'>() ?? {}) as Record<string, string | string[] | undefined>;
+    const _params = (useLocalSearchParams<'/artist/booking/session/detail-session'>() ?? {}) as Record<string, string | string[] | undefined>;
     const client_id = (Array.isArray(_params.client_id) ? _params.client_id[0] : _params.client_id) as string | undefined;
     const project_id = (Array.isArray(_params.project_id) ? _params.project_id[0] : _params.project_id) as string | undefined;
     const session_id = (Array.isArray(_params.session_id) ? _params.session_id[0] : _params.session_id) as string | undefined;
@@ -229,7 +229,7 @@ export default function ClientDetailSession() {
         }
 
         router.push({
-            pathname: '/artist/clients/edit-session',
+            pathname: '/artist/booking/session/edit-session',
             params: { projectId: session.project_id, sessionId: session.id }
         });
     };

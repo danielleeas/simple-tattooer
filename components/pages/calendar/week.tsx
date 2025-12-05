@@ -124,7 +124,7 @@ export const WeekView = ({ currentDate, events }: WeekViewProps) => {
         }
         else if (source === 'session') {
             router.push({
-                pathname: '/artist/clients/detail-session',
+                pathname: '/artist/booking/session/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
             });
         }
