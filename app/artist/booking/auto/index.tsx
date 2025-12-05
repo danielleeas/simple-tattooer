@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { useAuth, useToast } from "@/lib/contexts";
 import { DatePicker } from "@/components/lib/date-picker";
+import { createProjectRequest } from "@/lib/services/booking-service";
 
 interface FormDataProps {
     title: string;
@@ -39,6 +40,7 @@ export default function AutoBooking() {
     const { toast } = useToast();
     const { artist } = useAuth();
     const { clientId } = useLocalSearchParams();
+    const [submitting, setSubmitting] = useState(false);
 
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
@@ -54,6 +56,10 @@ export default function AutoBooking() {
 
     const handleBack = () => {
         router.back();
+    };
+
+    const handleHome = () => {
+        router.dismissAll();
     };
 
     const handleMenu = () => {
@@ -90,15 +96,102 @@ export default function AutoBooking() {
         setFormData(prev => ({ ...prev, startDate: start, endDate: end }));
     };
 
-    const handleCompleteBooking = () => {
-        console.log(formData);
-        // router.push('/');
-        toast({
-            variant: 'success',
-            title: 'Booking Created!',
-            description: 'Waiting for client response to pay deposit',
-            duration: 3000,
-        });
+    const handleCompleteBooking = async () => {
+        try {
+            setSubmitting(true);
+            // Validation
+            if (!artist?.id) {
+                toast({ variant: 'error', title: 'Artist information not found' });
+                return;
+            }
+
+            if (!clientId) {
+                toast({ variant: 'error', title: 'Client information not found' });
+                return;
+            }
+
+            if (!formData.title.trim()) {
+                toast({ variant: 'error', title: 'Please enter a project title' });
+                return;
+            }
+
+            if (!formData.startDate || !formData.endDate) {
+                toast({ variant: 'error', title: 'Please select a date range' });
+                return;
+            }
+
+            if (!formData.locationId) {
+                toast({ variant: 'error', title: 'Please select a location' });
+                return;
+            }
+
+            if (!formData.sessionCount || parseInt(formData.sessionCount) <= 0) {
+                toast({ variant: 'error', title: 'Please enter a valid session count' });
+                return;
+            }
+
+            if (!formData.sessionLength || formData.sessionLength <= 0) {
+                toast({ variant: 'error', title: 'Please select a session length' });
+                return;
+            }
+
+            if (!formData.sessionRate || parseInt(formData.sessionRate) <= 0) {
+                toast({ variant: 'error', title: 'Please enter a valid session rate' });
+                return;
+            }
+
+            if (!formData.depositAmount || parseInt(formData.depositAmount) < 0) {
+                toast({ variant: 'error', title: 'Please enter a valid deposit amount' });
+                return;
+            }
+
+            // Create project request using booking service
+            const result = await createProjectRequest({
+                artist: artist,
+                clientId: String(clientId),
+                title: formData.title.trim(),
+                dateRangeStart: formData.startDate!,
+                dateRangeEnd: formData.endDate!,
+                locationId: formData.locationId,
+                sessionCount: parseInt(formData.sessionCount),
+                sessionLength: formData.sessionLength!,
+                sessionRate: parseInt(formData.sessionRate),
+                depositAmount: parseInt(formData.depositAmount),
+                notes: formData.notes.trim() || undefined,
+                source: 'manual',
+                sourceId: null,
+            });
+
+            if (!result.success) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: result.error || 'Failed to create booking',
+                    duration: 3000,
+                });
+                return;
+            }
+
+            toast({
+                variant: 'success',
+                title: 'Booking Created!',
+                description: 'Waiting for client response to pay deposit',
+                duration: 3000,
+            });
+
+            // Optionally navigate back or to a success page
+            // router.push('/');
+        } catch (error) {
+            console.error('Unexpected error creating project request:', error);
+            toast({
+                variant: 'error',
+                title: 'Error',
+                description: 'An unexpected error occurred. Please try again.',
+                duration: 3000,
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -108,7 +201,7 @@ export default function AutoBooking() {
                 <Header
                     leftButtonImage={HOME_IMAGE}
                     leftButtonTitle="Home"
-                    onLeftButtonPress={handleBack}
+                    onLeftButtonPress={handleHome}
                     rightButtonImage={MENU_IMAGE}
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
@@ -231,8 +324,8 @@ export default function AutoBooking() {
                     </View>
 
                     <View className="gap-4 items-center justify-center">
-                        <Button variant="outline" onPress={handleCompleteBooking} className="w-full">
-                            <Text variant='h5'>Send Quote & Deposit</Text>
+                        <Button variant="outline" onPress={handleCompleteBooking} className="w-full" disabled={submitting}>
+                            <Text variant='h5'>{submitting ? 'Sending...' : 'Send Quote & Deposit'}</Text>
                         </Button>
                     </View>
                 </View>

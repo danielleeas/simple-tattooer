@@ -1665,3 +1665,226 @@ export async function sendReturnClientEmail(input: ReturnClientEmailInput): Prom
     }
 }
 
+export interface CreateProjectRequestInput {
+    artist: Artist;
+    clientId: string;
+    title: string;
+    dateRangeStart: string; // YYYY-MM-DD format
+    dateRangeEnd: string; // YYYY-MM-DD format
+    locationId: string;
+    sessionCount: number;
+    sessionLength: number;
+    sessionRate: number;
+    depositAmount: number;
+    notes?: string;
+    source?: string;
+    sourceId?: string | null;
+    selectedDays?: string[];
+    startTimes?: Record<string, string>;
+}
+
+export interface CreateProjectRequestResult {
+    success: boolean;
+    projectRequestId?: string;
+    error?: string;
+}
+
+export async function createProjectRequest(input: CreateProjectRequestInput): Promise<CreateProjectRequestResult> {
+    try {
+        if (!input.artist) return { success: false, error: 'Missing artist' };
+        if (!input.clientId) return { success: false, error: 'Missing client ID' };
+        if (!input.title?.trim()) return { success: false, error: 'Missing project title' };
+        if (!input.dateRangeStart) return { success: false, error: 'Missing date range start' };
+        if (!input.dateRangeEnd) return { success: false, error: 'Missing date range end' };
+        if (!input.locationId) return { success: false, error: 'Missing location ID' };
+        if (!input.sessionCount || input.sessionCount <= 0) return { success: false, error: 'Invalid session count' };
+        if (!input.sessionLength || input.sessionLength <= 0) return { success: false, error: 'Invalid session length' };
+        if (Number.isNaN(input.sessionRate) || input.sessionRate <= 0) return { success: false, error: 'Invalid session rate' };
+        if (Number.isNaN(input.depositAmount) || input.depositAmount < 0) return { success: false, error: 'Invalid deposit amount' };
+
+        const projectRequestData: any = {
+            artist_id: input.artist.id,
+            title: input.title.trim(),
+            date_range_start: input.dateRangeStart,
+            date_range_end: input.dateRangeEnd,
+            location_id: input.locationId,
+            session_count: input.sessionCount,
+            session_length: input.sessionLength,
+            session_rate: input.sessionRate,
+            deposit_amount: input.depositAmount,
+            notes: input.notes?.trim() || null,
+            source: input.source || 'manual',
+            source_id: input.sourceId || null,
+        };
+
+        const { data, error } = await supabase
+            .from('project_requests')
+            .insert(projectRequestData)
+            .select('id')
+            .single();
+
+        if (error) {
+            console.error('Error creating project request:', error);
+            return { success: false, error: error.message || 'Failed to create project request' };
+        }
+
+        if (!data?.id) {
+            return { success: false, error: 'Failed to create project request: no ID returned' };
+        }
+
+        const { data: linkData, error: linkError } = await supabase
+            .from('links')
+            .select('id, is_new')
+            .eq('client_id', input.clientId)
+            .eq('artist_id', input.artist.id)
+            .single();
+
+        if (linkError) {
+            console.error('Error fetching link:', linkError);
+            return { success: false, error: linkError.message || 'Failed to fetch link' };
+        }
+
+        if (!linkData?.id) {
+            return { success: false, error: 'Failed to fetch link: no ID returned' };
+        }
+
+        void sendAutoBookingRequestEmail({
+            artist: input.artist,
+            clientId: input.clientId,
+            projectId: data.id as string,
+            isNewClient: linkData.is_new,
+            form: {
+                title: input.title,
+                locationId: input.locationId,
+                sessionCount: input.sessionCount,
+                sessionRate: input.sessionRate,
+                depositAmount: input.depositAmount,
+                notes: input.notes?.trim() || undefined,
+            },
+        });
+
+        return { success: true, projectRequestId: data.id as string };
+    } catch (err: any) {
+        console.error('Unexpected error creating project request:', err);
+        return { success: false, error: err?.message || 'Unexpected error creating project request' };
+    }
+}
+
+export interface AutoBookingEmailInput {
+    artist: Artist;
+    clientId: string;
+    projectId: string;
+    isNewClient: boolean;
+    form: {
+        title: string;
+        locationId: string;
+        sessionCount: number;
+        sessionRate: number;
+        depositAmount: number;
+        notes?: string;
+    };
+}
+
+export async function sendAutoBookingRequestEmail(input: AutoBookingEmailInput): Promise<void> {
+    try {
+        const { artist, clientId, projectId, isNewClient, form } = input;
+
+        // Fetch client to get real email and name
+        const { data: clientRow, error: clientErr } = await supabase
+            .from('clients')
+            .select('full_name,email')
+            .eq('id', clientId)
+            .maybeSingle();
+
+        if (clientErr) {
+            console.warn('Failed to fetch client for email:', clientErr);
+            return;
+        }
+        if (!clientRow?.email) {
+            console.warn('No client email found, skipping manual booking email.');
+            return;
+        }
+
+        const to = String(clientRow.email);
+        const firstName = (clientRow.full_name || '').trim().split(' ')[0] || '';
+
+        // Resolve selected location address from artist.locations
+        const selectedLocation = (artist?.locations || []).find(
+            (loc: ArtistLocation) => String(loc.id) === String(form.locationId)
+        );
+        const locationAddress = selectedLocation?.address || '';
+
+        // Formatters
+        const formatCurrency = (n: number) => {
+            const v = Number(n || 0);
+            return isNaN(v) ? '' : `$${v.toLocaleString('en-US')}`;
+        };
+        const formatDateLong = (d?: Date) => {
+            if (!d) return '';
+            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        };
+        const formatDuration = (minutes?: number) => {
+            if (!minutes || minutes <= 0) return '';
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            if (h && m) return `${h} hour${h > 1 ? 's' : ''} ${m} minute${m > 1 ? 's' : ''}`;
+            if (h) return `${h} hour${h > 1 ? 's' : ''}`;
+            return `${m} minute${m > 1 ? 's' : ''}`;
+        };
+
+        // Email template from artist rules with fallback to defaults
+        const templateSubject =
+            (artist?.template as any)?.booking_request_approved_auto_subject ||
+            defaultTemplateData.bookingRequestApprovedAutoSubject;
+        const templateBody =
+            (artist?.template as any)?.booking_request_approved_auto_body ||
+            defaultTemplateData.bookingRequestApprovedAutoBody;
+
+        // Artist avatar/photo
+        const avatar_url = (artist as any)?.avatar || (artist as any)?.photo || '';
+
+        // Payment links from artist rules
+        const rules = (artist as any)?.rule || {};
+
+        const actionLink = isNewClient ? `${BASE_URL}/artist/${artist.id}/booking/${projectId}` : `${BASE_URL}/booking-portal?id=${clientId}&artist_id=${artist.id}&project_id=${projectId}`;
+
+        const variables: Record<string, string> = {
+            'Client First Name': firstName,
+            'auto-fill-title': form.title || '',
+            'auto-fill-location': locationAddress,
+            'auto-fill-sessions': String(form.sessionCount),
+            'auto-fill-session-rate': formatCurrency(form.sessionRate),
+            'auto-fill-notes': form.notes || '',
+            'auto-fill-deposit-required': formatCurrency(form.depositAmount),
+            'auto-fill-deposit-policy': rules.deposit_policy || '',
+            'auto-fill-cancellation-policy': rules.cancellation_policy || '',
+            'Book Your Dates Here Link': actionLink,
+            'Your Name': (artist as any)?.full_name || '',
+            'Studio Name': (artist as any)?.studio_name || '',
+        };
+
+        void fetch(`${BASE_URL}/api/auto-booking-request-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to,
+                email_templates: {
+                    subject: templateSubject,
+                    body: templateBody,
+                },
+                avatar_url,
+                variables,
+                action_links: {
+                    "Book Your Dates Here Link": actionLink
+                }
+            }),
+        }).catch((err) => {
+            console.warn('Failed to send auto booking email:', err);
+        });
+    } catch (err) {
+        console.warn('Manual booking email trigger error:', err);
+    }
+}
+
