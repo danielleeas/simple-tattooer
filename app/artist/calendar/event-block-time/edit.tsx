@@ -15,7 +15,7 @@ import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { EventBlockTimeRecord, getEventBlockTimeById, updateEventBlockTime, UpdateEventBlockTimeInput } from '@/lib/services/calendar-service';
+import { EventBlockTimeRecord, getEventBlockTimeById, updateEventBlockTime, UpdateEventBlockTimeInput, checkEventOverlap } from '@/lib/services/calendar-service';
 import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
@@ -164,6 +164,47 @@ export default function AddEventBlockTimePage() {
             if (formData.isRepeat && (!formData.repeatLength || formData.repeatLength <= 0)) {
                 toast({ variant: 'error', title: 'Select repeat duration', duration: 2500 });
                 return;
+            }
+
+            // Check for overlapping events before updating (only if date or time has changed)
+            const dateOrTimeChanged = event && (
+                event.date !== formData.date ||
+                event.start_time !== formData.startTime ||
+                event.end_time !== formData.endTime
+            );
+
+            if (dateOrTimeChanged) {
+                try {
+                    const break_time = (artist?.flow as any)?.break_time || 0;
+                    const overlapCheck = await checkEventOverlap({
+                        artistId: artist.id,
+                        date: formData.date,
+                        startTime: formData.startTime!,
+                        endTime: formData.endTime!,
+                        break_time: break_time,
+                        source: 'block_time',
+                    });
+
+                    if (!overlapCheck.success) {
+                        toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (overlapCheck.hasOverlap) {
+                        toast({ 
+                            variant: 'error', 
+                            title: 'Time conflict detected', 
+                            description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
+                            duration: 3000 
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                } catch (overlapErr) {
+                    console.error('Error checking for overlaps:', overlapErr);
+                    // Continue with update even if overlap check fails
+                }
             }
 
             const data: UpdateEventBlockTimeInput = {

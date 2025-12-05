@@ -23,7 +23,7 @@ import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
 import { createClientWithAuth } from '@/lib/services/clients-service';
-import { createQuickAppointment } from '@/lib/services/calendar-service';
+import { createQuickAppointment, checkEventOverlap } from '@/lib/services/calendar-service';
 import { createManualBooking } from "@/lib/services/booking-service";
 import { WaiverSign } from "@/components/lib/waiver-sign";
 
@@ -37,6 +37,33 @@ type QuickAppointmentData = {
     notes: string;
     waiverSigned: boolean;
     waiverUrl?: string;
+};
+
+// Convert HH:MM format to display format (e.g., "09:00" -> "9:00 AM")
+const convertHhMmToDisplay = (hhmm: string): string => {
+    if (!hhmm) return '';
+    const [hStr, mStr] = hhmm.split(':');
+    const h24 = Number(hStr);
+    const m = Number(mStr);
+    if (Number.isNaN(h24) || Number.isNaN(m)) return hhmm;
+    const period = h24 < 12 ? 'AM' : 'PM';
+    const h12 = ((h24 + 11) % 12) + 1;
+    return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
+// Calculate end time from start time and duration in minutes
+const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+    if (!startTime) return '';
+    const [hStr, mStr] = startTime.split(':');
+    const hours = Number(hStr);
+    const minutes = Number(mStr);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return '';
+    
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    
+    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 };
 
 export default function QuickAppointmentAddPage() {
@@ -133,8 +160,44 @@ export default function QuickAppointmentAddPage() {
             return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         })();
 
+        // Calculate end time from start time and session length
+        const sessionLengthMinutes = parseInt(formData.sessionLength);
+        const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
+        
+        if (!endTime) {
+            toast({ variant: 'error', title: 'Invalid time calculation', duration: 2500 });
+            return;
+        }
+
+        // Check for overlapping events before creating
         setLoading(true);
         try {
+            const break_time = (artist?.flow as any)?.break_time || 0;
+            const overlapCheck = await checkEventOverlap({
+                artistId: artist.id,
+                date: dateStr,
+                startTime: formData.startTime,
+                endTime: endTime,
+                break_time: break_time,
+                source: 'quick_appointment',
+            });
+
+            if (!overlapCheck.success) {
+                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                setLoading(false);
+                return;
+            }
+
+            if (overlapCheck.hasOverlap) {
+                toast({ 
+                    variant: 'error', 
+                    title: 'Time conflict detected', 
+                    description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
+                    duration: 3000 
+                });
+                setLoading(false);
+                return;
+            }
             const result = await createQuickAppointment({
                 artistId: artist.id,
                 date: dateStr,
@@ -188,8 +251,8 @@ export default function QuickAppointmentAddPage() {
                 title: formData.fullName?.trim() || 'Appointment',
                 sessionLengthMinutes: parseInt(formData.sessionLength) || 0,
                 locationId,
-                date: new Date(dateStr),
-                startTimeDisplay: formData.startTime,
+                dates: [dateStr],
+                startTimes: { [dateStr]: convertHhMmToDisplay(formData.startTime) },
                 depositAmount: 0,
                 sessionRate: 0,
                 notes: formData.notes || '',

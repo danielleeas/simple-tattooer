@@ -134,11 +134,14 @@ export default function AddEventBlockTimePage() {
         // Check for overlapping events before creating
         try {
             setLoading(true);
+            const break_time = (artist?.flow as any)?.break_time || 0;
             const overlapCheck = await checkEventOverlap({
                 artistId: artist.id,
                 date: dateStr,
                 startTime: formData.startTime,
                 endTime: formData.endTime,
+                break_time: break_time,
+                source: 'block_time',
             });
 
             if (!overlapCheck.success) {

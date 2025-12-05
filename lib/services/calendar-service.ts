@@ -1176,6 +1176,8 @@ export interface CheckEventOverlapParams {
 	date: string; // "YYYY-MM-DD"
 	startTime: string; // "HH:mm"
 	endTime: string;   // "HH:mm"
+	break_time?: number; // Break time in minutes (from artist.flow.buffer_between_sessions)
+	source?: string; // Source of the event being created ('block_time', 'session', 'quick_appointment', etc.)
 }
 
 export interface CheckEventOverlapResult {
@@ -1221,7 +1223,10 @@ export async function checkEventOverlap(params: CheckEventOverlapParams): Promis
 		const newStartMinutes = newSh * 60 + newSm;
 		const newEndMinutes = newEh * 60 + newEm;
 
-		// Check for overlaps: two time ranges overlap if start1 < end2 AND end1 > start2
+		// Get break time buffer (default to 0 if not provided)
+		const breakTime = params.break_time || 0;
+
+		// Check for overlaps based on event source type
 		for (const event of events) {
 			// Skip all-day events
 			if (event.allday) continue;
@@ -1264,8 +1269,42 @@ export async function checkEventOverlap(params: CheckEventOverlapParams): Promis
 				evEndMinutes = evEh * 60 + evEm;
 			}
 
-			// Check overlap: newStart < evEnd AND newEnd > evStart
-			if (newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes) {
+			// Check overlap based on both the new event source and existing event source
+			const newEventSource = params.source;
+			const existingEventSource = event.source;
+			let hasConflict = false;
+
+			// If creating a block_time event, always use simple overlap check (no break time required)
+			if (newEventSource === 'block_time') {
+				// Simple overlap check: newStart < evEnd AND newEnd > evStart
+				hasConflict = newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes;
+			} else if (newEventSource === 'session' || newEventSource === 'quick_appointment') {
+				// If creating a session/quick_appointment event
+				if (existingEventSource === 'session' || existingEventSource === 'quick_appointment') {
+					// Both are appointment events - require break time buffer
+					// A new event conflicts if it doesn't have enough break time before OR after the existing appointment
+					// It's allowed if:
+					//   newEndMinutes <= evStartMinutes - breakTime  (enough break before the appointment)
+					//   OR
+					//   newStartMinutes >= evEndMinutes + breakTime  (enough break after the appointment)
+					const latestAllowedEndBeforeAppt = evStartMinutes - breakTime;
+					const earliestAllowedStartAfterAppt = evEndMinutes + breakTime;
+
+					const hasEnoughBreakBefore = newEndMinutes <= latestAllowedEndBeforeAppt;
+					const hasEnoughBreakAfter = newStartMinutes >= earliestAllowedStartAfterAppt;
+
+					// Conflict if there's not enough break before AND not enough break after
+					hasConflict = !hasEnoughBreakBefore && !hasEnoughBreakAfter;
+				} else {
+					// Existing event is not a session/quick_appointment (e.g., block_time) - simple overlap check
+					hasConflict = newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes;
+				}
+			} else {
+				// For other event types or when source is not specified, use simple overlap check
+				hasConflict = newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes;
+			}
+
+			if (hasConflict) {
 				return { success: true, hasOverlap: true, overlappingEvent: event };
 			}
 		}
@@ -1876,7 +1915,24 @@ export async function updateQuickAppointment(
 			return { success: false, error: error.message || 'Failed to update quick appointment' };
 		}
 
-		// 2) Delete old event and create new one
+		// 2) Update related sessions
+		const { error: sessionsError } = await supabase
+			.from('sessions')
+			.update({
+				start_time: data.startTime,
+				duration: data.sessionLength,
+				notes: data.notes || null,
+				updated_at: new Date().toISOString(),
+			})
+			.eq('source', 'quick_appointment')
+			.eq('source_id', id);
+		
+		if (sessionsError) {
+			console.warn('Failed to update related sessions:', sessionsError);
+			// Don't fail the whole operation, but log the warning
+		}
+
+		// 3) Delete old event and create new one
 		await supabase
 			.from('events')
 			.delete()
