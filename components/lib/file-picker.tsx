@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, Pressable } from 'react-native';
+import { View, Image, Pressable, Modal } from 'react-native';
 import * as ExpoDocumentPicker from 'expo-document-picker';
+import * as ExpoImagePicker from 'expo-image-picker';
 
 // Custom Components
 import { Icon } from '@/components/ui/icon';
@@ -26,6 +27,7 @@ interface FilePickerProps {
     allowedFileTypes?: string[]; // default all file types
     onValidationError?: (error: string) => void;
     showImagePreview?: boolean; // whether to show image preview for image files
+    enableCamera?: boolean; // whether to enable camera picker option (default: true if only images allowed, false otherwise)
 }
 
 export function FilePicker({
@@ -44,7 +46,15 @@ export function FilePicker({
     allowedFileTypes = ['*/*'], // Allow all file types by default
     onValidationError,
     showImagePreview = true,
+    enableCamera, // Will be determined based on allowedFileTypes if not provided
 }: FilePickerProps) {
+    // Determine if camera should be enabled
+    // Enable camera by default if only images are allowed, otherwise disable
+    const shouldEnableCamera = enableCamera !== undefined 
+        ? enableCamera 
+        : (allowedFileTypes.length > 0 && 
+           (allowedFileTypes.includes('image/*') || 
+            allowedFileTypes.every(type => type.startsWith('image/'))));
     // Helper function to detect MIME type from URL
     const detectMimeTypeFromUri = (uri: string): string => {
         // Check if it's a URL (http/https) or file URI and try to detect from extension
@@ -85,6 +95,7 @@ export function FilePicker({
 
     const [file, setFile] = useState<{ uri: string; name: string; type: string; size: number } | null>(processInitialFile(initialFile));
     const [loading, setLoading] = useState(false);
+    const [optionOpen, setOptionOpen] = useState(false);
     const { toast } = useToast();
 
     // Update file state when initialFile changes
@@ -167,7 +178,98 @@ export function FilePicker({
         onValidationError?.(error);
     };
 
-    const pickFile = async () => {
+    const handleFileSelection = async (fileData: { uri: string; name: string; type: string; size: number }) => {
+        // Validate the selected file
+        const validation = await validateFile(fileData);
+        if (!validation.isValid) {
+            handleValidationError(validation.error || 'Invalid file');
+            setLoading(false);
+            return;
+        }
+
+        // Compress image if it's an image file
+        let finalFileData = fileData;
+        const isImage = isImageFile(fileData.type);
+
+        if (isImage) {
+            try {
+                const compressedUri = await compressImage(fileData.uri, quality);
+                const fileExtension = fileData.name.split('.').pop()?.toLowerCase();
+                finalFileData = {
+                    ...fileData,
+                    uri: compressedUri,
+                    type: 'image/jpeg', // Compressed images are converted to JPEG
+                    name: (fileExtension === 'jpg' || fileExtension === 'jpeg') ? fileData.name : fileData.name.replace(/\.[^.]+$/, '.jpg'), // Update name extension to .jpg
+                };
+            } catch (error) {
+                // If compression fails, ensure we still have the correct image type
+                finalFileData = {
+                    ...fileData,
+                    type: fileData.type, // Keep original image type
+                };
+            }
+        } else {
+            console.log('Not an image file:', finalFileData);
+        }
+
+        // Ensure file type is set correctly (double check)
+        if (!finalFileData.type || finalFileData.type === 'application/octet-stream') {
+            finalFileData.type = fileData.type;
+        }
+        
+        onFileSelected?.(finalFileData);
+        setLoading(false);
+    };
+
+    const takePhoto = async () => {
+        setOptionOpen(false);
+        setLoading(true);
+
+        try {
+            const { status } = await ExpoImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+                toast({
+                    title: 'Permission Required',
+                    description: 'Sorry, we need camera permissions to make this work!',
+                    variant: 'error',
+                });
+                setLoading(false);
+                return;
+            }
+
+            const result = await ExpoImagePicker.launchCameraAsync({
+                allowsEditing: false,
+                quality,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                const selectedImage = result.assets[0];
+                const fileName = `photo_${Date.now()}.jpg`;
+                
+                const fileData = {
+                    uri: selectedImage.uri,
+                    name: fileName,
+                    type: 'image/jpeg',
+                    size: selectedImage.fileSize || 0,
+                };
+
+                await handleFileSelection(fileData);
+            } else {
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Error taking photo:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to take photo. Please try again.',
+                variant: 'error',
+            });
+            setLoading(false);
+        }
+    };
+
+    const pickFileFromLibrary = async () => {
+        setOptionOpen(false);
         setLoading(true);
 
         try {
@@ -221,45 +323,9 @@ export function FilePicker({
                     size: selectedFile.size || 0,
                 };
 
-
-                // Validate the selected file
-                const validation = await validateFile(fileData);
-                if (!validation.isValid) {
-                    handleValidationError(validation.error || 'Invalid file');
-                    setLoading(false);
-                    return;
-                }
-
-                // Compress image if it's an image file
-                let finalFileData = fileData;
-                const isImage = isImageFile(mimeType);
-
-                if (isImage) {
-                    try {
-                        const compressedUri = await compressImage(fileData.uri, quality);
-                        finalFileData = {
-                            ...fileData,
-                            uri: compressedUri,
-                            type: 'image/jpeg', // Compressed images are converted to JPEG
-                            name: (fileExtension === 'jpg' || fileExtension === 'jpeg') ? fileName : fileName.replace(/\.[^.]+$/, '.jpg'), // Update name extension to .jpg
-                        };
-                    } catch (error) {
-                        // If compression fails, ensure we still have the correct image type
-                        finalFileData = {
-                            ...fileData,
-                            type: mimeType, // Keep original image type
-                        };
-                    }
-                } else {
-                    console.log('Not an image file:', finalFileData);
-                }
-
-                // Ensure file type is set correctly (double check)
-                if (!finalFileData.type || finalFileData.type === 'application/octet-stream') {
-                    finalFileData.type = mimeType;
-                }
-                // setFile(finalFileData);
-                onFileSelected?.(finalFileData);
+                await handleFileSelection(fileData);
+            } else {
+                setLoading(false);
             }
         } catch (error) {
             console.error('Error picking file:', error);
@@ -268,9 +334,19 @@ export function FilePicker({
                 description: 'Failed to pick file. Please try again.',
                 variant: 'error',
             });
-        } finally {
             setLoading(false);
         }
+    };
+
+    const pickFile = async () => {
+        // If camera is enabled, show option modal instead of directly picking file
+        if (shouldEnableCamera) {
+            setOptionOpen(true);
+            return;
+        }
+
+        // Otherwise, directly pick from library
+        await pickFileFromLibrary();
     };
 
     const removeFile = () => {
@@ -373,6 +449,38 @@ export function FilePicker({
                         </View>
                     )}
                 </Pressable>
+            )}
+            {shouldEnableCamera && (
+                <Modal
+                    visible={optionOpen}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setOptionOpen(false)}
+                >
+                    <View className="flex-1 justify-center p-4">
+                        <Pressable
+                            className="absolute inset-0 bg-black/50"
+                            onPress={() => setOptionOpen(false)}
+                        />
+                        <View className="bg-background-secondary p-4 rounded-2xl">
+                            <View className="mb-2">
+                                <Text className="text-lg font-semibold">Select File</Text>
+                                <Text className="text-text-secondary mt-1">Choose how you want to add a file</Text>
+                            </View>
+                            <View className='flex-row gap-2 items-center justify-center'>
+                                <Button variant="outline" onPress={takePhoto}>
+                                    <Text>Camera</Text>
+                                </Button>
+                                <Button variant="outline" onPress={pickFileFromLibrary}>
+                                    <Text>File Library</Text>
+                                </Button>
+                                <Button variant="outline" onPress={() => setOptionOpen(false)}>
+                                    <Text>Cancel</Text>
+                                </Button>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
             )}
         </View>
     );

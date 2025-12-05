@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { View, Image, type ImageStyle, Pressable, ScrollView, Modal, Dimensions, Animated } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
@@ -129,22 +130,22 @@ export default function ClientDetailSession() {
             if (success) {
                 // Update local session state
                 setSession((prev: any) => prev ? { ...prev, notes: sessionNotes } : null);
-                toast?.({ 
-                    variant: 'success', 
+                toast?.({
+                    variant: 'success',
                     title: 'Notes saved',
                     description: 'Session notes have been updated successfully.',
                 });
             } else {
-                toast?.({ 
-                    variant: 'error', 
+                toast?.({
+                    variant: 'error',
                     title: 'Failed to save notes',
                     description: 'Please try again later.',
                 });
             }
         } catch (error) {
             console.error('Error saving session notes:', error);
-            toast?.({ 
-                variant: 'error', 
+            toast?.({
+                variant: 'error',
                 title: 'Failed to save notes',
                 description: 'An unexpected error occurred.',
             });
@@ -291,7 +292,7 @@ export default function ClientDetailSession() {
                 >
                     <View className="flex-1 bg-background p-4 pt-2 gap-6">
                         <View className="flex-1">
-                            <ScrollView contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
+                            <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
                                 <View className="gap-6 pb-6">
                                     <View className="items-center justify-center pb-[16px] h-[120px]">
                                         <Image
@@ -362,7 +363,7 @@ export default function ClientDetailSession() {
                                         </Button>
                                     </View>
                                 </View>
-                            </ScrollView>
+                            </KeyboardAwareScrollView>
                         </View>
 
                         <View className="gap-4 items-center justify-center flex-row">
@@ -401,18 +402,20 @@ export default function ClientDetailSession() {
                         </Button>
                     </View>
                 </Animated.View>
+            </SafeAreaView>
 
-                <Modal
-                    visible={isRescheduleModalOpen}
-                    transparent={true}
-                    animationType="slide"
-                    onRequestClose={() => setIsRescheduleModalOpen(false)}
-                >
-                    <View className="flex-1 justify-end items-center bg-black/50">
-                        <View className="bg-background-secondary p-4 pt-10 pb-8 rounded-t-[40px] w-full">
+            <Modal
+                visible={isRescheduleModalOpen}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setIsRescheduleModalOpen(false)}
+            >
+                <View className="flex-1 justify-end items-center bg-black/50">
+                    <View className="bg-background-secondary p-4 pt-10 pb-8 rounded-t-[40px] w-full">
+                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false}>
                             <Text variant="h4" className="text-xl mb-4">Why do you need to reschedule?</Text>
                             <View className="gap-2">
-                                <Text className="text-sm text-text-secondary">We will send an email & alert to your client, as well as your calendar to pick a new date. </Text>
+                                <Text className="text-sm text-text-secondary">We are will send an email & alert to your client, as well as your calendar to pick a new date. </Text>
                                 <View className="mt-4">
                                     <Textarea
                                         placeholder="Type your message here"
@@ -432,78 +435,77 @@ export default function ClientDetailSession() {
                                     </Button>
                                 </View>
                             </View>
+                        </KeyboardAwareScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={isDeleteModalOpen}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setIsDeleteModalOpen(false)}
+            >
+                <View className="flex-1 bg-black/50 justify-end items-center">
+                    <View className="w-full bg-background-secondary rounded-t-3xl p-4 pt-8 pb-8 gap-6">
+                        <View style={{ gap: 8, alignItems: 'center', height: 200 }}>
+                            <Image source={require('@/assets/images/icons/warning_circle.png')} style={{ width: 80, height: 80 }} />
+                            <Text variant="h3">Delete Session</Text>
+                            <Text className="text-text-secondary text-center text-sm leading-5">Are you sure? This action can't be undone.</Text>
+                        </View>
+                        <View style={{ gap: 8, flexDirection: 'row' }}>
+                            <View style={{ flex: 1 }}>
+                                <Button onPress={() => setIsDeleteModalOpen(false)} variant="outline" size='lg' className='items-center justify-center'>
+                                    <Text>Cancel</Text>
+                                </Button>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Button variant="outline" onPress={handleDeleteConfirm} size='lg' className='items-center justify-center'>
+                                    <Text>Delete</Text>
+                                </Button>
+                            </View>
                         </View>
                     </View>
-                </Modal>
+                </View>
+            </Modal>
 
-                <Modal
-                    visible={isDeleteModalOpen}
-                    transparent={true}
-                    animationType="slide"
-                    onRequestClose={() => setIsDeleteModalOpen(false)}
-                >
-                    <View className="flex-1 bg-black/50 justify-end items-center">
-                        <View className="w-full bg-background-secondary rounded-t-3xl p-4 pt-8 pb-8 gap-6">
-                            <View style={{ gap: 8, alignItems: 'center', height: 200 }}>
-                                <Image source={require('@/assets/images/icons/warning_circle.png')} style={{ width: 80, height: 80 }} />
-                                <Text variant="h3">Delete Session</Text>
-                                <Text className="text-text-secondary text-center text-sm leading-5">Are you sure? This action can't be undone.</Text>
-                            </View>
-                            <View style={{ gap: 8, flexDirection: 'row' }}>
-                                <View style={{ flex: 1 }}>
-                                    <Button onPress={() => setIsDeleteModalOpen(false)} variant="outline" size='lg' className='items-center justify-center'>
-                                        <Text>Cancel</Text>
-                                    </Button>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Button variant="outline" onPress={handleDeleteConfirm} size='lg' className='items-center justify-center'>
-                                        <Text>Delete</Text>
-                                    </Button>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
-
-                <Modal
-                    visible={isImageViewerVisible}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={handleCloseImageViewer}
-                >
-                    <View className="flex-1 bg-black/90 justify-center items-center">
-                        <Pressable
-                            className="absolute top-4 right-4 z-10"
-                            onPress={handleCloseImageViewer}
-                        >
-                            <View className="bg-white/20 rounded-full p-2">
-                                <Image
-                                    source={require('@/assets/images/icons/x_circle.png')}
-                                    style={{ width: 32, height: 32 }}
-                                    resizeMode="contain"
-                                />
-                            </View>
-                        </Pressable>
-
-                        <Pressable
-                            className="flex-1 w-full justify-center items-center"
-                            onPress={handleCloseImageViewer}
-                        >
+            <Modal
+                visible={isImageViewerVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={handleCloseImageViewer}
+            >
+                <View className="flex-1 bg-black/90 justify-center items-center">
+                    <Pressable
+                        className="absolute top-4 right-4 z-10"
+                        onPress={handleCloseImageViewer}
+                    >
+                        <View className="bg-white/20 rounded-full p-2">
                             <Image
-                                source={selectedImageSource}
-                                style={{
-                                    width: screenWidth - 40,
-                                    height: screenHeight - 100,
-                                    maxWidth: screenWidth,
-                                    maxHeight: screenHeight
-                                }}
+                                source={require('@/assets/images/icons/x_circle.png')}
+                                style={{ width: 32, height: 32 }}
                                 resizeMode="contain"
                             />
-                        </Pressable>
-                    </View>
-                </Modal>
+                        </View>
+                    </Pressable>
 
-            </SafeAreaView>
+                    <Pressable
+                        className="flex-1 w-full justify-center items-center"
+                        onPress={handleCloseImageViewer}
+                    >
+                        <Image
+                            source={selectedImageSource}
+                            style={{
+                                width: screenWidth - 40,
+                                height: screenHeight - 100,
+                                maxWidth: screenWidth,
+                                maxHeight: screenHeight
+                            }}
+                            resizeMode="contain"
+                        />
+                    </Pressable>
+                </View>
+            </Modal>
         </>
     );
 }
