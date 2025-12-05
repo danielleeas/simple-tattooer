@@ -15,7 +15,7 @@ import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { createEventBlockTime } from '@/lib/services/calendar-service';
+import { createEventBlockTime, checkEventOverlap } from '@/lib/services/calendar-service';
 import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
@@ -131,8 +131,33 @@ export default function AddEventBlockTimePage() {
             return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         })();
 
+        // Check for overlapping events before creating
         try {
             setLoading(true);
+            const overlapCheck = await checkEventOverlap({
+                artistId: artist.id,
+                date: dateStr,
+                startTime: formData.startTime,
+                endTime: formData.endTime,
+            });
+
+            if (!overlapCheck.success) {
+                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                setLoading(false);
+                return;
+            }
+
+            if (overlapCheck.hasOverlap) {
+                toast({ 
+                    variant: 'error', 
+                    title: 'Time conflict detected', 
+                    description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
+                    duration: 3000 
+                });
+                setLoading(false);
+                return;
+            }
+
             const result = await createEventBlockTime({
                 artistId: artist.id,
                 date: dateStr,

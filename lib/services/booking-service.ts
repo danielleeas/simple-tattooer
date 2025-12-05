@@ -862,10 +862,10 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
         }
 
         // Create corresponding calendar event for this session
-        // 1) Fetch project to decide whether to create an event (requires deposit_paid) and get artist_id/title
+        // 1) Fetch project to decide whether to create an event (requires deposit_paid) and get artist_id/client_id
         const { data: project, error: projectErr } = await supabase
             .from('projects')
-            .select('artist_id,title,deposit_paid')
+            .select('artist_id,client_id,deposit_paid')
             .eq('id', input.projectId)
             .single();
         if (projectErr) {
@@ -880,11 +880,28 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             console.warn('Project missing artist_id, skipping event creation for session:', input.projectId);
             return { success: true, sessionId: sessionRow.id as string };
         }
+        if (!project?.client_id) {
+            console.warn('Project missing client_id, skipping event creation for session:', input.projectId);
+            return { success: true, sessionId: sessionRow.id as string };
+        }
 
-        // 2) Build start/end ISO datetimes from date + start_time + duration
+        // 2) Fetch client's full name for event title
+        const { data: client, error: clientErr } = await supabase
+            .from('clients')
+            .select('full_name')
+            .eq('id', project.client_id)
+            .single();
+        if (clientErr) {
+            console.warn('Failed to fetch client for event creation, skipping event:', clientErr);
+            return { success: true, sessionId: sessionRow.id as string };
+        }
+        const eventTitle = client?.full_name || 'Session';
+
+        // 3) Build start/end datetimes from date + start_time + duration
+        // Format: "YYYY-MM-DD HH:mm" (space-separated, not ISO)
         const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
-        // Build fixed timestamp strings without timezone (follow calendar-service style)
-        const toFixedDateTime = (d: string, t: string) => `${d}T${t.padStart(5, '0')}:00.000`;
+        // Build fixed timestamp strings in "YYYY-MM-DD HH:mm" format (follow calendar-service style)
+        const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
         const addDaysToYmd = (ymd: string, days: number) => {
             if (!days) return ymd;
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
@@ -910,19 +927,19 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             const em = inDay % 60;
             return { ymdOffset, hhmm: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` };
         };
-        const startIso = toFixedDateTime(dateYmd, hhmm);
+        const startDateTime = toFixedDateTime(dateYmd, hhmm);
         const endCalc = addMinutesToTime(hhmm, Number(input.sessionLengthMinutes || 0));
         const endDateYmd = addDaysToYmd(dateYmd, endCalc.ymdOffset);
-        const endIso = toFixedDateTime(endDateYmd, endCalc.hhmm);
+        const endDateTime = toFixedDateTime(endDateYmd, endCalc.hhmm);
 
-        // 3) Insert event row
+        // 4) Insert event row
         const { error: eventErr } = await supabase
             .from('events')
             .insert([{
                 artist_id: project.artist_id,
-                title: (project.title || 'Session') as string,
-                start_date: startIso,
-                end_date: endIso,
+                title: eventTitle,
+                start_date: startDateTime,
+                end_date: endDateTime,
                 color: 'purple',
                 type: 'item',
                 source: 'session',
@@ -1137,9 +1154,21 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 return { success: true };
             }
 
-            // Build fixed timestamp strings without timezone (follow calendar-service style)
+            // Fetch client's full name for event title
+            const { data: client, error: clientErr } = await supabase
+                .from('clients')
+                .select('full_name')
+                .eq('id', project.client_id)
+                .single();
+            if (clientErr) {
+                console.warn('Failed to fetch client for event update, skipping event:', clientErr);
+                return { success: true };
+            }
+            const eventTitle = client?.full_name || 'Session';
+
+            // Build fixed timestamp strings in "YYYY-MM-DD HH:mm" format (follow calendar-service style)
             const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
-            const toFixedDateTime = (d: string, t: string) => `${d}T${t.padStart(5, '0')}:00.000`;
+            const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
             const addDaysToYmd = (ymd: string, days: number) => {
                 if (!days) return ymd;
                 const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
@@ -1165,10 +1194,10 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 const em = inDay % 60;
                 return { ymdOffset, hhmm: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` };
             };
-            const startIso = toFixedDateTime(dateYmd, hhmm);
+            const startDateTime = toFixedDateTime(dateYmd, hhmm);
             const endCalc = addMinutesToTime(hhmm, Number(input.sessionLengthMinutes || 0));
             const endDateYmd = addDaysToYmd(dateYmd, endCalc.ymdOffset);
-            const endIso = toFixedDateTime(endDateYmd, endCalc.hhmm);
+            const endDateTime = toFixedDateTime(endDateYmd, endCalc.hhmm);
 
             // Try update existing event for this session; if none, insert
             const { data: existingEvent, error: existingErr } = await supabase
@@ -1187,9 +1216,9 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                     .from('events')
                     .update({
                         artist_id: project.artist_id,
-                        title: (project.title || 'Session') as string,
-                        start_date: startIso,
-                        end_date: endIso,
+                        title: eventTitle,
+                        start_date: startDateTime,
+                        end_date: endDateTime,
                         updated_at: nowIso,
                     })
                     .eq('id', existingEvent.id);
@@ -1201,9 +1230,9 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                     .from('events')
                     .insert([{
                         artist_id: project.artist_id,
-                        title: (project.title || 'Session') as string,
-                        start_date: startIso,
-                        end_date: endIso,
+                        title: eventTitle,
+                        start_date: startDateTime,
+                        end_date: endDateTime,
                         color: 'purple',
                         type: 'item',
                         source: 'session',

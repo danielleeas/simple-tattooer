@@ -1171,6 +1171,114 @@ export async function deleteTempChange(id: string): Promise<{ success: boolean; 
 }
 
 // Create Event/Block Time (single-day time range, optional future enhancements for repeats/off-booking)
+export interface CheckEventOverlapParams {
+	artistId: string;
+	date: string; // "YYYY-MM-DD"
+	startTime: string; // "HH:mm"
+	endTime: string;   // "HH:mm"
+}
+
+export interface CheckEventOverlapResult {
+	success: boolean;
+	hasOverlap?: boolean;
+	overlappingEvent?: CalendarEvent;
+	error?: string;
+}
+
+// Check if a time range overlaps with existing events of type 'item' on a specific date
+export async function checkEventOverlap(params: CheckEventOverlapParams): Promise<CheckEventOverlapResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.date || !params.startTime || !params.endTime) {
+			return { success: false, error: 'Missing required parameters' };
+		}
+
+		// Query events for the specific date where type = 'item'
+		// Events are stored as "YYYY-MM-DD HH:mm", so we check events that overlap with this date
+		const dateStart = `${params.date} 00:00`;
+		const dateEnd = `${params.date} 23:59`;
+
+		const { data, error } = await supabase
+			.from('events')
+			.select('id, artist_id, title, allday, start_date, end_date, color, type, source, source_id')
+			.eq('artist_id', params.artistId)
+			.eq('type', 'item')
+			.lte('start_date', dateEnd)
+			.gte('end_date', dateStart)
+			.order('start_date', { ascending: true });
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to check for overlapping events' };
+		}
+
+		const events = (data ?? []) as CalendarEvent[];
+
+		// Convert new event times to minutes for comparison
+		const [newSh, newSm] = params.startTime.split(':').map(n => parseInt(n, 10));
+		const [newEh, newEm] = params.endTime.split(':').map(n => parseInt(n, 10));
+		const newStartMinutes = newSh * 60 + newSm;
+		const newEndMinutes = newEh * 60 + newEm;
+
+		// Check for overlaps: two time ranges overlap if start1 < end2 AND end1 > start2
+		for (const event of events) {
+			// Skip all-day events
+			if (event.allday) continue;
+
+			// Extract date and time from event's start_date and end_date
+			// Format is "YYYY-MM-DD HH:mm"
+			const eventStartDateTime = normalizeDbDateTime(event.start_date);
+			const eventEndDateTime = normalizeDbDateTime(event.end_date);
+
+			// Extract date and time parts
+			const eventStartDate = eventStartDateTime.split(' ')[0];
+			const eventEndDate = eventEndDateTime.split(' ')[0];
+			const eventStartTime = eventStartDateTime.split(' ')[1] || '00:00';
+			const eventEndTime = eventEndDateTime.split(' ')[1] || '23:59';
+
+			// Only check events that are on the same date
+			if (eventStartDate !== params.date && eventEndDate !== params.date) {
+				continue;
+			}
+
+			// For events on the same date, check time overlap
+			let evStartMinutes: number;
+			let evEndMinutes: number;
+
+			if (eventStartDate === params.date && eventEndDate === params.date) {
+				// Same day event - use the event's times directly
+				const [evSh, evSm] = eventStartTime.split(':').map(n => parseInt(n, 10));
+				const [evEh, evEm] = eventEndTime.split(':').map(n => parseInt(n, 10));
+				evStartMinutes = evSh * 60 + evSm;
+				evEndMinutes = evEh * 60 + evEm;
+			} else if (eventStartDate === params.date) {
+				// Event starts on this date but ends later - use event start time and end of day
+				const [evSh, evSm] = eventStartTime.split(':').map(n => parseInt(n, 10));
+				evStartMinutes = evSh * 60 + evSm;
+				evEndMinutes = 24 * 60; // End of day (1440 minutes)
+			} else {
+				// Event ends on this date but started earlier - use start of day and event end time
+				evStartMinutes = 0; // Start of day
+				const [evEh, evEm] = eventEndTime.split(':').map(n => parseInt(n, 10));
+				evEndMinutes = evEh * 60 + evEm;
+			}
+
+			// Check overlap: newStart < evEnd AND newEnd > evStart
+			if (newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes) {
+				return { success: true, hasOverlap: true, overlappingEvent: event };
+			}
+		}
+
+		return { success: true, hasOverlap: false };
+	} catch (err) {
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : 'Unknown error',
+		};
+	}
+}
+
 export interface CreateEventBlockTimeParams {
 	artistId: string;
 	date: string; // "YYYY-MM-DD"
