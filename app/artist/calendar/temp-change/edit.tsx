@@ -26,12 +26,15 @@ import { useAuth } from "@/lib/contexts/auth-context";
 import { LocationModal } from "@/components/lib/location-modal";
 import { addTemporaryLocation } from "@/lib/services/setting-service";
 import { getTempChangeById, updateTempChange } from "@/lib/services/calendar-service";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 
 export default function EditTempChangePage() {
     const router = useRouter();
     const { toast } = useToast();
     const { artist } = useAuth();
     const { id } = useLocalSearchParams<{ id: string }>();
+    const dispatch = useAppDispatch();
 
     const [openTempLocationModal, setOpenTempLocationModal] = useState(false);
     const [locationData, setLocationData] = useState<ArtistLocation[]>([]);
@@ -42,7 +45,7 @@ export default function EditTempChangePage() {
         different_time_enabled: boolean;
         start_times: Record<string, string>;
         end_times: Record<string, string>;
-        location_id: string;
+        location: ArtistLocation | undefined;
         notes: string;
     }>({
         start_date: null,
@@ -51,7 +54,7 @@ export default function EditTempChangePage() {
         different_time_enabled: false,
         start_times: {},
         end_times: {},
-        location_id: '',
+        location: undefined,
         notes: '',
     });
     const [loading, setLoading] = useState(false);
@@ -71,23 +74,35 @@ export default function EditTempChangePage() {
                 return;
             }
             const tc = res.data;
-            // Ensure the location list contains the current location (in case it's not in artist.locations)
+
+            // Compute selected location (prefer the location object from backend if present)
+            let selectedLocation: ArtistLocation | undefined;
             if (tc.location && (tc.location.id ?? tc.location.place_id)) {
+                selectedLocation = {
+                    id: tc.location.id as string,
+                    address: tc.location.address ?? '',
+                    place_id: tc.location.place_id ?? '',
+                    coordinates: {
+                        latitude: (tc.location as any)?.coordinates?.latitude ?? 0,
+                        longitude: (tc.location as any)?.coordinates?.longitude ?? 0,
+                    },
+                    is_main_studio: false,
+                } as ArtistLocation;
+
+                // Ensure the location list contains the current location
                 setLocationData(prev => {
-                    const key = tc.location!.id ?? tc.location!.place_id;
+                    const key = selectedLocation!.id ?? selectedLocation!.place_id;
                     const exists = prev.some(l => (l.id ?? l.place_id) === key);
-                    if (exists) return prev;
-                    const normalized = ({
-                        id: tc.location!.id as string,
-                        address: tc.location!.address ?? undefined,
-                        place_id: tc.location!.place_id ?? undefined,
-                        // Provide required fields for Locations type with safe defaults
-                        coordinates: { latitude: 0, longitude: 0 },
-                        is_main_studio: false,
-                    } as unknown) as ArtistLocation;
-                    return [...prev, normalized];
+                    return exists ? prev : [...prev, selectedLocation!];
                 });
+            } else if (tc.location_id) {
+                // Fallback: try to find by location_id in existing artist locations
+                selectedLocation =
+                    artist?.locations?.find(
+                        l => (l.id ?? l.place_id) === tc.location_id,
+                    ) as ArtistLocation | undefined;
             }
+
             setFormData({
                 start_date: tc.start_date,
                 end_date: tc.end_date,
@@ -95,12 +110,12 @@ export default function EditTempChangePage() {
                 different_time_enabled: Boolean(tc.different_time_enabled),
                 start_times: tc.start_times || {},
                 end_times: tc.end_times || {},
-                location_id: tc.location_id || '',
+                location: selectedLocation,
                 notes: tc.notes || '',
             });
         };
         loadExisting();
-    }, [id]);
+    }, [id, artist?.locations]);
 
     const createTime = (hours: number, minutes: number) => {
         const d = new Date();
@@ -142,7 +157,7 @@ export default function EditTempChangePage() {
             toast({ variant: 'error', title: 'End date must be after start date' });
             return;
         }
-        if (!formData.location_id) {
+        if (!formData.location) {
             toast({ variant: 'error', title: 'Location is required' });
             return;
         }
@@ -172,13 +187,32 @@ export default function EditTempChangePage() {
                 different_time_enabled: formData.different_time_enabled || false,
                 start_times: formData.start_times || {},
                 end_times: formData.end_times || {},
-                location_id: formData.location_id,
+                location_id: formData.location?.id ?? formData.location?.place_id ?? '',
                 notes: formData.notes?.trim() ?? null,
             });
             if (!result.success) {
                 toast({ variant: 'error', title: 'Failed to save changes', description: result.error });
                 return;
             }
+
+            // Sync newly added location into artist state (same behavior as add page)
+            if (artist && formData.location) {
+                const existingLocations = artist.locations ? [...artist.locations] : [];
+                const exists = existingLocations.some(
+                    loc =>
+                        (loc.id ?? loc.place_id) ===
+                        (formData.location?.id ?? formData.location?.place_id),
+                );
+                if (!exists) {
+                    dispatch(
+                        setArtist({
+                            ...artist,
+                            locations: [...existingLocations, formData.location],
+                        }),
+                    );
+                }
+            }
+
             toast({ variant: 'success', title: 'Changes saved!', duration: 3000 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         } catch (error) {
@@ -244,7 +278,10 @@ export default function EditTempChangePage() {
             const exists = prev.some(l => (l.id ?? l.place_id) === newKey);
             return exists ? prev : [...prev, newLoc];
         });
-        setFormData({ ...formData, location_id: result.location?.id ?? result.location?.place_id ?? '' });
+        setFormData(prev => ({
+            ...prev,
+            location: result.location as ArtistLocation | undefined,
+        }));
         setOpenTempLocationModal(false);
     };
 
@@ -314,7 +351,7 @@ export default function EditTempChangePage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
+                        
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">
@@ -511,9 +548,20 @@ export default function EditTempChangePage() {
                                     <Text variant="h5">Location</Text>
                                     <View className="gap-2 w-full">
                                         <DropdownPicker
-                                            options={locationData.map((location: ArtistLocation) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                            value={formData.location_id}
-                                            onValueChange={(value: string) => setFormData({ ...formData, location_id: value as string })}
+                                            options={locationData.map((location: ArtistLocation) => ({
+                                                label: location.address,
+                                                value: location.id ?? location.place_id,
+                                            })) || []}
+                                            value={formData.location?.id ?? formData.location?.place_id ?? undefined}
+                                            onValueChange={(value: string) =>
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    location:
+                                                        locationData.find(
+                                                            l => (l.id ?? l.place_id) === value,
+                                                        ) ?? prev.location,
+                                                }))
+                                            }
                                             placeholder="Select location"
                                             modalTitle="Select Location"
                                         />

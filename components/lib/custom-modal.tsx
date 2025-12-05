@@ -272,7 +272,6 @@ export default function CustomModal({
                         </Pressable>
                     )}
                     <KeyboardAwareScrollView
-                        keyboardShouldPersistTaps="handled"
                         bottomOffset={0}
                         disableScrollOnKeyboardHide={true}
                         showsVerticalScrollIndicator={false}

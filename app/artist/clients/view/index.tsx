@@ -7,6 +7,7 @@ import { Text } from "@/components/ui/text";
 import { useAuth } from "@/lib/contexts/auth-context";
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import { getHandler } from "@/lib/utils";
 
 export default function ClientView() {
     const { artist } = useAuth();
@@ -90,7 +91,7 @@ export default function ClientView() {
                                                 <View className="flex-1 gap-1">
                                                     <View className="items-center justify-center">
                                                         <Text style={{ fontSize: 17, lineHeight: 22 }}>{artist?.full_name}</Text>
-                                                        <Text style={{ fontSize: 9, lineHeight: 14 }}>{artist?.social_handler ? `${artist?.social_handler}` : '@artist.instagram'}</Text>
+                                                        <Text style={{ fontSize: 9, lineHeight: 14 }}>{getHandler(artist?.full_name || 'Artist Instagram')}</Text>
                                                     </View>
                                                     <View className="flex-1">
                                                         <Image
@@ -121,7 +122,7 @@ export default function ClientView() {
                                                 <View className="flex-1 py-4 justify-around">
                                                     <View className="items-center justify-center">
                                                         <Text style={{ fontSize: 17, lineHeight: 22 }}>{artist?.full_name}</Text>
-                                                        <Text style={{ fontSize: 9, lineHeight: 14 }}>{artist?.social_handler ? `${artist?.social_handler}` : '@artist.instagram'}</Text>
+                                                        <Text style={{ fontSize: 9, lineHeight: 14 }}>{getHandler(artist?.full_name || 'Artist Instagram')}</Text>
                                                     </View>
                                                     <View className="w-full items-center justify-between flex-row">
                                                         <View className='items-start flex-1' >

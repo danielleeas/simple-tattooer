@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { View, Image, type ImageStyle, Pressable, Linking, Modal, Dimensions } from "react-native";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { View, Image, type ImageStyle, Pressable, Linking, Modal, Dimensions, Animated, TouchableOpacity } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -10,10 +10,10 @@ import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDownIcon, ChevronUpIcon, FileSearch, FileText, X } from "lucide-react-native";
+import { ChevronDownIcon, ChevronUpIcon, FileSearch, FileText, X, ChevronRight, Plus } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
-import { useAuth } from "@/lib/contexts";
-import { getClientById, getClientProjectsWithSessions, updateProjectWaiverSigned } from "@/lib/services/clients-service";
+import { useAuth, useToast } from "@/lib/contexts";
+import { getClientById, getClientProjectsWithSessions, updateProjectWaiverSigned, updateProjectNotes } from "@/lib/services/clients-service";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -62,11 +62,15 @@ const isImageUri = (uri?: string): boolean => {
 export default function ClientAppointments() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { artist } = useAuth();
+    const { toast } = useToast();
 
     const [expandedProjects, setExpandedProjects] = useState<{ [key: string]: boolean }>({});
     const [expandedSessions, setExpandedSessions] = useState<{ [key: string]: boolean }>({});
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
     const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
+    const [projectNotes, setProjectNotes] = useState<{ [projectId: string]: string }>({});
+    const [saving, setSaving] = useState<{ [projectId: string]: boolean }>({});
+    const saveBarAnim = useRef(new Animated.Value(0)).current;
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
     type UiSession = {
@@ -153,10 +157,19 @@ export default function ClientAppointments() {
                         };
                     });
                     setProjects(mapped);
+                    // Initialize project notes state
+                    if (isMounted) {
+                        const notesState: { [projectId: string]: string } = {};
+                        mapped.forEach(project => {
+                            notesState[project.id] = project.notes || '';
+                        });
+                        setProjectNotes(notesState);
+                    }
                 } catch {
                     if (isMounted) {
                         setClient(null);
                         setProjects([]);
+                        setProjectNotes({});
                     }
                 } finally {
                     if (isMounted) setLoading(false);
@@ -180,11 +193,101 @@ export default function ClientAppointments() {
         }
     }, [projects]);
 
+    // Check if any project notes have changed
+    const hasChanges = useMemo(() => {
+        return projects.some(project => {
+            const currentNotes = projectNotes[project.id] ?? project.notes;
+            return currentNotes !== project.notes;
+        });
+    }, [projects, projectNotes]);
+
+    // Animate save bar based on changes
+    useEffect(() => {
+        Animated.timing(saveBarAnim, {
+            toValue: hasChanges ? 1 : 0,
+            duration: 250,
+            useNativeDriver: true,
+        }).start();
+    }, [hasChanges, saveBarAnim]);
+
+    const saveBarTranslateY = saveBarAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [80, 0],
+    });
+
+    const handleNotesChange = (projectId: string, notes: string) => {
+        setProjectNotes(prev => ({
+            ...prev,
+            [projectId]: notes,
+        }));
+    };
+
+    const handleSaveNotes = async () => {
+        // Save notes for all projects that have changed
+        const projectsToSave = projects.filter(project => {
+            const currentNotes = projectNotes[project.id] ?? project.notes;
+            return currentNotes !== project.notes;
+        });
+
+        if (projectsToSave.length === 0) return;
+
+        // Set saving state for all projects being saved
+        const savingState: { [projectId: string]: boolean } = {};
+        projectsToSave.forEach(project => {
+            savingState[project.id] = true;
+        });
+        setSaving(prev => ({ ...prev, ...savingState }));
+
+        try {
+            const savePromises = projectsToSave.map(async (project) => {
+                const notes = projectNotes[project.id] ?? project.notes;
+                const success = await updateProjectNotes(project.id, notes);
+                if (success) {
+                    // Update local projects state
+                    setProjects(prev => prev.map(p =>
+                        p.id === project.id ? { ...p, notes } : p
+                    ));
+                }
+                return { projectId: project.id, success };
+            });
+
+            const results = await Promise.all(savePromises);
+            const failed = results.filter(r => !r.success);
+
+            if (failed.length > 0) {
+                toast({
+                    variant: 'error',
+                    title: 'Failed to save some notes',
+                    description: 'Some project notes could not be saved. Please try again.',
+                });
+            } else {
+                toast({
+                    variant: 'success',
+                    title: 'Notes saved',
+                    description: 'Project notes have been updated successfully.',
+                });
+                // Clear the notes state since they're now saved
+                setProjectNotes({});
+            }
+        } catch (error) {
+            console.error('Error saving notes:', error);
+            toast({
+                variant: 'error',
+                title: 'Failed to save notes',
+                description: 'An unexpected error occurred.',
+            });
+        } finally {
+            // Clear saving state
+            setSaving({});
+        }
+    };
+
     const waiverUrl = artist?.rule?.waiver_text || '';
     const waiverFileName = waiverUrl ? getFileNameFromUrl(waiverUrl) : '';
     const [waiverModalVisible, setWaiverModalVisible] = useState(false);
     const [agreeChecked, setAgreeChecked] = useState<boolean>(false);
     const [waiverSigned, setWaiverSigned] = useState<boolean>(false);
+    const [addSessionModalVisible, setAddSessionModalVisible] = useState(false);
 
     const handleOpenWaiver = () => {
         if (!waiverUrl) return;
@@ -261,15 +364,33 @@ export default function ClientAppointments() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleAddSession = () => {
+        setAddSessionModalVisible(true);
+    };
+
+    const handleManualAddSession = () => {
+        setAddSessionModalVisible(false);
+        // Find the currently expanded project
+        const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
+        // TODO: Navigate to manual add session
+        if (expandedProjectId) {
+            router.push({
+                pathname: '/artist/booking/session/add-manual',
+                params: { projectId: expandedProjectId }
+            });
+        }
+    };
+
+    const handleAutoAddSession = () => {
+        setAddSessionModalVisible(false);
         // Find the currently expanded project
         const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
         if (expandedProjectId) {
             router.push({
-                pathname: '/artist/clients/add-session',
+                pathname: '/artist/booking/session/add-auto',
                 params: { projectId: expandedProjectId }
             });
         }
@@ -277,7 +398,7 @@ export default function ClientAppointments() {
 
     const handleDetailSession = (clientId: string, projectId: string, sessionId: string) => {
         router.push({
-            pathname: '/artist/clients/detail-session',
+            pathname: '/artist/booking/session/detail-session',
             params: { client_id: clientId, project_id: projectId, session_id: sessionId }
         });
     };
@@ -331,13 +452,13 @@ export default function ClientAppointments() {
                     threshold={80}
                     enabled={true}
                 >
-                    <View className="flex-1 bg-background px-4 gap-6">
+                    <View className="flex-1 bg-background px-4 pt-2 gap-6">
                         <View className="flex-1">
                             <KeyboardAwareScrollView
                                 bottomOffset={80}
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                             >
                                 <View className="gap-6 pb-6">
                                     <View className="items-center justify-center pb-[22px] h-[120px]">
@@ -446,7 +567,7 @@ export default function ClientAppointments() {
                                                                         <View style={{ width: project.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${project.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
                                                                             <Text className={`text-xs items-center justify-center ${project.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{project.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
                                                                         </View>
-                                                                        <Text variant="small">{waiverFileName || 'No waiver uploaded'}</Text>
+                                                                        <Text variant="small">{waiverFileName ? 'Waiver.pdf' : 'No waiver uploaded'}</Text>
                                                                         <View className="flex-row items-center gap-1">
                                                                             <Text variant="small">{project.waiverSigned ? 'Preview' : 'Preview and Signed'}</Text>
                                                                             <Icon as={FileSearch} strokeWidth={1} size={16} />
@@ -457,10 +578,15 @@ export default function ClientAppointments() {
                                                             <View className="gap-2">
                                                                 <Text className="text-text-secondary">Notes</Text>
                                                                 <Textarea
-                                                                    readOnly
                                                                     placeholder="Enter notes"
                                                                     className="min-h-28"
-                                                                    value={project.notes}
+                                                                    value={projectNotes[project.id] ?? project.notes}
+                                                                    onChangeText={(text) => handleNotesChange(project.id, text)}
+                                                                    spellCheck={false}
+                                                                    autoComplete="off"
+                                                                    textContentType="none"
+                                                                    autoCapitalize="none"
+                                                                    autoCorrect={false}
                                                                 />
                                                             </View>
 
@@ -483,17 +609,41 @@ export default function ClientAppointments() {
 
                         <View className="gap-4 items-center justify-center pb-6">
                             {projects.length > 0 &&
-                                <Button variant="outline" onPress={handleAddSession} size="lg" className="w-full">
+                                <Button variant="outline" onPress={handleAddSession} className="w-full">
                                     <Text variant='h5'>Add Session</Text>
                                     <Image source={PLUS_IMAGE} style={BUTTON_ICON_STYLE} />
                                 </Button>
                             }
-                            <Button variant="outline" size="lg" className="w-full">
+                            <Button variant="outline" className="w-full">
                                 <Text variant='h5'>Booking/Consult Request</Text>
                             </Button>
                         </View>
                     </View>
                 </StableGestureWrapper>
+                <Animated.View
+                    pointerEvents={hasChanges ? 'auto' : 'none'}
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        transform: [{ translateY: saveBarTranslateY }],
+                        opacity: saveBarAnim,
+                    }}
+                >
+                    <View className="px-4 py-4 bg-background">
+                        <Button
+                            variant="outline"
+                            onPress={handleSaveNotes}
+                            disabled={!hasChanges || Object.values(saving).some(s => s)}
+                            className="w-full"
+                        >
+                            <Text className="text-white font-semibold">
+                                {Object.values(saving).some(s => s) ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
+                            </Text>
+                        </Button>
+                    </View>
+                </Animated.View>
 
                 <Modal
                     visible={waiverModalVisible}
@@ -529,7 +679,7 @@ export default function ClientAppointments() {
                                 <Checkbox checked={agreeChecked} onCheckedChange={(v) => setAgreeChecked(!!v)} />
                                 <Text className="flex-1 font-thin leading-0 text-text-secondary">I have read and understood the terms of this waiver agreement.</Text>
                             </View>
-                            <Button disabled={!agreeChecked || !waiverUrl} onPress={handleSignWaiver}>
+                            <Button variant="outline" disabled={!agreeChecked || !waiverUrl} onPress={handleSignWaiver}>
                                 <Text className="font-semibold">Sign Waiver</Text>
                             </Button>
                         </View>
@@ -573,6 +723,54 @@ export default function ClientAppointments() {
                         </Pressable>
                     </View>
                 </Modal>
+
+                <Modal
+                    visible={addSessionModalVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setAddSessionModalVisible(false)}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        className="flex-1 bg-black/50 items-center justify-center p-4"
+                        onPress={() => setAddSessionModalVisible(false)}
+                    >
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={(e) => e.stopPropagation()}
+                            className="w-full max-w-[250px] bg-background-secondary rounded-xl border border-border p-4 gap-6"
+                        >
+                            <Pressable
+                                className="flex-row items-center gap-1"
+                                onPress={handleManualAddSession}
+                                accessibilityRole="button"
+                                accessibilityLabel="Add Event/ Block Time"
+                            >
+                                <Icon as={Plus} strokeWidth={2} size={18} />
+                                <View className="flex-1 gap-1">
+                                    <Text className="leading-5 text-sm">Manual Add Session </Text>
+                                </View>
+                                <Icon as={ChevronRight} strokeWidth={1} size={24} />
+                            </Pressable>
+
+                            <Pressable
+                                className="flex-row items-center gap-1"
+                                onPress={handleAutoAddSession}
+                                accessibilityRole="button"
+                                accessibilityLabel="Quick Add Appointment"
+                            >
+                                <Icon as={Plus} strokeWidth={2} size={18} />
+                                <View className="flex-1 gap-1">
+                                    <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                        Auto Add Session
+                                    </Text>
+                                </View>
+                                <Icon as={ChevronRight} strokeWidth={1} size={24} />
+                            </Pressable>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
+
             </SafeAreaView >
         </>
     );

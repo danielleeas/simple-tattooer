@@ -104,7 +104,6 @@ export async function addTemporaryLocation(
         place_id: string;
         coordinates: { latitude: number; longitude: number };
         is_main_studio: boolean;
-        is_temporary?: boolean;
     }
 ): Promise<{ success: boolean; location?: Locations; error?: string }> {
     try {
@@ -124,9 +123,6 @@ export async function addTemporaryLocation(
                 longitude: location.coordinates?.longitude,
             },
             is_main_studio: !!location.is_main_studio,
-            // If your schema does not include this column, Supabase will error.
-            // Consumers should ignore the flag if unsupported.
-            is_temporary: location.is_temporary ?? true,
         };
 
         const { data, error } = await supabase

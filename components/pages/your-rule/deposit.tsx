@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { useState } from "react";
 import { Text } from "@/components/ui/text";
-import { DepositDataProps, timesChunks } from "./type";
+import { DepositDataProps, timesChunks, depositTimesChunks } from "./type";
 import { Input } from "@/components/ui/input";
 import { Collapse } from "@/components/lib/collapse";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -32,9 +32,9 @@ export const Deposit = ({ depositData, updateDepositData }: DepositProps) => {
             </View>
 
             <View className="items-start gap-2">
-                <Collapse title="Default Hold Time hrs/days" textClassName="text-xl" description="Gives clients time to pay">
+                <Collapse title="Default Hold Time hrs/days" textClassName="text-xl" description="If the deposit isn't paid in time, held dates are released.">
                     <RadioGroup value={depositData.depositHoldTime?.toString() || '12'} onValueChange={(value) => updateDepositData({ depositHoldTime: parseInt(value) })}>
-                        {timesChunks.map((times) => (
+                        {depositTimesChunks.map((times) => (
                             <View key={times.map((time) => time.value).join(',')} className='flex-row items-center gap-3'>
                                 {times.map((time) => (
                                     <Pressable onPress={() => updateDepositData({ depositHoldTime: parseInt(time.value) })} key={time.value} className="flex-1 h-6 flex-row items-center gap-3">

@@ -277,7 +277,7 @@ export async function getClientById(artistId: string, clientId: string): Promise
 
 	const { data, error } = await supabase
 		.from('clients')
-		.select('id, full_name, email, phone_number, location, project_notes, created_at, updated_at, links!inner(artist_id, status)')
+		.select('id, full_name, email, phone_number, location, project_notes, created_at, updated_at, links!inner(artist_id, status, is_new, notes)')
 		.eq('id', clientId)
 		.eq('links.artist_id', artistId)
 		.single();
@@ -297,6 +297,7 @@ export async function getClientById(artistId: string, clientId: string): Promise
 		...data,
 		name: data.full_name,
 		status: status || '',
+		links: links,
 	};
 }
 
@@ -321,6 +322,57 @@ export async function findClientById(clientId: string): Promise<any | null> {
 	if (!data) return null;
 
 	return data;
+}
+
+/**
+ * Update client information and link notes.
+ * Updates the clients table with name, email, phone_number, and location.
+ * Updates the links table with notes for the specific artist-client relationship.
+ */
+export async function updateClient(artistId: string, clientId: string, formData: {
+	name: string;
+	email: string;
+	phone_number: string;
+	location: string;
+	notes: string;
+}): Promise<boolean> {
+	if (!artistId || !clientId) return false;
+
+	const nowIso = new Date().toISOString();
+
+	// Update clients table
+	const { error: clientError } = await supabase
+		.from('clients')
+		.update({
+			full_name: formData.name.trim(),
+			email: formData.email.trim(),
+			phone_number: formData.phone_number.trim(),
+			location: formData.location.trim() || '',
+			updated_at: nowIso,
+		})
+		.eq('id', clientId);
+
+	if (clientError) {
+		console.error('Error updating client:', clientError);
+		return false;
+	}
+
+	// Update links table (notes)
+	const { error: linkError } = await supabase
+		.from('links')
+		.update({
+			notes: formData.notes.trim() || null,
+			updated_at: nowIso,
+		})
+		.eq('client_id', clientId)
+		.eq('artist_id', artistId);
+
+	if (linkError) {
+		console.error('Error updating link notes:', linkError);
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -451,7 +503,7 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 	const nextStatus = isPaid ? 'deposit_paid' : 'need_deposit';
 	const { error: linkErr } = await supabase
 		.from('links')
-		.update({ status: nextStatus, updated_at: nowIso })
+		.update({ status: nextStatus, is_new: false, updated_at: nowIso })
 		.eq('artist_id', artistId)
 		.eq('client_id', clientId);
 	if (linkErr) {
@@ -632,6 +684,26 @@ export async function updateProjectWaiverSigned(projectId: string, signed: boole
 }
 
 /**
+ * Update a project's notes.
+ */
+export async function updateProjectNotes(projectId: string, notes: string): Promise<boolean> {
+	if (!projectId) return false;
+	const nowIso = new Date().toISOString();
+	const { error } = await supabase
+		.from('projects')
+		.update({
+			notes: notes.trim() || null,
+			updated_at: nowIso,
+		})
+		.eq('id', projectId);
+	if (error) {
+		console.error('Error updating project notes:', error);
+		return false;
+	}
+	return true;
+}
+
+/**
  * Update a session's payment method.
  * Expects method values like: 'paypal' | 'e_transfer' | 'credit_card' | 'venmo'
  */
@@ -650,6 +722,60 @@ export async function updateSessionPaymentMethod(sessionId: string, method: stri
 		return false;
 	}
 	return true;
+}
+
+/**
+ * Update a session's notes.
+ */
+export async function updateSessionNotes(sessionId: string, notes: string): Promise<boolean> {
+	if (!sessionId) return false;
+	const nowIso = new Date().toISOString();
+	const { error } = await supabase
+		.from('sessions')
+		.update({
+			notes: notes.trim() || null,
+			updated_at: nowIso,
+		})
+		.eq('id', sessionId);
+	if (error) {
+		console.error('Error updating session notes:', error);
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Fetch a single project by id (scoped to artist).
+ */
+export async function getProjectById(artistId: string, projectId: string): Promise<any | null> {
+	if (!artistId || !projectId) return null;
+
+	const { data, error } = await supabase
+		.from('projects')
+		.select(`
+			id,
+			artist_id,
+			client_id,
+			title,
+			deposit_amount,
+			deposit_paid,
+			deposit_paid_date,
+			deposit_payment_method,
+			notes,
+			waiver_signed,
+			created_at,
+			updated_at
+		`)
+		.eq('id', projectId)
+		.eq('artist_id', artistId)
+		.single();
+
+	if (error) {
+		console.error('Error fetching project by id:', error);
+		return null;
+	}
+
+	return data ?? null;
 }
 
 /**

@@ -152,7 +152,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                     onFileSelected={(file) => updatePolicyData({ termsOfCondition: file.uri })}
                     onFileRemoved={() => updatePolicyData({ termsOfCondition: '' })}
                     placeholder="Choose File"
-                    helperText="Upload terms & condition here"
+                    helperText="Upload Artist Policies here"
                     secondHelperText="(PDF or clear image file)."
                     maxFileSize={5 * 1024 * 1024} // 5MB
                     allowedFileTypes={['image/*', 'application/pdf']}
@@ -180,7 +180,7 @@ export const Policy = ({ policyData, updatePolicyData }: PolicyProps) => {
                                     bottomOffset={20}
                                     contentContainerClassName="w-full"
                                     showsVerticalScrollIndicator={false}
-                                    keyboardShouldPersistTaps="handled"
+                                    
 
                                 >
                                     <View className="gap-6">

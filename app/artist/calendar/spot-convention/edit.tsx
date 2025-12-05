@@ -27,12 +27,15 @@ import type { Locations as ArtistLocation } from "@/lib/redux/types";
 import { LocationModal } from "@/components/lib/location-modal";
 import { addTemporaryLocation } from "@/lib/services/setting-service";
 import { getSpotConventionById, updateSpotConvention } from "@/lib/services/calendar-service";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 
 export default function EditSpotConventionPage() {
     const router = useRouter();
     const { toast } = useToast();
     const { artist } = useAuth();
     const { id } = useLocalSearchParams<{ id: string }>();
+    const dispatch = useAppDispatch();
 
     // Form state
     const DEFAULT_START = '09:00';
@@ -48,7 +51,7 @@ export default function EditSpotConventionPage() {
         diffTimeEnabled: boolean;
         startTimes: Record<string, string>;
         endTimes: Record<string, string>;
-        location: string;
+        location: ArtistLocation | undefined;
         notes: string;
     }>({
         title: '',
@@ -56,7 +59,7 @@ export default function EditSpotConventionPage() {
         diffTimeEnabled: false,
         startTimes: {},
         endTimes: {},
-        location: '',
+        location: undefined,
         notes: '',
     });
     const [initialData, setInitialData] = useState<typeof formData | null>(null);
@@ -143,8 +146,7 @@ export default function EditSpotConventionPage() {
             address: location.address,
             place_id: location.place_id,
             coordinates: location.coordinates,
-            is_main_studio: false,
-            is_temporary: true,
+            is_main_studio: false
         };
         const result = await addTemporaryLocation(artist.id, locationData);
         if (!result.success) {
@@ -161,7 +163,10 @@ export default function EditSpotConventionPage() {
             const exists = prev.some(l => (l.id ?? l.place_id) === newKey);
             return exists ? prev : [...prev, newLoc];
         });
-        setFormData({ ...formData, location: result.location?.id ?? result.location?.place_id ?? '' });
+        setFormData((prev) => ({
+            ...prev,
+            location: result.location as ArtistLocation | undefined,
+        }));
         setOpenTempLocationModal(false);
     };
 
@@ -182,13 +187,17 @@ export default function EditSpotConventionPage() {
             const res = await getSpotConventionById(id);
             if (res.success && res.data) {
                 const record = res.data;
+                const selectedLocation =
+                    artist?.locations?.find(
+                        (l) => (l.id ?? l.place_id) === record.location_id,
+                    ) ?? undefined;
                 const mapped = {
                     title: record.title || '',
                     dates: Array.isArray(record.dates) ? record.dates : [],
                     diffTimeEnabled: Boolean(record.diff_time_enabled),
                     startTimes: record.start_times || {},
                     endTimes: record.end_times || {},
-                    location: record.location_id || '',
+                    location: selectedLocation,
                     notes: record.notes || '',
                 };
                 setFormData(mapped);
@@ -201,7 +210,7 @@ export default function EditSpotConventionPage() {
         } finally {
             setFetching(false);
         }
-    }, [id]);
+    }, [id, artist?.locations]);
 
     useEffect(() => {
         loadSpotConvention();
@@ -233,12 +242,30 @@ export default function EditSpotConventionPage() {
                 diffTimeEnabled: formData.diffTimeEnabled,
                 startTimes: formData.startTimes,
                 endTimes: formData.endTimes,
-                locationId: formData.location,
+                locationId: formData.location?.id ?? formData.location?.place_id ?? '',
                 notes: formData.notes?.trim() || undefined,
             });
             if (!result.success) {
                 toast({ variant: 'error', title: result.error || 'Failed to save spot convention' });
                 return;
+            }
+
+            // Sync newly added location into artist state (same behavior as add page)
+            if (artist && formData.location) {
+                const existingLocations = artist.locations ? [...artist.locations] : [];
+                const exists = existingLocations.some(
+                    (loc) =>
+                        (loc.id ?? loc.place_id) ===
+                        (formData.location?.id ?? formData.location?.place_id),
+                );
+                if (!exists) {
+                    dispatch(
+                        setArtist({
+                            ...artist,
+                            locations: [...existingLocations, formData.location],
+                        }),
+                    );
+                }
             }
 
             toast({ variant: 'success', title: 'Spot Convention Updated!', duration: 3000 });
@@ -263,7 +290,7 @@ export default function EditSpotConventionPage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
+                        
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">
@@ -479,9 +506,21 @@ export default function EditSpotConventionPage() {
                                     <Text variant="h5">Location</Text>
                                     <View className="gap-2 w-full">
                                         <DropdownPicker
-                                            options={locationData.map((location: ArtistLocation) => ({ label: location.address, value: location.id ?? location.place_id })) || []}
-                                            value={formData.location}
-                                            onValueChange={(value: string) => setFormData({ ...formData, location: value as string })}
+                                            options={locationData.map((location: ArtistLocation) => ({
+                                                label: location.address,
+                                                value: location.id ?? location.place_id,
+                                            })) || []}
+                                            value={formData.location?.id ?? formData.location?.place_id ?? undefined}
+                                            onValueChange={(value: string) =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    location:
+                                                        locationData.find(
+                                                            (l) =>
+                                                                (l.id ?? l.place_id) === value,
+                                                        ) ?? prev.location,
+                                                }))
+                                            }
                                             placeholder="Select location"
                                             modalTitle="Select Location"
                                         />

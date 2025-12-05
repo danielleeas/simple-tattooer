@@ -184,12 +184,12 @@ export default function EventBlockTimeDetailPage() {
                                 </View>
                                 <View style={{ gap: 8, flexDirection: 'row' }}>
                                     <View style={{ flex: 1 }}>
-                                        <Button onPress={() => setIsDeleteModalOpen(false)} disabled={deleting} variant="outline" size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" onPress={() => setIsDeleteModalOpen(false)} disabled={deleting} size='lg' className='items-center justify-center'>
                                             <Text>Cancel</Text>
                                         </Button>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Button onPress={handleDeleteConfirm} size='lg' disabled={deleting} className='items-center justify-center'>
+                                        <Button variant="outline" onPress={handleDeleteConfirm} size='lg' disabled={deleting} className='items-center justify-center'>
                                             <Text>{deleting ? 'Deleting...' : 'Delete'}</Text>
                                         </Button>
                                     </View>

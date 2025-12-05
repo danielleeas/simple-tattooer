@@ -83,7 +83,7 @@ export default function SearchClients() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     }
 
     const handleMenu = () => {

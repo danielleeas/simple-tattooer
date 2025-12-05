@@ -43,6 +43,7 @@ export const createFlash = async (
   flashData: CreateFlashData
 ): Promise<FlashServiceResult<ArtistFlash>> => {
   try {
+    console.log("creating flash", artistId, flashData)
     const { data, error } = await supabase
       .from('artist_flashs')
       .insert({
@@ -116,7 +117,7 @@ export const updateFlash = async (
 // Bulk upsert flashes by id (updates existing rows; inserts if unknown ids are provided)
 export const upsertFlashes = async (
   artistId: string,
-  updates: Array<{ id: string; flash_image: string } & UpdateFlashData>
+  updates: Array<{ id: string } & UpdateFlashData>
 ): Promise<FlashServiceResult<ArtistFlash[]>> => {
   try {
     const rows = updates.map((u) => ({
@@ -124,7 +125,6 @@ export const upsertFlashes = async (
       artist_id: artistId,
       // Only include fields that may change; undefined fields are ignored by Supabase
       flash_name: u.flash_name,
-      flash_image: u.flash_image,
       flash_price: u.flash_price,
       repeatable: u.repeatable,
       updated_at: new Date().toISOString(),

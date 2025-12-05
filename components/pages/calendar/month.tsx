@@ -58,7 +58,7 @@ export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) 
         }
         else if (source === 'session') {
             router.push({
-                pathname: '/artist/clients/detail-session',
+                pathname: '/artist/booking/session/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
             });
         }
@@ -166,7 +166,7 @@ export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) 
                             return (
                                 <View
                                     key={`${weekIndex}-${dayIndex}`}
-                                    className="flex-1 items-center pt-4 justify-start border-border-secondary border-r border-b relative"
+                                    className="flex-1 items-center pt-3 justify-start border-border-secondary border-r border-b relative"
                                 >
 
                                     <View className={`rounded-full relative items-center justify-center ${bubbleClasses}`} style={{ width: 24, height: 24 }}>
@@ -184,7 +184,7 @@ export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) 
                                     {/* Background per-day shading removed in favor of a single week-level span */}
 
                                     {/* Single-day timed items (show a few pills) */}
-                                    <View className="w-full px-1 mt-1 gap-1">
+                                    <View className="w-full px-1 gap-1">
                                         {(() => {
                                             const dStart = startOfDay(day.date);
                                             const dEnd = endOfDay(day.date);
@@ -231,17 +231,20 @@ export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) 
                                             <Pressable
                                                 key={`wk-bg-${weekIndex}-${span.id}-${i}`}
                                                 onPress={() => handleEventClick(span.source, span.source_id)}
-                                                className={`absolute ${getEventColorClass(span.color)}`}
+                                                className="absolute items-start justify-start"
                                                 style={{
                                                     left,
                                                     width,
                                                     height: 16,
-                                                    opacity: 0.7,
                                                     justifyContent: 'center',
                                                     paddingHorizontal: 4,
                                                 } as ViewStyle}
                                             >
-                                                <Text className="text-[9px] text-foreground" numberOfLines={1}>{span.title}</Text>
+                                                <View
+                                                    className={`absolute top-0 left-0 right-0 bottom-0 ${getEventColorClass(span.color)}`}
+                                                    style={{ opacity: 0.7 }}
+                                                />
+                                                <Text className="text-[11px] text-foreground leading-none" numberOfLines={1}>{span.title}</Text>
                                             </Pressable>
                                         );
                                     })}

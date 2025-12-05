@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, TextInput, FlatList, Modal, ActivityIndicator, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
-import { XIcon, MapPinIcon, SearchIcon, Loader2 } from 'lucide-react-native';
+import { XIcon, MapPinIcon, SearchIcon } from 'lucide-react-native';
 import { THEME } from '@/lib/theme';
 import { GOOGLE_PLACES_API_KEY } from '@/lib/constants';
 
@@ -196,7 +196,7 @@ export function LocationModal({
                         renderItem={renderSearchResult}
                         keyExtractor={(item) => item.id}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
+                        
                       />
                     ) : (
                       <View className="p-4 items-center justify-center">

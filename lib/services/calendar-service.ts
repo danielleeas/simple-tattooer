@@ -33,6 +33,7 @@ export interface CreateSpotConventionParams {
 export interface CreateSpotConventionResult {
 	success: boolean;
 	id?: string;
+	location?: Locations;
 	error?: string;
 }
 
@@ -54,6 +55,7 @@ export interface CreateTempChangeParams {
 export interface CreateTempChangeResult {
 	success: boolean;
 	id?: string;
+	location?: Locations;
 	error?: string;
 }
 
@@ -311,14 +313,23 @@ export async function createOffDays(params: CreateOffDaysParams): Promise<Create
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addWeeks(cursorStart, 1);
 				}
-			} else {
-				// monthly
+			} else if (resolvedRepeatType === 'monthly') {
+				// Repeat the same span each month
 				let cursorStart = new Date(baseStart);
 				while (windowEndExclusive && cursorStart < windowEndExclusive) {
 					const occStart = new Date(cursorStart);
 					const occEnd = addDays(occStart, spanDays - 1);
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addMonths(cursorStart, 1);
+				}
+			} else {
+				// yearly - repeat the same span each year on the same date
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addYears(cursorStart, 1);
 				}
 			}
 		}
@@ -522,7 +533,7 @@ export async function updateOffDay(
 		if (!row.is_repeat) {
 			occurrences.push({ start: baseStart, end: baseEnd });
 		} else {
-			const rType = (row.repeat_type ?? 'daily') as 'daily' | 'weekly' | 'monthly';
+			const rType = (row.repeat_type ?? 'daily') as 'daily' | 'weekly' | 'monthly' | 'yearly';
 			if (rType === 'daily') {
 				let cursor = new Date(baseStart);
 				while (windowEndExclusive && cursor < windowEndExclusive) {
@@ -539,13 +550,22 @@ export async function updateOffDay(
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addWeeks(cursorStart, 1);
 				}
-			} else {
+			} else if (rType === 'monthly') {
 				let cursorStart = new Date(baseStart);
 				while (windowEndExclusive && cursorStart < windowEndExclusive) {
 					const occStart = new Date(cursorStart);
 					const occEnd = addDays(occStart, spanDays - 1);
 					occurrences.push({ start: occStart, end: occEnd });
 					cursorStart = addMonths(cursorStart, 1);
+				}
+			} else {
+				// yearly - repeat the same span each year on the same date
+				let cursorStart = new Date(baseStart);
+				while (windowEndExclusive && cursorStart < windowEndExclusive) {
+					const occStart = new Date(cursorStart);
+					const occEnd = addDays(occStart, spanDays - 1);
+					occurrences.push({ start: occStart, end: occEnd });
+					cursorStart = addYears(cursorStart, 1);
 				}
 			}
 		}
@@ -600,22 +620,22 @@ function normalizeLocationForInsert(artistId: string, loc: CreateSpotConventionP
 	};
 }
 
-async function resolveLocationId(artistId: string, location: CreateSpotConventionParams['location']): Promise<string> {
+async function resolveLocationId(artistId: string, location: CreateSpotConventionParams['location']): Promise<{ id: string; location?: Locations }> {
 	const maybeId = (location as any)?.id as string | undefined;
 	if (maybeId && typeof maybeId === 'string') {
-		return maybeId;
+		return { id: maybeId };
 	}
 
 	const address = (location as any)?.address;
 	if (artistId && address) {
 		const { data: existingByAddress, error: findErr } = await supabase
 			.from('locations')
-			.select('id')
+			.select('id, address, place_id, coordinates, is_main_studio')
 			.eq('artist_id', artistId)
 			.eq('address', address)
 			.maybeSingle();
 		if (!findErr && existingByAddress?.id) {
-			return existingByAddress.id;
+			return { id: existingByAddress.id };
 		}
 	}
 
@@ -623,12 +643,12 @@ async function resolveLocationId(artistId: string, location: CreateSpotConventio
 	const { data: created, error: insErr } = await supabase
 		.from('locations')
 		.insert([payload])
-		.select('id')
+		.select('id, address, place_id, coordinates, is_main_studio')
 		.single();
 	if (insErr) {
 		throw new Error(insErr.message || 'Failed to create location');
 	}
-	return created.id as string;
+	return { id: created.id as string, location: created as unknown as Locations };
 }
 
 export async function createSpotConvention(params: CreateSpotConventionParams): Promise<CreateSpotConventionResult> {
@@ -646,7 +666,7 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 			return { success: false, error: 'Location is required' };
 		}
 
-		const locationId = await resolveLocationId(params.artistId, params.location);
+		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, params.location);
 
 		const insertPayload = {
 			artist_id: params.artistId,
@@ -697,7 +717,7 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 			}
 		}
 
-		return { success: true, id: spotConventionId };
+		return { success: true, id: spotConventionId, location: newLocation };
 	} catch (err) {
 		return {
 			success: false,
@@ -905,7 +925,7 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			return { success: false, error: 'Location is required' };
 		}
 
-		const locationId = await resolveLocationId(params.artistId, params.location);
+		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, params.location);
 
 		// Normalize to requested times: start at 00:00, end at 23:00
 
@@ -954,7 +974,7 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			}
 		}
 
-		return { success: true, id: tempChangeId };
+		return { success: true, id: tempChangeId, location: newLocation };
 	} catch (err) {
 		return {
 			success: false,
@@ -1151,6 +1171,153 @@ export async function deleteTempChange(id: string): Promise<{ success: boolean; 
 }
 
 // Create Event/Block Time (single-day time range, optional future enhancements for repeats/off-booking)
+export interface CheckEventOverlapParams {
+	artistId: string;
+	date: string; // "YYYY-MM-DD"
+	startTime: string; // "HH:mm"
+	endTime: string;   // "HH:mm"
+	break_time?: number; // Break time in minutes (from artist.flow.buffer_between_sessions)
+	source?: string; // Source of the event being created ('block_time', 'session', 'quick_appointment', etc.)
+}
+
+export interface CheckEventOverlapResult {
+	success: boolean;
+	hasOverlap?: boolean;
+	overlappingEvent?: CalendarEvent;
+	error?: string;
+}
+
+// Check if a time range overlaps with existing events of type 'item' on a specific date
+export async function checkEventOverlap(params: CheckEventOverlapParams): Promise<CheckEventOverlapResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.date || !params.startTime || !params.endTime) {
+			return { success: false, error: 'Missing required parameters' };
+		}
+
+		// Query events for the specific date where type = 'item'
+		// Events are stored as "YYYY-MM-DD HH:mm", so we check events that overlap with this date
+		const dateStart = `${params.date} 00:00`;
+		const dateEnd = `${params.date} 23:59`;
+
+		const { data, error } = await supabase
+			.from('events')
+			.select('id, artist_id, title, allday, start_date, end_date, color, type, source, source_id')
+			.eq('artist_id', params.artistId)
+			.eq('type', 'item')
+			.lte('start_date', dateEnd)
+			.gte('end_date', dateStart)
+			.order('start_date', { ascending: true });
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to check for overlapping events' };
+		}
+
+		const events = (data ?? []) as CalendarEvent[];
+
+		// Convert new event times to minutes for comparison
+		const [newSh, newSm] = params.startTime.split(':').map(n => parseInt(n, 10));
+		const [newEh, newEm] = params.endTime.split(':').map(n => parseInt(n, 10));
+		const newStartMinutes = newSh * 60 + newSm;
+		const newEndMinutes = newEh * 60 + newEm;
+
+		// Get break time buffer (default to 0 if not provided)
+		const breakTime = params.break_time || 0;
+
+		// Check for overlaps based on event source type
+		for (const event of events) {
+			// Skip all-day events
+			if (event.allday) continue;
+
+			// Extract date and time from event's start_date and end_date
+			// Format is "YYYY-MM-DD HH:mm"
+			const eventStartDateTime = normalizeDbDateTime(event.start_date);
+			const eventEndDateTime = normalizeDbDateTime(event.end_date);
+
+			// Extract date and time parts
+			const eventStartDate = eventStartDateTime.split(' ')[0];
+			const eventEndDate = eventEndDateTime.split(' ')[0];
+			const eventStartTime = eventStartDateTime.split(' ')[1] || '00:00';
+			const eventEndTime = eventEndDateTime.split(' ')[1] || '23:59';
+
+			// Only check events that are on the same date
+			if (eventStartDate !== params.date && eventEndDate !== params.date) {
+				continue;
+			}
+
+			// For events on the same date, check time overlap
+			let evStartMinutes: number;
+			let evEndMinutes: number;
+
+			if (eventStartDate === params.date && eventEndDate === params.date) {
+				// Same day event - use the event's times directly
+				const [evSh, evSm] = eventStartTime.split(':').map(n => parseInt(n, 10));
+				const [evEh, evEm] = eventEndTime.split(':').map(n => parseInt(n, 10));
+				evStartMinutes = evSh * 60 + evSm;
+				evEndMinutes = evEh * 60 + evEm;
+			} else if (eventStartDate === params.date) {
+				// Event starts on this date but ends later - use event start time and end of day
+				const [evSh, evSm] = eventStartTime.split(':').map(n => parseInt(n, 10));
+				evStartMinutes = evSh * 60 + evSm;
+				evEndMinutes = 24 * 60; // End of day (1440 minutes)
+			} else {
+				// Event ends on this date but started earlier - use start of day and event end time
+				evStartMinutes = 0; // Start of day
+				const [evEh, evEm] = eventEndTime.split(':').map(n => parseInt(n, 10));
+				evEndMinutes = evEh * 60 + evEm;
+			}
+
+			// Check overlap based on both the new event source and existing event source
+			const newEventSource = params.source;
+			const existingEventSource = event.source;
+			let hasConflict = false;
+
+			// If creating a block_time event, always use simple overlap check (no break time required)
+			if (newEventSource === 'block_time') {
+				// Simple overlap check: newStart < evEnd AND newEnd > evStart
+				hasConflict = newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes;
+			} else if (newEventSource === 'session' || newEventSource === 'quick_appointment') {
+				// If creating a session/quick_appointment event
+				if (existingEventSource === 'session' || existingEventSource === 'quick_appointment') {
+					// Both are appointment events - require break time buffer
+					// A new event conflicts if it doesn't have enough break time before OR after the existing appointment
+					// It's allowed if:
+					//   newEndMinutes <= evStartMinutes - breakTime  (enough break before the appointment)
+					//   OR
+					//   newStartMinutes >= evEndMinutes + breakTime  (enough break after the appointment)
+					const latestAllowedEndBeforeAppt = evStartMinutes - breakTime;
+					const earliestAllowedStartAfterAppt = evEndMinutes + breakTime;
+
+					const hasEnoughBreakBefore = newEndMinutes <= latestAllowedEndBeforeAppt;
+					const hasEnoughBreakAfter = newStartMinutes >= earliestAllowedStartAfterAppt;
+
+					// Conflict if there's not enough break before AND not enough break after
+					hasConflict = !hasEnoughBreakBefore && !hasEnoughBreakAfter;
+				} else {
+					// Existing event is not a session/quick_appointment (e.g., block_time) - simple overlap check
+					hasConflict = newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes;
+				}
+			} else {
+				// For other event types or when source is not specified, use simple overlap check
+				hasConflict = newStartMinutes < evEndMinutes && newEndMinutes > evStartMinutes;
+			}
+
+			if (hasConflict) {
+				return { success: true, hasOverlap: true, overlappingEvent: event };
+			}
+		}
+
+		return { success: true, hasOverlap: false };
+	} catch (err) {
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : 'Unknown error',
+		};
+	}
+}
+
 export interface CreateEventBlockTimeParams {
 	artistId: string;
 	date: string; // "YYYY-MM-DD"
@@ -1282,11 +1449,18 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 					occurrences.push(new Date(cursor));
 					cursor = addWeeks(cursor, 1);
 				}
-			} else {
+			} else if (resolvedRepeatType === 'monthly') {
 				let cursor = new Date(base);
 				while (windowEndExclusive && cursor < windowEndExclusive) {
 					occurrences.push(new Date(cursor));
 					cursor = addMonths(cursor, 1);
+				}
+			} else {
+				// yearly - repeat on the same date each year
+				let cursor = new Date(base);
+				while (windowEndExclusive && cursor < windowEndExclusive) {
+					occurrences.push(new Date(cursor));
+					cursor = addYears(cursor, 1);
 				}
 			}
 		}
@@ -1532,11 +1706,18 @@ export async function updateEventBlockTime(
 							occurrences.push(new Date(cursor));
 							cursor = addWeeks(cursor, 1);
 						}
-					} else {
+					} else if (repeatType === 'monthly') {
 						let cursor = new Date(base);
 						while (windowEndExclusive && cursor < windowEndExclusive) {
 							occurrences.push(new Date(cursor));
 							cursor = addMonths(cursor, 1);
+						}
+					} else {
+						// yearly - repeat on the same date each year
+						let cursor = new Date(base);
+						while (windowEndExclusive && cursor < windowEndExclusive) {
+							occurrences.push(new Date(cursor));
+							cursor = addYears(cursor, 1);
 						}
 					}
 				}
@@ -1734,7 +1915,24 @@ export async function updateQuickAppointment(
 			return { success: false, error: error.message || 'Failed to update quick appointment' };
 		}
 
-		// 2) Delete old event and create new one
+		// 2) Update related sessions
+		const { error: sessionsError } = await supabase
+			.from('sessions')
+			.update({
+				start_time: data.startTime,
+				duration: data.sessionLength,
+				notes: data.notes || null,
+				updated_at: new Date().toISOString(),
+			})
+			.eq('source', 'quick_appointment')
+			.eq('source_id', id);
+		
+		if (sessionsError) {
+			console.warn('Failed to update related sessions:', sessionsError);
+			// Don't fail the whole operation, but log the warning
+		}
+
+		// 3) Delete old event and create new one
 		await supabase
 			.from('events')
 			.delete()

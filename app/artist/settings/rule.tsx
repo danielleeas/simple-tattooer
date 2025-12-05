@@ -370,7 +370,7 @@ export default function YourRules() {
                                 bottomOffset={50}
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                                 contentContainerStyle={{ paddingBottom: 80 }}
                             >
                                 <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">

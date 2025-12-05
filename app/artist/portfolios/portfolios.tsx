@@ -99,18 +99,6 @@ export default function UploadPortfolios() {
         }
     };
 
-    const handleBack = () => {
-        router.back();
-    };
-
-    const handleHome = () => {
-        router.dismissAll();
-    };
-
-    const handleMenu = () => {
-        router.push('/artist/menu');
-    };
-
     const handleSavePortfolio = async () => {
         // Only save portfolios that have a non-empty name; skip unnamed ones
         const namedPortfolios = portfolios.filter(p => (p.portfolio_name || '').trim() !== '' || (p.portfolio_description || '').trim() !== '');
@@ -137,7 +125,6 @@ export default function UploadPortfolios() {
                 id: p.id as string,
                 portfolio_name: p.portfolio_name,
                 portfolio_description: p.portfolio_description,
-                portfolio_image: p.portfolio_image,
             }));
 
             const upsertResult = await upsertPortfolios(artist.id, updatesById);
@@ -181,6 +168,8 @@ export default function UploadPortfolios() {
             if (deleteResult.success) {
                 // Remove portfolio from state
                 setPortfolios(prevPortfolios => prevPortfolios.filter(p => p.id !== deletingPortfolioId));
+                // Also update originalPortfolios to keep them in sync
+                setOriginalPortfolios(prevPortfolios => prevPortfolios.filter(p => p.id !== deletingPortfolioId));
 
                 toast({
                     variant: 'success',
@@ -396,7 +385,7 @@ export default function UploadPortfolios() {
                 contentContainerClassName="w-full"
                 showsVerticalScrollIndicator={false}
                 bottomOffset={80}
-                keyboardShouldPersistTaps="handled"
+                
             >
                 <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
                     <View className="items-center justify-center" style={{ height: 180 }}>
@@ -575,7 +564,7 @@ export default function UploadPortfolios() {
                                         </Button>
                                     </View>
                                     <View className="flex-1">
-                                        <Button disabled={deleting} onPress={handlePortfolioDeleteConfirm} size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" disabled={deleting} onPress={handlePortfolioDeleteConfirm} size='lg' className='items-center justify-center'>
                                             <Text>Delete</Text>
                                         </Button>
                                     </View>

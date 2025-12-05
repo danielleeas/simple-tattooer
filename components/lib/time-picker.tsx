@@ -247,6 +247,7 @@ export const TimePicker = ({
                                 <Text variant="h6">Cancel</Text>
                             </Button>
                             <Button
+                                variant="outline"
                                 size="default"
                                 onPress={() => {
                                     const src = tempDuration ?? initialDuration ?? { hours: 0, minutes: 0, seconds: 0 };

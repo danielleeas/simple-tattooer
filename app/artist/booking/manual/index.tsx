@@ -16,9 +16,10 @@ import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
-import { getAvailableDates, getAvailableTimes, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
+import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
-import { formatDbDate } from "@/lib/utils";
+import { formatDbDate, makeChunks } from "@/lib/utils";
+import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -27,8 +28,8 @@ interface FormDataProps {
     title: string;
     sessionLength: number | undefined;
     locationId: string;
-    date: Date | undefined;
-    startTime: string;
+    dates: string[]; // YYYY-MM-DD format strings
+    startTimes: Record<string, string>;
     depositAmount: string;
     sessionRate: string;
     notes: string;
@@ -39,137 +40,73 @@ export default function ManualBooking() {
     const { artist } = useAuth();
     const { clientId } = useLocalSearchParams();
     const [availableDates, setAvailableDates] = useState<string[]>([]);
-    const [renderStartTimes, setRenderStartTimes] = useState<{ id: number; time: string }[]>([]);
-    const fetchSeqRef = useRef(0);
-    const [loadingStartTimes, setLoadingStartTimes] = useState(false);
+    const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
+    const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-
-    const shallowEqualTimes = (a: { id: number; time: string }[], b: { id: number; time: string }[]) => {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-            if (a[i].time !== b[i].time) return false;
-        }
-        return true;
-    };
 
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
         sessionLength: undefined,
         locationId: '',
-        date: undefined,
-        startTime: '',
+        dates: [],
+        startTimes: {},
         depositAmount: '',
         sessionRate: '',
         notes: '',
     });
 
-    const handleHome = () => {
-        router.dismissAll();
-    }
-
-    const handleMenu = () => {
-        router.push('/artist/menu');
-    };
-
-    // Helpers to convert between Date and YYYY-MM-DD (local) expected by DatePicker
-    const formatDateToYmd = useCallback((date?: Date) => {
-        if (!date) return undefined;
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }, []);
-
-    const parseYmdToLocalDate = useCallback((ymd?: string) => {
-        if (!ymd) return undefined;
-        const [y, m, d] = ymd.split('-').map(Number);
-        if (!y || !m || !d) return undefined;
-        return new Date(y, m - 1, d, 12); // local noon to avoid TZ shifts
-    }, []);
-
-    const makeChunks = (arr: { id: number; time: string }[]) => {
-        const chunks: { id: number; time: string }[][] = [];
-        // Create chunks of 2 objects each
-        for (let i = 0; i < arr.length; i += 2) {
-            chunks.push(arr.slice(i, i + 2));
-        }
-        return chunks;
-    };
-
-    const startTimesChunks = useMemo(() => makeChunks(renderStartTimes), [renderStartTimes]);
-
-    // Helpers for month boundaries
-    const getMonthRange = (year: number, monthZeroBased: number) => {
-        const start = new Date(year, monthZeroBased, 1);
-        const end = new Date(year, monthZeroBased + 1, 0);
-        const toYmd = (d: Date) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const da = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${da}`;
-        };
-        return { start: toYmd(start), end: toYmd(end) };
-    };
-
-    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number) => {
+    const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
+        setLoadingAvailability(true);
+        setAvailableDates([]);
         try {
-            if (!artist?.id) return;
+            if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, clientId as string | undefined, start, end);
+            const days = await getAvailableDates(artist as any, locationId, start, end);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);
             setAvailableDates([]);
+        } finally {
+            setLoadingAvailability(false);
         }
     };
 
-    // Initial month load
-    useEffect(() => {
-        const today = new Date();
-        loadAvailabilityForMonth(today.getFullYear(), today.getMonth());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [artist?.id]);
+    const onChangeCalendarMonth = (year: number, month: number) => {
+        setCalendarYear(year);
+        setCalendarMonth(month);
+    }
 
-    const startTimesForDate = useCallback(async (date: Date) => {
-        if (!artist?.id || !formData.sessionLength) return [];
-        const toYmdLocal = (d: Date) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const da = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${da}`;
-        };
-        const ymd = toYmdLocal(date);
-        const options = await getAvailableTimes(artist as any, ymd, formData.sessionLength, 30);
-        const startTimes = options.map((opt, idx) => ({
-            id: idx + 1,
-            time: opt.label,
+    const onChangeLocation = (locationId: string) =>{
+        setFormData((prev) => ({ ...prev, locationId: locationId, dates: [] }));
+    }
+
+    const handleDatesSelect = (dates: string[]) => {
+        const sortedDates = [...dates].sort();
+        // Remove start times for dates that are no longer selected
+        const updatedStartTimes = { ...formData.startTimes };
+        Object.keys(updatedStartTimes).forEach(date => {
+            if (!sortedDates.includes(date)) {
+                delete updatedStartTimes[date];
+            }
+        });
+        setFormData((prev) => ({ ...prev, dates: sortedDates, startTimes: updatedStartTimes }));
+    }
+
+    const handleTimeSelect = (date: string, time: string) => {
+        setFormData((prev) => ({
+            ...prev,
+            startTimes: {
+                ...prev.startTimes,
+                [date]: time
+            }
         }));
-        return startTimes;
-    }, [artist?.id, formData.sessionLength]);
+    }
 
     useEffect(() => {
-        let alive = true;
-        const seq = ++fetchSeqRef.current;
-        (async () => {
-            if (!formData.date || !artist?.id || !formData.sessionLength || !formData.locationId) {
-                setRenderStartTimes((prev) => (prev.length ? [] : prev));
-                if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
-                return;
-            }
-            if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(true);
-            try {
-                const times = await startTimesForDate(formData.date);
-                if (!alive || seq !== fetchSeqRef.current) return;
-                setRenderStartTimes((prev) => (shallowEqualTimes(prev, times) ? prev : times));
-            } finally {
-                if (alive && seq === fetchSeqRef.current) setLoadingStartTimes(false);
-            }
-        })();
-        return () => {
-            alive = false;
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.date, formData.sessionLength, formData.locationId, artist?.id]);
+        if (!artist?.id || !formData.locationId) return;
+        loadAvailabilityForMonth(calendarYear, calendarMonth, formData.locationId);
+    }, [artist?.id, calendarYear, calendarMonth, formData.locationId]);
 
     const handleCompleteBooking = async () => {
         try {
@@ -181,14 +118,27 @@ export default function ManualBooking() {
             const depositAmount = parseInt(formData.depositAmount);
             const sessionRate = parseInt(formData.sessionRate);
 
+            if (formData.dates.length === 0) {
+                toast({ variant: 'error', title: 'Please select at least one date' });
+                return;
+            }
+
+            const backToBackResult = await getBackToBackResult(artist, formData.dates, String(clientId || ''));
+            if (!backToBackResult.success) {
+                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
+                return;
+            }
+
+            console.log(backToBackResult)
+
             const result = await createManualBooking({
                 artistId: artist.id,
                 clientId: String(clientId || ''),
                 title: formData.title,
                 sessionLengthMinutes: formData.sessionLength || 0,
                 locationId: formData.locationId,
-                date: formData.date as Date,
-                startTimeDisplay: formData.startTime,
+                dates: formData.dates,
+                startTimes: formData.startTimes,
                 depositAmount,
                 sessionRate,
                 notes: formData.notes,
@@ -210,8 +160,8 @@ export default function ManualBooking() {
                 clientId: String(clientId || ''),
                 form: {
                     title: formData.title,
-                    date: formData.date as Date,
-                    startTime: formData.startTime,
+                    dates: formData.dates,
+                    startTimes: formData.startTimes,
                     sessionLength: formData.sessionLength || 0,
                     notes: formData.notes,
                     locationId: formData.locationId,
@@ -239,6 +189,14 @@ export default function ManualBooking() {
         }
     };
 
+    const handleHome = () => {
+        router.dismissAll();
+    }
+
+    const handleMenu = () => {
+        router.push('/artist/menu');
+    };
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -251,9 +209,9 @@ export default function ManualBooking() {
                     rightButtonTitle="Menu"
                     onRightButtonPress={handleMenu}
                 />
-                <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
+                <View className="flex-1 bg-background p-4 gap-6">
                     <View className="flex-1">
-                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-[22px] h-[180px]">
                                     <Image
@@ -303,7 +261,7 @@ export default function ManualBooking() {
                                         <DropdownPicker
                                             options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
                                             value={formData.locationId}
-                                            onValueChange={(value: string) => setFormData({ ...formData, locationId: value as string })}
+                                            onValueChange={(value: string) => onChangeLocation(value as string)}
                                             placeholder="Select location"
                                             modalTitle="Select Location"
                                             disabled={formData.sessionLength === undefined}
@@ -322,16 +280,30 @@ export default function ManualBooking() {
                                     </Text>
                                 </View>
 
-                                <DatePicker
-                                    selectedDateString={formatDateToYmd(formData.date)}
-                                    onDateStringSelect={(dateStr) => setFormData({ ...formData, date: parseYmdToLocalDate(dateStr) })}
-                                    showInline={true}
-                                    selectionMode="single"
-                                    availableDates={availableDates}
-                                    onMonthChange={(y, m) => loadAvailabilityForMonth(y, m)}
-                                    disabled={formData.sessionLength === undefined || formData.locationId === ''}
-                                    className="border border-border-white rounded-lg p-4"
-                                />
+                                <View className="relative">
+                                    {loadingAvailability && (
+                                        <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
+                                            <ActivityIndicator size="small" color="#ffffff" />
+                                            <Text className="text-text-secondary mt-2 text-sm">Checking availability...</Text>
+                                        </View>
+                                    )}
+                                    {!loadingAvailability && availableDates.length === 0 && formData.locationId !== '' && (
+                                        <View className="absolute top-16 right-1 bottom-1 left-1 bg-background/50 z-10 items-center justify-center">
+                                            <Text className="text-text-secondary mt-2 text-sm">No availability found</Text>
+                                        </View>
+                                    )}
+                                    <DatePicker
+                                        selectedDatesStrings={formData.dates}
+                                        onDatesStringSelect={(dateStrs) => handleDatesSelect(dateStrs)}
+                                        showInline={true}
+                                        showTodayButton={false}
+                                        selectionMode="multiple"
+                                        availableDates={availableDates}
+                                        onMonthChange={(y, m) => onChangeCalendarMonth(y, m)}
+                                        disabled={formData.sessionLength === undefined || formData.locationId === ''}
+                                        className="border border-border rounded-lg p-4"
+                                    />
+                                </View>
 
                                 {(formData.sessionLength === undefined && formData.locationId === '') && (
                                     <Text variant="small" className="font-thin leading-5 text-text-secondary">
@@ -339,54 +311,35 @@ export default function ManualBooking() {
                                     </Text>
                                 )}
 
-                                {formData.date && (
-                                    <View className="gap-2">
+                                {formData.dates.length > 0 && artist && formData.locationId !== '' && (
+                                    <View className="gap-4">
                                         <View className="gap-2">
                                             <Text variant="small" className="font-thin leading-5 text-text-secondary">
-                                                Selected date - {formData.date ? formatDbDate(formData.date, 'MMM DD, YYYY') : ''}
+                                                {formData.dates.length === 1
+                                                    ? `Selected date - ${formatDbDate(formData.dates[0], 'MMM DD, YYYY')}`
+                                                    : `${formData.dates.length} dates selected`
+                                                }
                                             </Text>
                                         </View>
-                                        <View className="gap-2">
-                                            {loadingStartTimes ? (
-                                                <View className="items-center justify-center py-4">
-                                                    <ActivityIndicator size="small" color="#ffffff" />
-                                                    <Text variant="small" className="text-text-secondary mt-2">Loading times...</Text>
-                                                </View>
-                                            ) : (
-                                                (() => {
-                                                    const toYmdLocal = (d: Date) => {
-                                                        const y = d.getFullYear();
-                                                        const m = String(d.getMonth() + 1).padStart(2, '0');
-                                                        const da = String(d.getDate()).padStart(2, '0');
-                                                        return `${y}-${m}-${da}`;
-                                                    };
-                                                    const dateKey = formData.date ? toYmdLocal(formData.date) : '';
-                                                    if (renderStartTimes.length === 0) {
-                                                        return (
-                                                            <View className="items-center justify-center py-4">
-                                                                <Text variant="small" className="text-text-secondary">No available start times</Text>
-                                                            </View>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <View className="gap-2">
-                                                            {startTimesChunks.map((times, index) => (
-                                                                <View key={index} className="flex-row items-center gap-2">
-                                                                    {times.map((time) => (
-                                                                        <Pressable
-                                                                            key={time.id}
-                                                                            onPress={() => setFormData((prev) => ({ ...prev, startTime: time.time }))}
-                                                                            className={`rounded-full border border-border-white items-center justify-center h-8 flex-1 ${formData.startTime === time.time ? 'bg-foreground' : ''}`}
-                                                                        >
-                                                                            <Text variant="small" className={formData.startTime === time.time ? 'text-black' : 'text-text-secondary'}>{time.time}</Text>
-                                                                        </Pressable>
-                                                                    ))}
-                                                                </View>
-                                                            ))}
-                                                        </View>
-                                                    );
-                                                })()
-                                            )}
+                                        <View className="gap-4">
+                                            {formData.dates.map((date) => {
+                                                return (
+                                                    <View key={date} className="gap-2">
+                                                        <Text variant="h5" className="text-foreground">
+                                                            {formatDbDate(date, 'MMM DD, YYYY')}
+                                                        </Text>
+                                                        <StartTimes 
+                                                            date={date} 
+                                                            sessionLength={formData.sessionLength || 0} 
+                                                            breakTime={30} 
+                                                            artist={artist} 
+                                                            locationId={formData.locationId}
+                                                            selectedTime={formData.startTimes[date]}
+                                                            onTimeSelect={handleTimeSelect}
+                                                        />
+                                                    </View>
+                                                );
+                                            })}
                                         </View>
                                     </View>
                                 )}
@@ -416,7 +369,7 @@ export default function ManualBooking() {
                     </View>
 
                     <View className="gap-4 items-center justify-center">
-                        <Button onPress={handleCompleteBooking} size="lg" className="w-full" disabled={submitting}>
+                        <Button variant="outline" onPress={handleCompleteBooking} className="w-full" disabled={submitting}>
                             {submitting ? (
                                 <View className="flex-row items-center justify-center gap-2">
                                     <ActivityIndicator size="small" color="#000000" />

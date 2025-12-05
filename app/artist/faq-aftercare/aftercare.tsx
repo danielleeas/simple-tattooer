@@ -293,6 +293,7 @@ export default function AftercarePage() {
                 </View>
                 <View className="flex-1">
                     <Button
+                        variant="outline"
                         onPress={handleSaveTip}
                         disabled={isSaving}
                         className="items-center justify-center"
@@ -321,7 +322,7 @@ export default function AftercarePage() {
 
     return (
         <View style={{ width }} className="flex-1">
-            <ScrollView contentContainerClassName="w-full px-4" showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerClassName="w-full px-4 pb-4" showsVerticalScrollIndicator={false}>
                 <View className="gap-6">
                     <View className="items-center justify-center" style={{ height: 180 }}>
                         <Image
@@ -354,7 +355,7 @@ export default function AftercarePage() {
                 </View>
             </ScrollView>
             {!(showAddEditModal || isDeleteModalOpen) && (
-                <View className="gap-4 px-4 pb-8">
+                <View className="gap-4 px-4 py-4">
                     <Button variant="outline" onPress={handleAddNewTips}>
                         <Text>Add New Tips</Text>
                         <Icon as={Plus} size={24} strokeWidth={1} />
@@ -405,6 +406,7 @@ export default function AftercarePage() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Button
+                                    variant="outline"
                                     onPress={handleDeleteConfirm}
                                     size='lg'
                                     className='items-center justify-center'

@@ -12,7 +12,7 @@ export function PaymentMethodStep() {
     const { paymentMethod, updatePaymentMethod } = useSetupWizard();
 
     return (
-        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} >
             <View className="gap-6 pb-4">
                 <View className="items-center justify-center pb-2">
                     <Image

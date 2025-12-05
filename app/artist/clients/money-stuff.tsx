@@ -173,7 +173,7 @@ export default function ClientMoneyStuff() {
 
     const handleHome = async () => {
         await commitPendingSessionTips();
-        router.dismissAll();
+        router.dismissTo('/');
     }
 
     const handleMenu = () => {

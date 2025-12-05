@@ -15,12 +15,19 @@ import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { EventBlockTimeRecord, getEventBlockTimeById, updateEventBlockTime, UpdateEventBlockTimeInput } from '@/lib/services/calendar-service';
+import { EventBlockTimeRecord, getEventBlockTimeById, updateEventBlockTime, UpdateEventBlockTimeInput, checkEventOverlap } from '@/lib/services/calendar-service';
 import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
 import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
+
+const repeatTypeChunks = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'yearly', label: 'Yearly' },
+]
 
 type EventBlockTimeData = {
     id: string;
@@ -29,6 +36,7 @@ type EventBlockTimeData = {
     startTime?: string;
     endTime?: string;
     isRepeat: boolean;
+    repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     repeatLength?: number;
     repeatUnit?: 'days' | 'weeks' | 'months' | 'years';
     eventNotes: string;
@@ -40,14 +48,14 @@ const repeatDuration = (length?: number, unit?: 'days' | 'weeks' | 'months' | 'y
     return { value: length, unit };
 };
 
-const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
-    if (!unit) return 'daily';
-    if (unit === 'days') return 'daily';
-    if (unit === 'weeks') return 'weekly';
-    if (unit === 'months') return 'monthly';
-    if (unit === 'years') return 'yearly';
-    return 'daily';
-};
+const getDisableUnits = (repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly'): ('days' | 'weeks' | 'months' | 'years')[] => {
+    if (!repeatType) return ['days', 'weeks', 'months', 'years'];
+    if (repeatType === 'daily') return [];
+    if (repeatType === 'weekly') return ['days'];
+    if (repeatType === 'monthly') return ['days', 'weeks'];
+    if (repeatType === 'yearly') return ['days', 'weeks', 'months'];
+    return [];
+}
 
 export default function AddEventBlockTimePage() {
     const router = useRouter();
@@ -63,8 +71,9 @@ export default function AddEventBlockTimePage() {
         startTime: '',
         endTime: '',
         isRepeat: false,
+        repeatType: undefined,
         repeatLength: undefined,
-        repeatUnit: undefined,
+        repeatUnit: 'days',
         eventNotes: '',
     });
 
@@ -97,6 +106,20 @@ export default function AddEventBlockTimePage() {
 
     useEffect(() => {
         if (event) {
+            // Convert repeat_type to repeatUnit for DurationPicker
+            let repeatUnit: 'days' | 'weeks' | 'months' | 'years' = 'days';
+            const repeatType = event.repeat_type as 'daily' | 'weekly' | 'monthly' | 'yearly' | null | undefined;
+            if (repeatType === 'daily') {
+                repeatUnit = 'days';
+            } else if (repeatType === 'weekly') {
+                repeatUnit = 'weeks';
+            } else if (repeatType === 'monthly') {
+                repeatUnit = 'months';
+            } else if (repeatType === 'yearly') {
+                repeatUnit = 'years';
+            } else if (event.repeat_duration_unit) {
+                repeatUnit = event.repeat_duration_unit as 'days' | 'weeks' | 'months' | 'years';
+            }
             setFormData({
                 id: event.id,
                 date: event.date,
@@ -104,8 +127,9 @@ export default function AddEventBlockTimePage() {
                 startTime: event.start_time,
                 endTime: event.end_time,
                 isRepeat: event.repeatable,
+                repeatType: repeatType || undefined,
                 repeatLength: event.repeat_duration ?? undefined,
-                repeatUnit: event.repeat_duration_unit ?? undefined,
+                repeatUnit: repeatUnit || 'days',
                 eventNotes: event.notes ?? '',
             });
         }
@@ -133,6 +157,56 @@ export default function AddEventBlockTimePage() {
                 return;
             }
 
+            if (formData.isRepeat && !formData.repeatType) {
+                toast({ variant: 'error', title: 'Select repeat type', duration: 2500 });
+                return;
+            }
+            if (formData.isRepeat && (!formData.repeatLength || formData.repeatLength <= 0)) {
+                toast({ variant: 'error', title: 'Select repeat duration', duration: 2500 });
+                return;
+            }
+
+            // Check for overlapping events before updating (only if date or time has changed)
+            const dateOrTimeChanged = event && (
+                event.date !== formData.date ||
+                event.start_time !== formData.startTime ||
+                event.end_time !== formData.endTime
+            );
+
+            if (dateOrTimeChanged) {
+                try {
+                    const break_time = (artist?.flow as any)?.break_time || 0;
+                    const overlapCheck = await checkEventOverlap({
+                        artistId: artist.id,
+                        date: formData.date,
+                        startTime: formData.startTime!,
+                        endTime: formData.endTime!,
+                        break_time: break_time,
+                        source: 'block_time',
+                    });
+
+                    if (!overlapCheck.success) {
+                        toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (overlapCheck.hasOverlap) {
+                        toast({ 
+                            variant: 'error', 
+                            title: 'Time conflict detected', 
+                            description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
+                            duration: 3000 
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                } catch (overlapErr) {
+                    console.error('Error checking for overlaps:', overlapErr);
+                    // Continue with update even if overlap check fails
+                }
+            }
+
             const data: UpdateEventBlockTimeInput = {
                 id: formData.id,
                 date: formData.date ?? undefined,
@@ -140,9 +214,9 @@ export default function AddEventBlockTimePage() {
                 start_time: formData.startTime,
                 end_time: formData.endTime,
                 repeatable: formData.isRepeat,
-                repeat_type: getRepeatType(formData.repeatUnit),
-                repeat_duration: formData.repeatLength ?? undefined,
-                repeat_duration_unit: formData.repeatUnit as 'days' | 'weeks' | 'months' | 'years' | undefined,
+                repeat_type: formData.isRepeat ? formData.repeatType : undefined,
+                repeat_duration: formData.isRepeat ? (formData.repeatLength ?? undefined) : undefined,
+                repeat_duration_unit: formData.isRepeat ? formData.repeatUnit as 'days' | 'weeks' | 'months' | 'years' | undefined : undefined,
                 notes: formData.eventNotes ?? undefined,
             };
 
@@ -184,7 +258,7 @@ export default function AddEventBlockTimePage() {
                         <KeyboardAwareScrollView
                             bottomOffset={50}
                             showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
+                            
                         >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-9">
@@ -236,34 +310,57 @@ export default function AddEventBlockTimePage() {
                                         </View>
                                     </View>
 
-                                    <View className="gap-2">
-                                        <View className="flex-row items-start gap-1">
-                                            <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
-                                                <Text variant="h5" className="w-[310px]">Repeat?</Text>
-                                            </Pressable>
-                                            <View>
-                                                <Switch
-                                                    checked={formData.isRepeat}
-                                                    onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
-                                                />
-                                            </View>
+                                    <View className="flex-row items-start gap-1">
+                                        <Pressable className="flex-1 gap-2" onPress={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}>
+                                            <Text variant="h5" className="w-[310px]">Repeat?</Text>
+                                        </Pressable>
+                                        <View>
+                                            <Switch
+                                                checked={formData.isRepeat}
+                                                onCheckedChange={() => setFormData({ ...formData, isRepeat: !formData.isRepeat })}
+                                            />
                                         </View>
-
                                     </View>
 
                                     {formData.isRepeat && (
-                                        <View className="gap-2">
-                                            <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <DurationPicker
-                                                        selectedDuration={repeatDuration(formData.repeatLength ?? undefined, formData.repeatUnit ?? undefined)}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit as 'days' | 'weeks' | 'months' | 'years' })}
-                                                        maxValue={12}
-                                                        modalTitle="Select Repeat Duration"
-                                                    />
-                                                </View>
-                                            </Collapse>
-                                        </View>
+                                        <>
+                                            <View className="gap-2 flex-row items-center">
+                                                {repeatTypeChunks.map((repeatType) => {
+                                                    const handleRepeatTypeSelect = () => {
+                                                        const newRepeatType = repeatType.value as 'daily' | 'weekly' | 'monthly' | 'yearly';
+                                                        const newRepeatUnit = newRepeatType === 'daily' ? 'days' :
+                                                            newRepeatType === 'weekly' ? 'weeks' :
+                                                            newRepeatType === 'monthly' ? 'months' :
+                                                            newRepeatType === 'yearly' ? 'years' : 'days';
+                                                        setFormData({ ...formData, repeatType: newRepeatType, repeatUnit: newRepeatUnit });
+                                                    };
+                                                    return (
+                                                        <Button
+                                                            key={repeatType.value}
+                                                            onPress={handleRepeatTypeSelect}
+                                                            variant={formData.repeatType === repeatType.value ? 'default' : 'outline'}
+                                                            className="max-w-[70px] w-full h-8 items-center justify-center px-0 py-0"
+                                                        >
+                                                            <Text variant='small'>{repeatType.label}</Text>
+                                                        </Button>
+                                                    );
+                                                })}
+                                            </View>
+
+                                            <View className="gap-2">
+                                                <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
+                                                    <View className="gap-2 w-full">
+                                                        <DurationPicker
+                                                            selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
+                                                            onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit as 'days' | 'weeks' | 'months' | 'years' })}
+                                                            maxValue={12}
+                                                            modalTitle="Select Repeat Duration"
+                                                            disabledUnits={getDisableUnits(formData.repeatType)}
+                                                        />
+                                                    </View>
+                                                </Collapse>
+                                            </View>
+                                        </>
                                     )}
 
                                     <View className="gap-2">

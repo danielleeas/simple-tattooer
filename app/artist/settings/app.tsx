@@ -438,7 +438,7 @@ export default function YourApp() {
                             <KeyboardAwareScrollView
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                                 bottomOffset={20}
                                 contentContainerStyle={{
                                     paddingBottom: 80,
@@ -599,7 +599,7 @@ export default function YourApp() {
                                     </Button>
                                 </View>
                                 <View className="flex-1">
-                                    <Button onPress={handlePasswordResetConfirm} size='lg' className='items-center justify-center' disabled={isUpdatingPassword}>
+                                    <Button variant="outline" onPress={handlePasswordResetConfirm} size='lg' className='items-center justify-center' disabled={isUpdatingPassword}>
                                         {isUpdatingPassword ? (
                                             <View className="flex-row items-center gap-2">
                                                 <ActivityIndicator size="small" color={THEME.dark.foreground} />
@@ -634,12 +634,12 @@ export default function YourApp() {
 
                             <View className="gap-2 flex-row w-full">
                                 <View className="flex-1">
-                                    <Button onPress={() => updateControlData({ deleteAccountModalOpen: false })} size='lg' className='items-center justify-center'>
+                                    <Button variant="outline" onPress={() => updateControlData({ deleteAccountModalOpen: false })} size='lg' className='items-center justify-center'>
                                         <Text>Cancel</Text>
                                     </Button>
                                 </View>
                                 <View className="flex-1">
-                                    <Button onPress={handleDeleteAccountConfirm} size='lg' variant="outline" className='items-center justify-center'>
+                                    <Button variant="outline" onPress={handleDeleteAccountConfirm} size='lg' className='items-center justify-center'>
                                         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Delete Account</Text>
                                     </Button>
                                 </View>

@@ -102,18 +102,6 @@ export default function UploadFlashs() {
         return !isSame;
     }, [flashs, originalFlashs]);
 
-    const handleBack = () => {
-        router.back();
-    };
-
-    const handleHome = () => {
-        router.dismissAll();
-    };
-
-    const handleMenu = () => {
-        router.push('/artist/menu');
-    };
-
     const handleSaveFlash = async () => {
         // Only save flashes that have names; skip unnamed ones
         const namedFlashes = flashs.filter(f => (f.flash_name || '').trim() !== '' || (f.flash_price || 0) > 0);
@@ -142,7 +130,6 @@ export default function UploadFlashs() {
                 flash_name: f.flash_name,
                 flash_price: f.flash_price || 0,
                 repeatable: f.repeatable,
-                flash_image: f.flash_image,
             }));
 
             const upsertResult = await upsertFlashes(artist.id, updatesById);
@@ -253,6 +240,7 @@ export default function UploadFlashs() {
                         };
 
                         const uploadResult = await uploadFileToStorage(fileUpload, 'artist-flashs', artist?.id);
+                        console.log("uploadResult", uploadResult)
 
                         if (!uploadResult.success || !uploadResult.url) {
                             throw new Error(uploadResult.error || 'Failed to upload image');
@@ -531,7 +519,7 @@ export default function UploadFlashs() {
                 contentContainerClassName="w-full"
                 showsVerticalScrollIndicator={false}
                 bottomOffset={80}
-                keyboardShouldPersistTaps="handled"
+                
             >
                 <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
                     <View className="items-center justify-center" style={{ height: 180 }}>
@@ -765,7 +753,7 @@ export default function UploadFlashs() {
                                         </Button>
                                     </View>
                                     <View className="flex-1">
-                                        <Button disabled={deleting} onPress={handleFlashDeleteConfirm} size='lg' className='items-center justify-center'>
+                                        <Button variant="outline" disabled={deleting} onPress={handleFlashDeleteConfirm} size='lg' className='items-center justify-center'>
                                             <Text>Delete</Text>
                                         </Button>
                                     </View>

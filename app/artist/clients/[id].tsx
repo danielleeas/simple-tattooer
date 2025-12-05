@@ -7,8 +7,7 @@ import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { useAuth, useToast } from '@/lib/contexts';
-import { getClientById, clientHasProjectNeedingDrawing } from "@/lib/services/clients-service";
+import { useAuth, useToast, useClient } from '@/lib/contexts';
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
@@ -30,36 +29,22 @@ export default function ClientProfile() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { toast } = useToast();
     const { artist } = useAuth();
+    const { client, loading, needsDrawing, loadClient } = useClient();
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [client, setClient] = useState<any | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-	const [needsDrawing, setNeedsDrawing] = useState<boolean>(false);
-
-    const loadData = useCallback(async () => {
-        if (!artist?.id || !id) return;
-        try {
-            setLoading(true);
-            const result = await getClientById(artist.id, String(id));
-            const needs = await clientHasProjectNeedingDrawing(artist.id, String(id));
-            setClient(result);
-            setNeedsDrawing(needs);
-        } catch {
-            setClient(null);
-            setNeedsDrawing(false);
-        } finally {
-            setLoading(false);
-        }
-    }, [artist?.id, id]);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (id && !client || client?.id !== id) {
+            loadClient(String(id));
+        }
+    }, [id, loadClient, client]);
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
-        }, [loadData])
+            if (id && !client || client?.id !== id) {
+                loadClient(String(id));
+            }
+        }, [id, loadClient, client])
     );
 
     const handleBack = () => {
@@ -67,7 +52,7 @@ export default function ClientProfile() {
     };
 
     const handleHome = () => {
-        router.dismissAll();
+        router.dismissTo('/');
     };
 
     const handleMenu = () => {
@@ -265,7 +250,7 @@ export default function ClientProfile() {
                 <Modal
                     visible={isDeleteModalOpen}
                     transparent={true}
-                    animationType="fade"
+                    animationType="slide"
                     onRequestClose={() => setIsDeleteModalOpen(false)}
                 >
                     <View className="flex-1 bg-black/50 justify-end items-center">

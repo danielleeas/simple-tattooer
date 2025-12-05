@@ -173,14 +173,13 @@ export const getPortfolioById = async (portfolioId: string): Promise<PortfolioSe
 // Bulk upsert portfolios by id (updates existing rows; inserts if unknown ids provided)
 export const upsertPortfolios = async (
   artistId: string,
-  updates: Array<{ id: string; portfolio_image: string } & UpdatePortfolioData>
+  updates: Array<{ id: string } & UpdatePortfolioData>
 ): Promise<PortfolioServiceResult<ArtistPortfolio[]>> => {
   try {
     const rows = updates.map((u) => ({
       id: u.id,
       artist_id: artistId,
       portfolio_name: u.portfolio_name,
-      portfolio_image: u.portfolio_image,
       portfolio_description: u.portfolio_description,
       updated_at: new Date().toISOString(),
     }));

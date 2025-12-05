@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { View, Pressable, Modal } from "react-native";
+import { View, Pressable, Modal, Keyboard, TouchableWithoutFeedback } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from "expo-router";
 
-import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -24,8 +23,9 @@ import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { Locations } from "@/lib/redux/types";
 import { LocationModal } from "@/components/lib/location-modal";
-// import { addTemporaryLocation } from "@/lib/services/settings-service";
 import { createSpotConvention } from "@/lib/services/calendar-service";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { setArtist } from "@/lib/redux/slices/auth-slice";
 
 interface FormDataProps {
     title: string;
@@ -41,6 +41,7 @@ export default function AddSpotConventionPage() {
     const router = useRouter();
     const { toast } = useToast();
     const { artist } = useAuth();
+    const dispatch = useAppDispatch();
 
     // Form state
     const DEFAULT_START = '09:00';
@@ -112,6 +113,7 @@ export default function AddSpotConventionPage() {
     };
 
     const handleLocationSelect = async (location: Locations) => {
+        Keyboard.dismiss();
         setFormData(prev => ({ ...prev, location }));
         setLocationData(prev => [...prev, location]);
         setOpenTempLocationModal(false);
@@ -157,6 +159,22 @@ export default function AddSpotConventionPage() {
                 return;
             }
 
+            // Update artist state if a new location was created
+            if (result.location && artist) {
+                const updatedLocations = artist.locations ? [...artist.locations] : [];
+                // Check if location already exists in the array
+                const locationExists = updatedLocations.some(
+                    (loc) => loc.id === result.location?.id || loc.place_id === result.location?.place_id
+                );
+                if (!locationExists) {
+                    updatedLocations.push(result.location);
+                    dispatch(setArtist({
+                        ...artist,
+                        locations: updatedLocations,
+                    }));
+                }
+            }
+
             toast({ variant: 'success', title: 'New Spot Convention Added!', duration: 3000 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
 
@@ -180,7 +198,6 @@ export default function AddSpotConventionPage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">
@@ -427,7 +444,10 @@ export default function AddSpotConventionPage() {
 
                 <LocationModal
                     visible={openTempLocationModal}
-                    onClose={() => setOpenTempLocationModal(false)}
+                    onClose={() => {
+                        Keyboard.dismiss();
+                        setOpenTempLocationModal(false);
+                    }}
                     onLocationSelect={(loc) =>
                         handleLocationSelect({
                             address: loc.address,

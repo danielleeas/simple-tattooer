@@ -14,8 +14,26 @@ type WeekViewProps = {
 export const WeekView = ({ currentDate, events }: WeekViewProps) => {
     const [weekEvents, setWeekEvents] = useState<CalendarEvent[]>([]);
 
+    console.log('weekEvents', weekEvents);
+
     useEffect(() => {
-        setWeekEvents(events[toYmd(currentDate)] || []);
+        // Calculate start of week (Sunday)
+        const startOfWeek = new Date(currentDate);
+        const day = startOfWeek.getDay(); // 0 = Sun
+        const diff = startOfWeek.getDate() - day; // back to Sunday
+        startOfWeek.setDate(diff);
+
+        // Collect events from all 7 days of the week
+        const allWeekEvents: CalendarEvent[] = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            const dateKey = toYmd(date);
+            const dayEvents = events[dateKey] || [];
+            allWeekEvents.push(...dayEvents);
+        }
+
+        setWeekEvents(allWeekEvents);
     }, [events, currentDate]);
 
     const weekDays = useMemo(() => {
@@ -106,7 +124,7 @@ export const WeekView = ({ currentDate, events }: WeekViewProps) => {
         }
         else if (source === 'session') {
             router.push({
-                pathname: '/artist/clients/detail-session',
+                pathname: '/artist/booking/session/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
             });
         }

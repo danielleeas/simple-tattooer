@@ -100,8 +100,7 @@ function Collapse({
 	// Animated styles for content
 	const contentAnimatedStyle = useAnimatedStyle(() => {
 		return {
-			opacity: opacity.value,
-			maxHeight: progress.value * 1000, // Large max height for smooth expansion
+			opacity: opacity.value,// Large max height for smooth expansion
 			transform: [{ translateY: translateY.value }],
 		};
 	});
@@ -133,9 +132,9 @@ function Collapse({
 					{comment && <Text className={cn("text-text-secondary leading-5", commentClassName)}>{comment}</Text>}
 				</CollapsibleTrigger>
 				<CollapsibleContent className={cn('w-full overflow-hidden', contentClassName)}>
-					<Animated.View style={contentAnimatedStyle}>
+					<View>
 						{children}
-					</Animated.View>
+					</View>
 				</CollapsibleContent>
 			</View>
 		</CollapsibleRoot>

@@ -20,6 +20,13 @@ import { DurationPicker } from "@/components/lib/duration-picker";
 import { Collapse } from "@/components/lib/collapse";
 import { getOffDayById, updateOffDay } from "@/lib/services/calendar-service";
 
+const repeatTypeChunks = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'yearly', label: 'Yearly' },
+]
+
 export default function EditOffDaysPage() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +40,7 @@ export default function EditOffDaysPage() {
         startDate: string;
         endDate: string;
         isRepeat: boolean;
+        repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
         repeatLength?: number;
         repeatUnit?: 'days' | 'weeks' | 'months' | 'years';
         notes: string;
@@ -42,8 +50,9 @@ export default function EditOffDaysPage() {
         startDate: '',
         endDate: '',
         isRepeat: false,
+        repeatType: undefined,
         repeatLength: undefined,
-        repeatUnit: undefined,
+        repeatUnit: 'days',
         notes: '',
     });
 
@@ -63,13 +72,28 @@ export default function EditOffDaysPage() {
                     return;
                 }
                 const od = res.data;
+                // Convert repeat_type to repeatUnit for DurationPicker
+                let repeatUnit: 'days' | 'weeks' | 'months' | 'years' = 'days';
+                const repeatType = od.repeat_type as 'daily' | 'weekly' | 'monthly' | 'yearly' | null | undefined;
+                if (repeatType === 'daily') {
+                    repeatUnit = 'days';
+                } else if (repeatType === 'weekly') {
+                    repeatUnit = 'weeks';
+                } else if (repeatType === 'monthly') {
+                    repeatUnit = 'months';
+                } else if (repeatType === 'yearly') {
+                    repeatUnit = 'years';
+                } else if (od.repeat_duration_unit) {
+                    repeatUnit = od.repeat_duration_unit as 'days' | 'weeks' | 'months' | 'years';
+                }
                 setFormData({
                     title: od.title || '',
                     startDate: od.start_date || '',
                     endDate: od.end_date || '',
                     isRepeat: Boolean(od.is_repeat),
+                    repeatType: repeatType || undefined,
                     repeatLength: od.repeat_duration ?? 1,
-                    repeatUnit: od.repeat_duration_unit as 'days' | 'weeks' | 'months' | 'years' | undefined,
+                    repeatUnit: repeatUnit || 'days',
                     notes: od.notes || '',
                 });
             } catch (e) {
@@ -85,8 +109,11 @@ export default function EditOffDaysPage() {
     // Helpers to work with range selection (match add page)
     const buildRangeDates = (start?: string, end?: string): string[] => {
         if (!start || !end) return [];
-        const startDate = new Date(start + 'T12:00:00');
-        const endDate = new Date(end + 'T12:00:00');
+        // Parse YYYY-MM-DD strings in local timezone
+        const [startYear, startMonth, startDay] = start.split('-').map(Number);
+        const [endYear, endMonth, endDay] = end.split('-').map(Number);
+        const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0, 0);
+        const endDate = new Date(endYear, endMonth - 1, endDay, 12, 0, 0, 0);
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return [];
         const s = startDate <= endDate ? startDate : endDate;
         const e = endDate >= startDate ? endDate : startDate;
@@ -119,12 +146,25 @@ export default function EditOffDaysPage() {
         return { value: length, unit };
     };
 
-    const getDisableUnits = (start: string, end: string): ('days' | 'weeks' | 'months' | 'years')[] => {
-        if (!start || !end) return ['days', 'weeks', 'months', 'years'];
-        
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        
+    const getDisableUnits = (repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly'): ('days' | 'weeks' | 'months' | 'years')[] => {
+        if (!repeatType) return ['days', 'weeks', 'months', 'years'];
+        if (repeatType === 'daily') return [];
+        if (repeatType === 'weekly') return ['days'];
+        if (repeatType === 'monthly') return ['days', 'weeks'];
+        if (repeatType === 'yearly') return ['days', 'weeks', 'months'];
+        return [];
+    }
+
+    const getDisableRepeatTypes = (start: string, end: string): ('daily' | 'weekly' | 'monthly')[] => {
+        let disabled: ('daily' | 'weekly' | 'monthly')[] = [];
+        if (!start || !end) {
+            return ['daily', 'weekly', 'monthly'];
+        };
+
+        if (start !== end) {
+            disabled.push('daily');
+        };
+
         const getWeekNumber = (date: Date) => {
             const d = new Date(date);
             d.setHours(0, 0, 0, 0);
@@ -132,34 +172,24 @@ export default function EditOffDaysPage() {
             const yearStart = new Date(d.getFullYear(), 0, 1);
             return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
         };
-        
+
+        // Parse YYYY-MM-DD strings in local timezone
+        const [startYearParsed, startMonthParsed, startDayParsed] = start.split('-').map(Number);
+        const [endYearParsed, endMonthParsed, endDayParsed] = end.split('-').map(Number);
+        const startDate = new Date(startYearParsed, startMonthParsed - 1, startDayParsed, 0, 0, 0, 0);
+        const endDate = new Date(endYearParsed, endMonthParsed - 1, endDayParsed, 0, 0, 0, 0);
         const startWeek = getWeekNumber(startDate);
         const endWeek = getWeekNumber(endDate);
         const startMonth = startDate.getMonth();
         const endMonth = endDate.getMonth();
         const startYear = startDate.getFullYear();
         const endYear = endDate.getFullYear();
-        
+
         const spansMultipleWeeks = endWeek !== startWeek || endYear !== startYear;
         const spansMultipleMonths = endMonth !== startMonth || endYear !== startYear;
-        const spansMultipleYears = endYear !== startYear;
-        
-        const disabled: ('days' | 'weeks' | 'months' | 'years')[] = ['days'];
-        
-        if (spansMultipleWeeks) disabled.push('weeks');
-        if (spansMultipleMonths) disabled.push('months');
-        if (spansMultipleYears) disabled.push('years');
-        
+        if (spansMultipleWeeks) disabled.push('weekly');
+        if (spansMultipleMonths) disabled.push('monthly');
         return disabled;
-    };
-
-    const getRepeatType = (unit?: 'days' | 'weeks' | 'months' | 'years'): 'daily' | 'weekly' | 'monthly' | 'yearly' => {
-        if (!unit) return 'daily';
-        if (unit === 'days') return 'daily';
-        if (unit === 'weeks') return 'weekly';
-        if (unit === 'months') return 'monthly';
-        if (unit === 'years') return 'yearly';
-        return 'daily';
     };
 
     const handleBack = () => {
@@ -196,7 +226,7 @@ export default function EditOffDaysPage() {
                 start_date: formData.startDate,
                 end_date: formData.endDate,
                 is_repeat: formData.isRepeat,
-                repeat_type: getRepeatType(formData.repeatUnit),
+                repeat_type: formData.repeatType,
                 repeat_duration: formData.isRepeat ? (formData.repeatLength ?? 1) : undefined,
                 repeat_duration_unit: formData.isRepeat ? formData.repeatUnit : undefined,
                 notes: formData.notes?.trim() || null,
@@ -231,7 +261,7 @@ export default function EditOffDaysPage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
+                        
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">
@@ -288,20 +318,46 @@ export default function EditOffDaysPage() {
                                         </View>
                                     </View>
 
-                                    {formData.isRepeat && (
-                                        <View className="gap-2">
-                                            <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <DurationPicker
-                                                        selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
-                                                        maxValue={12}
-                                                        modalTitle="Select Repeat Duration"
-                                                        disabledUnits={getDisableUnits(formData.startDate, formData.endDate)}
-                                                    />
-                                                </View>
-                                            </Collapse>
-                                        </View>
+                                    {formData.isRepeat && formData.startDate && formData.endDate && (
+                                        <>
+                                            <View className="gap-2 flex-row items-center">
+                                                {repeatTypeChunks.map((repeatType) => {
+                                                    const handleRepeatTypeSelect = () => {
+                                                        const newRepeatType = repeatType.value as 'daily' | 'weekly' | 'monthly' | 'yearly';
+                                                        const newRepeatUnit = newRepeatType === 'daily' ? 'days' :
+                                                            newRepeatType === 'weekly' ? 'weeks' :
+                                                            newRepeatType === 'monthly' ? 'months' :
+                                                            newRepeatType === 'yearly' ? 'years' : 'days';
+                                                        setFormData({ ...formData, repeatType: newRepeatType, repeatUnit: newRepeatUnit });
+                                                    };
+                                                    return (
+                                                        <Button
+                                                            key={repeatType.value}
+                                                            onPress={handleRepeatTypeSelect}
+                                                            variant={formData.repeatType === repeatType.value ? 'default' : 'outline'}
+                                                            className="max-w-[70px] w-full h-8 items-center justify-center px-0 py-0"
+                                                            disabled={getDisableRepeatTypes(formData.startDate, formData.endDate).includes(repeatType.value as 'daily' | 'weekly' | 'monthly')}
+                                                        >
+                                                            <Text variant='small'>{repeatType.label}</Text>
+                                                        </Button>
+                                                    );
+                                                })}
+                                            </View>
+
+                                            <View className="gap-2">
+                                                <Collapse title="How long do you want this to repeat for?" textClassName="text-xl">
+                                                    <View className="gap-2 w-full">
+                                                        <DurationPicker
+                                                            selectedDuration={repeatDuration(formData.repeatLength, formData.repeatUnit)}
+                                                            onDurationSelect={(duration) => setFormData({ ...formData, repeatLength: duration?.value, repeatUnit: duration?.unit })}
+                                                            maxValue={12}
+                                                            modalTitle="Select Repeat Duration"
+                                                            disabledUnits={getDisableUnits(formData.repeatType)}
+                                                        />
+                                                    </View>
+                                                </Collapse>
+                                            </View>
+                                        </>
                                     )}
 
                                     <View className="gap-2">

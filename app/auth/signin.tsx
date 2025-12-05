@@ -126,7 +126,7 @@ export default function SigninPage() {
         />
         <KeyboardAwareScrollView
           bottomOffset={50}
-          keyboardShouldPersistTaps="handled"
+          
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 gap-6">
@@ -194,6 +194,7 @@ export default function SigninPage() {
 
             <View className="mt-4 gap-4">
               <Button
+                variant="outline"
                 onPress={handleSignin}
                 size="lg"
                 className="w-full"

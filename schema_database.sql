@@ -526,6 +526,8 @@ CREATE TABLE IF NOT EXISTS clients (
   location TEXT NOT NULL,
   project_notes TEXT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
+  reference_photos TEXT[] NOT NULL DEFAULT '{}',
+  healed_photos TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -537,6 +539,8 @@ CREATE INDEX IF NOT EXISTS idx_clients_phone_number ON clients(phone_number);
 CREATE INDEX IF NOT EXISTS idx_clients_location ON clients(location);
 CREATE INDEX IF NOT EXISTS idx_clients_project_notes ON clients(project_notes);
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
+CREATE INDEX IF NOT EXISTS idx_clients_reference_photos ON clients(reference_photos);
+CREATE INDEX IF NOT EXISTS idx_clients_healed_photos ON clients(healed_photos);
 CREATE INDEX IF NOT EXISTS idx_clients_created_at ON clients(created_at);
 CREATE INDEX IF NOT EXISTS idx_clients_updated_at ON clients(updated_at);
 
@@ -546,6 +550,8 @@ CREATE TABLE IF NOT EXISTS links (
   client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
   artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'pending',
+  is_new BOOLEAN NOT NULL DEFAULT TRUE,
+  notes TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(client_id, artist_id)
@@ -664,6 +670,113 @@ CREATE INDEX IF NOT EXISTS idx_drawings_is_approved ON drawings(is_approved);
 CREATE INDEX IF NOT EXISTS idx_drawings_client_notes ON drawings(client_notes);
 CREATE INDEX IF NOT EXISTS idx_drawings_created_at ON drawings(created_at);
 CREATE INDEX IF NOT EXISTS idx_drawings_updated_at ON drawings(updated_at);
+
+-- booking requests table for storing booking requests
+CREATE TABLE IF NOT EXISTS booking_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  prefer_days TEXT NOT NULL DEFAULT 'Any',
+  tattoo_idea TEXT NOT NULL,
+  type_of_tattoo TEXT NOT NULL,
+  photos TEXT[] NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for booking requests
+CREATE INDEX IF NOT EXISTS idx_booking_requests_artist_id ON booking_requests(artist_id);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_full_name ON booking_requests(full_name);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_email ON booking_requests(email);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_phone_number ON booking_requests(phone_number);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_location_id ON booking_requests(location_id);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_prefer_days ON booking_requests(prefer_days);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_tattoo_idea ON booking_requests(tattoo_idea);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_type_of_tattoo ON booking_requests(type_of_tattoo);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_photos ON booking_requests(photos);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_status ON booking_requests(status);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_created_at ON booking_requests(created_at);
+CREATE INDEX IF NOT EXISTS idx_booking_requests_updated_at ON booking_requests(updated_at);
+
+-- project requests table for storing project requests
+CREATE TABLE IF NOT EXISTS project_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  date_range_start TEXT NOT NULL,
+  date_range_end TEXT NOT NULL,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  session_count INTEGER NOT NULL,
+  session_length INTEGER NOT NULL,
+  session_rate INTEGER NOT NULL,
+  deposit_amount INTEGER NOT NULL,
+  notes TEXT NULL,
+  selected_days TEXT[] NOT NULL DEFAULT '{}'::text[],
+  start_times JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(start_times) = 'object'),
+  source TEXT NOT NULL DEFAULT 'request',
+  source_id UUID NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for project requests
+CREATE INDEX IF NOT EXISTS idx_project_requests_artist_id ON project_requests(artist_id);
+CREATE INDEX IF NOT EXISTS idx_project_requests_title ON project_requests(title);
+CREATE INDEX IF NOT EXISTS idx_project_requests_date_range_start ON project_requests(date_range_start);
+CREATE INDEX IF NOT EXISTS idx_project_requests_date_range_end ON project_requests(date_range_end);
+CREATE INDEX IF NOT EXISTS idx_project_requests_location_id ON project_requests(location_id);
+CREATE INDEX IF NOT EXISTS idx_project_requests_session_count ON project_requests(session_count);
+CREATE INDEX IF NOT EXISTS idx_project_requests_session_length ON project_requests(session_length);
+CREATE INDEX IF NOT EXISTS idx_project_requests_session_rate ON project_requests(session_rate);
+CREATE INDEX IF NOT EXISTS idx_project_requests_deposit_amount ON project_requests(deposit_amount);
+CREATE INDEX IF NOT EXISTS idx_project_requests_notes ON project_requests(notes);
+CREATE INDEX IF NOT EXISTS idx_project_requests_selected_days ON project_requests(selected_days);
+CREATE INDEX IF NOT EXISTS idx_project_requests_start_times ON project_requests(start_times);
+CREATE INDEX IF NOT EXISTS idx_project_requests_source ON project_requests(source);
+CREATE INDEX IF NOT EXISTS idx_project_requests_source_id ON project_requests(source_id);
+CREATE INDEX IF NOT EXISTS idx_project_requests_created_at ON project_requests(created_at);
+CREATE INDEX IF NOT EXISTS idx_project_requests_updated_at ON project_requests(updated_at);
+
+-- consult requests table for storing consult requests
+CREATE TABLE IF NOT EXISTS consult_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  residence TEXT NOT NULL,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  tattoo_idea TEXT NOT NULL,
+  type_of_tattoo TEXT NOT NULL,
+  photos TEXT[] NOT NULL DEFAULT '{}',
+  consult_type TEXT CHECK (consult_type IN ('in_person', 'online')) NOT NULL,
+  consult_date TEXT NOT NULL,
+  consult_start_time TEXT NOT NULL, 
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for consult requests
+CREATE INDEX IF NOT EXISTS idx_consult_requests_artist_id ON consult_requests(artist_id);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_full_name ON consult_requests(full_name);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_email ON consult_requests(email);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_phone_number ON consult_requests(phone_number);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_residence ON consult_requests(residence);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_location_id ON consult_requests(location_id);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_tattoo_idea ON consult_requests(tattoo_idea);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_type_of_tattoo ON consult_requests(type_of_tattoo);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_photos ON consult_requests(photos);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_consult_type ON consult_requests(consult_type);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_consult_date ON consult_requests(consult_date);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_consult_start_time ON consult_requests(consult_start_time);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_status ON consult_requests(status);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_created_at ON consult_requests(created_at);
+CREATE INDEX IF NOT EXISTS idx_consult_requests_updated_at ON consult_requests(updated_at);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

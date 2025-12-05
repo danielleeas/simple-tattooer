@@ -7,12 +7,13 @@ import { ChevronRightIcon, SearchIcon, XIcon, PlusIcon } from "lucide-react-nati
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useAuth } from "@/lib/contexts/auth-context";
-import { getAllClients, searchClients } from "@/lib/services/clients-service";
+import { getRecentClients, searchClients } from "@/lib/services/clients-service";
 
-import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
-import LOVE_THIN_IMAGE from "@/assets/images/icons/love_thin.png";
+import HOME_IMAGE from "@/assets/images/icons/home.png";
+import MENU_IMAGE from "@/assets/images/icons/menu.png";
 import SKELETON_IMAGE from "@/assets/images/icons/skeleton.png";
 import CURRENCY_DOLLAR_IMAGE from "@/assets/images/icons/currency_dollar.png";
 import WARNING_IMAGE from "@/assets/images/icons/warning_circle.png";
@@ -22,13 +23,13 @@ const BUTTON_ICON_STYLE: ImageStyle = {
     width: 24,
 }
 
-export default function AllClients() {
+export default function SearchClients() {
     const [localSearchQuery, setLocalSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
-    const [allClients, setAllClients] = useState([]);
-    const [loadingAll, setLoadingAll] = useState(false);
+    const [recentClients, setRecentClients] = useState([]);
+    const [loadingRecent, setLoadingRecent] = useState(false);
     const inputRef = useRef<TextInput>(null);
     const { artist } = useAuth();
 
@@ -42,13 +43,13 @@ export default function AllClients() {
         setIsSearching(true);
         const timeoutId = setTimeout(async () => {
             try {
-                if (!artist?.id) {
-                    setSearchResults([]);
-                    return;
-                }
+				if (!artist?.id) {
+					setSearchResults([]);
+					return;
+				}
 
-                const results = await searchClients(artist.id, localSearchQuery, 10);
-                setSearchResults(results as any);
+				const results = await searchClients(artist.id, localSearchQuery, 10);
+				setSearchResults(results as any);
             } catch (error) {
                 console.error('Search error:', error);
                 setSearchResults([]);
@@ -58,38 +59,50 @@ export default function AllClients() {
         }, 500);
 
         return () => clearTimeout(timeoutId);
-    }, [localSearchQuery, artist?.id]);
+	}, [localSearchQuery, artist?.id]);
 
-    const loadAllClients = useCallback(async () => {
+    const loadRecentClients = useCallback(async () => {
         if (!artist?.id) return;
         try {
-            setLoadingAll(true);
-            const result = await getAllClients(artist.id);
-            setAllClients(result as any);
+            setLoadingRecent(true);
+            const result = await getRecentClients(artist.id);
+            setRecentClients(result as any);
         } catch (e) {
-            setAllClients([] as any);
+            setRecentClients([] as any);
         } finally {
-            setLoadingAll(false);
+            setLoadingRecent(false);
         }
     }, [artist?.id]);
 
     useEffect(() => {
-        loadAllClients();
-    }, [loadAllClients]);
+        loadRecentClients();
+    }, [loadRecentClients]);
 
     const handleBack = () => {
         router.back();
     };
 
-    const handleAddClient = () => {
-        router.push('/artist/clients/add');
+    const handleHome = () => {
+        router.dismissAll();
+    }
+
+    const handleMenu = () => {
+        router.push('/artist/menu');
     };
 
-    const handleManualBooking = (clientId?: string) => {
+    const handleAddClient = () => {
+        router.push('/artist/booking/auto/add-client');
+    };
+
+    const handleAllClients = () => {
+        router.push('/artist/booking/auto/all-clients');
+    };
+
+    const handleAutoBooking = (clientId?: string) => {
         if (!clientId) return;
 
         router.push({
-            pathname: '/artist/booking/manual',
+            pathname: '/artist/booking/auto',
             params: { clientId: clientId }
         });
     };
@@ -114,20 +127,23 @@ export default function AllClients() {
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
             <SafeAreaView className='flex-1 bg-background'>
-                <Header leftButtonImage={BACK_IMAGE} leftButtonTitle="Back" onLeftButtonPress={handleBack} />
+                <Header
+                    leftButtonImage={HOME_IMAGE}
+                    leftButtonTitle="Home"
+                    onLeftButtonPress={handleHome}
+                    rightButtonImage={MENU_IMAGE}
+                    rightButtonTitle="Menu"
+                    onRightButtonPress={handleMenu}
+                />
                 <StableGestureWrapper
                     onSwipeRight={handleBack}
                     threshold={80}
                     enabled={true}
                 >
                     <View className="flex-1 bg-background px-4 py-2 pb-6 gap-6">
-                        <View className="items-center justify-center pb-9">
-                            <Image
-                                source={LOVE_THIN_IMAGE}
-                                style={{ width: 56, height: 56 }}
-                                resizeMode="contain"
-                            />
-                            <Text variant="h6" className="text-center uppercase">See All Clients</Text>
+                        <View>
+                            <Text variant="h3" className="text-center">Search Less.</Text>
+                            <Text variant="h3" className="text-center">Tattoo More</Text>
                         </View>
                         <View className="gap-1">
                             <View className="relative z-20">
@@ -166,7 +182,7 @@ export default function AllClients() {
                                                     <Pressable
                                                         key={index}
                                                         onPress={() => {
-                                                            handleManualBooking(client.id);
+                                                            handleAutoBooking(client.id);
                                                             setTimeout(() => {
                                                                 setShowResults(false);
                                                             }, 500);
@@ -204,7 +220,7 @@ export default function AllClients() {
                                         </Pressable>
                                     </View>
                                 )}
-                                <Text className="text-text-secondary mt-3">Type a name top find any client, instantly.</Text>
+                                <Text className="text-text-secondary mt-3">Type name/email/ or phone number to find an Existing Client or Add New Client.</Text>
                             </View>
                         </View>
                         {showResults && (
@@ -219,14 +235,14 @@ export default function AllClients() {
                         <View className="flex-1">
                             <ScrollView contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
                                 <View className="gap-6 ">
-                                    {loadingAll ? (
+                                    {loadingRecent ? (
                                         <View className="items-center justify-center px-4 py-3">
                                             <Text variant="h5" className="text-text-secondary">Loading...</Text>
                                         </View>
-                                    ) : allClients.length > 0 ? (
+                                    ) : recentClients.length > 0 ? (
                                         <>
-                                            {allClients.map((client: any, index: number) => (
-                                                <Pressable onPress={() => handleManualBooking(client.id)} key={index} className='items-center justify-between flex-row py-1 gap-4'>
+                                            {recentClients.map((client: any, index: number) => (
+                                                <Pressable onPress={() => handleAutoBooking(client.id)} key={index} className='items-center justify-between flex-row py-1 gap-4'>
                                                     <Text variant="h5" className='flex-1'>{client.name}</Text>
                                                     {client.status === 'pending' && <Image source={WARNING_IMAGE} style={BUTTON_ICON_STYLE} />}
                                                     {client.status === 'blacklisted' && <Image source={SKELETON_IMAGE} style={BUTTON_ICON_STYLE} />}
@@ -242,6 +258,11 @@ export default function AllClients() {
                                     )}
                                 </View>
                             </ScrollView>
+                        </View>
+                        <View className="gap-3">
+                            <Button variant="outline" size="lg" className="w-full" onPress={handleAllClients}>
+                                <Text variant='h5'>See All Clients</Text>
+                            </Button>
                         </View>
                     </View>
                 </StableGestureWrapper>

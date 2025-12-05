@@ -6,6 +6,7 @@ import { setShowWelcome } from "@/lib/redux/slices/ui-slice";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { Artist } from "@/lib/redux/types";
+import { getHandler } from "@/lib/utils";
 
 interface WelcomeProps {
     artist?: Artist | null;
@@ -67,7 +68,7 @@ export default function Welcome({ artist: artistProp }: WelcomeProps = {} as Wel
         >
             <View className="items-center justify-center px-4">
                 <Text variant="h2" className="text-center">{artist?.full_name}</Text>
-                <Text variant="h5">{artist?.social_handler ? `${artist?.social_handler}` : '@artist.instagram'}</Text>
+                <Text variant="h5">{getHandler(artist?.full_name || 'Artist Instagram')}</Text>
             </View>
             <View className="flex-1 relative">
                 {/* Loading placeholder */}

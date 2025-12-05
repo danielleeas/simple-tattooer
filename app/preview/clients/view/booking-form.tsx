@@ -178,7 +178,7 @@ export default function BookingFormScreen() {
                         </KeyboardAwareScrollView>
                     </View>
                     <View className="gap-4 items-center justify-center px-4">
-                        <Button size="lg" className="w-full">
+                        <Button variant="outline" size="lg" className="w-full">
                             <Text>Update Booking Form</Text>
                         </Button>
                     </View>

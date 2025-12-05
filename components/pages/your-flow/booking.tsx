@@ -13,6 +13,9 @@ interface BookingProps {
 }
 
 export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
+
+    console.log('bookingData', bookingData);
+
     return (
         <View className="gap-4 mt-4">
             <View className="flex-row items-start gap-2">
@@ -40,7 +43,7 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                                 inputMode="numeric"
                                 placeholder="0"
                                 className="h-8"
-                                value={bookingData.sessionsPerDay}
+                                value={bookingData.sessionsPerDay.toString()}
                                 onChangeText={(text) => updateBookingData({ sessionsPerDay: text } as Partial<BookingDataProps>)}
                             />
                         </View>
@@ -104,7 +107,7 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                             inputMode="numeric"
                             placeholder="0"
                             className="h-8"
-                            value={bookingData.maxBackToBack}
+                            value={bookingData.maxBackToBack.toString()}
                             onChangeText={(text) => updateBookingData({ maxBackToBack: text } as Partial<BookingDataProps>)}
                         />
                     </View>
@@ -119,7 +122,7 @@ export const Booking = ({ bookingData, updateBookingData }: BookingProps) => {
                 <View className='w-20'>
                     <Input
                         className="h-8"
-                        value={bookingData.bufferBetweenSessions}
+                        value={bookingData.bufferBetweenSessions.toString()}
                         keyboardType="number-pad"
                         inputMode="numeric"
                         placeholder="0"

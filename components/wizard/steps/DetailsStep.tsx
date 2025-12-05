@@ -107,7 +107,7 @@ export function DetailsStep() {
   }, []);
 
   return (
-    <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView bottomOffset={50} showsVerticalScrollIndicator={false} >
       <View className="gap-6 pb-4">
         <View className="items-center justify-center">
           <Image
@@ -230,7 +230,7 @@ export function DetailsStep() {
             <Text className='text-text-secondary w-full leading-none'>You can set up guest spots and travel dates in your calendar</Text>
           </View>
           <View className="gap-2">
-            <Text variant="h5">Social Media Handle</Text>
+            <Text variant="h5">Social Media Url</Text>
             <Input
               spellCheck={false}
               autoCorrect={false}

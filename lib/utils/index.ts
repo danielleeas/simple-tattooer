@@ -254,3 +254,51 @@ export function formatDbDate(input?: string | Date | null, format: DbDateFormat 
   const monthName = months[Math.max(0, Math.min(11, month - 1))];
   return `${monthName} ${String(day)/*.no pad per existing style*/}, ${String(year)}`;
 }
+
+/**
+ * Parse a YYYY-MM-DD string to a local Date object (at noon to avoid timezone shifts).
+ * Returns undefined if the input is invalid or empty.
+ */
+export const parseYmdToLocalDate = (ymd?: string): Date | undefined => {
+  if (!ymd) return undefined;
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d, 12); // local noon to avoid TZ shifts
+};
+
+/**
+ * Convert a Date to YYYY-MM-DD string format, or undefined if date is not provided.
+ */
+export const formatDateToYmd = (date?: Date): string | undefined => {
+  if (!date) return undefined;
+  return toYmd(date);
+};
+
+/**
+ * Split an array into chunks of a specified size.
+ * @param arr The array to chunk
+ * @param chunkSize The size of each chunk (default: 2)
+ * @returns An array of chunks
+ */
+export const makeChunks = <T>(arr: T[], chunkSize: number = 2): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += chunkSize) {
+    chunks.push(arr.slice(i, i + chunkSize));
+  }
+  return chunks;
+};
+
+export const getHandler = (full_name: string) => {
+  // First try splitting by spaces
+  const parts = full_name.split(' ');
+  
+  // If no spaces found, try splitting by capital letters (e.g., "DanielLee" -> ["Daniel", "Lee"])
+  if (parts.length === 1) {
+    const match = full_name.match(/[A-Z][a-z]*/g);
+    if (match && match.length > 1) {
+      return `@${match.map(part => part.toLowerCase()).join('.')}`;
+    }
+  }
+  
+  return `@${parts.map(part => part.toLowerCase()).join('.')}`;
+};

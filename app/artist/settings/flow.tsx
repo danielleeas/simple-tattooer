@@ -292,7 +292,7 @@ export default function YourFlow() {
                                 bottomOffset={20}
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                                
                                 contentContainerStyle={{
                                     paddingBottom: 80,
                                 }}

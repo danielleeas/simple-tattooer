@@ -168,7 +168,7 @@ export default function SignupPage() {
       <SafeAreaView className='flex-1 bg-background'>
         <KeyboardAwareScrollView
           bottomOffset={50}
-          keyboardShouldPersistTaps="handled"
+          
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 py-8 gap-6">
@@ -284,6 +284,7 @@ export default function SignupPage() {
 
             <View className="mt-4 gap-4">
               <Button
+                variant="outline"
                 onPress={handleSignup}
                 size="lg"
                 className="w-full"

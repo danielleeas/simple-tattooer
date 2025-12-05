@@ -476,13 +476,13 @@ export function AvatarPicker({
                             <Text className="text-text-secondary mt-1">Choose how you want to add an image</Text>
                         </View>
                         <View className='flex-row gap-2 items-center justify-center'>
-                            <Button onPress={takePhoto}>
+                            <Button variant="outline" onPress={takePhoto}>
                                 <Text>Camera</Text>
                             </Button>
-                            <Button onPress={pickImage}>
+                            <Button variant="outline" onPress={pickImage}>
                                 <Text>Photo Library</Text>
                             </Button>
-                            <Button onPress={() => handleOptionModal(false)} variant='outline'>
+                            <Button variant="outline" onPress={() => handleOptionModal(false)}>
                                 <Text>Cancel</Text>
                             </Button>
                         </View>
@@ -893,7 +893,7 @@ function RectCropperContent({ uri, aspect, originalSize, quality, onCancel, onDo
                     <Button variant="outline" className='w-20' onPress={onCancel}>
                         <Text>Cancel</Text>
                     </Button>
-                    <Button className='w-20' onPress={doCrop} disabled={isCropping}>
+                    <Button variant="outline" className='w-20' onPress={doCrop} disabled={isCropping}>
                         {isCropping ? <ActivityIndicator size="small" /> : <Text>Crop</Text>}
                     </Button>
                 </View>
