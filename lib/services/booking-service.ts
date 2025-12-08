@@ -797,28 +797,30 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
             return { success: false, error: sessionError?.message || 'Failed to create sessions' };
         }
 
-        const lockDatesToInsert: any[] = [];
+        if (input.source !== "quick_appointment") {
+            const lockDatesToInsert: any[] = [];
 
-        for (const sessionRow of sessionRows) {
-            const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
-            const lockDateToInsert = {
-                artist_id: input.artistId,
-                session_id: sessionRow.id,
-                date: sessionRow.date,
-                start_time: sessionRow.start_time,
-                end_time: endTime,
-            };
-            lockDatesToInsert.push(lockDateToInsert);
-        }
+            for (const sessionRow of sessionRows) {
+                const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
+                const lockDateToInsert = {
+                    artist_id: input.artistId,
+                    session_id: sessionRow.id,
+                    date: sessionRow.date,
+                    start_time: sessionRow.start_time,
+                    end_time: endTime,
+                };
+                lockDatesToInsert.push(lockDateToInsert);
+            }
 
-        const { data: lockDateRows, error: lockDateError } = await supabase
-            .from('lock_dates')
-            .insert(lockDatesToInsert)
-            .select('id');
+            const { data: lockDateRows, error: lockDateError } = await supabase
+                .from('lock_dates')
+                .insert(lockDatesToInsert)
+                .select('id');
 
-        if (lockDateError || !lockDateRows || lockDateRows.length === 0) {
-            // Rollback: delete created project to avoid orphaned rows
-            return { success: false, error: lockDateError?.message || 'Failed to create sessions' };
+            if (lockDateError || !lockDateRows || lockDateRows.length === 0) {
+                // Rollback: delete created project to avoid orphaned rows
+                return { success: false, error: lockDateError?.message || 'Failed to create sessions' };
+            }
         }
 
         // 3) Update link status to "need_deposit"
@@ -845,6 +847,8 @@ export interface CreateProjectSessionInput {
     locationId: string;
     sessionRate?: number; // optional; fallback to last session's rate or 0
     notes?: string;
+    source?: string; // optional; e.g. "quick_appointment"
+    sourceId?: string; // optional; e.g. quick appointment id
 }
 
 export interface CreateProjectSessionResult {
@@ -901,6 +905,8 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
                 location_id: input.locationId,
                 session_rate: sessionRate,
                 notes: input.notes ?? null,
+                source: input.source || null,
+                source_id: input.sourceId || null,
             }])
             .select('id')
             .single();
@@ -909,8 +915,8 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             return { success: false, error: sessionErr?.message || 'Failed to create session' };
         }
 
-        // Create lock date for this session
-        if (project?.artist_id) {
+        // Create lock date for this session (skip if source is quick_appointment)
+        if (project?.artist_id && input.source !== "quick_appointment") {
             const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
             const { error: lockDateErr } = await supabase
                 .from('lock_dates')
@@ -1040,6 +1046,8 @@ export interface SessionRecordMinimal {
     location_id: string;
     session_rate?: number | null;
     notes?: string | null;
+    source?: string | null;
+    source_id?: string | null;
 }
 
 export async function getSessionById(sessionId: string): Promise<{ success: boolean; data?: SessionRecordMinimal; error?: string }> {
@@ -1047,7 +1055,7 @@ export async function getSessionById(sessionId: string): Promise<{ success: bool
         if (!sessionId) return { success: false, error: 'Missing session id' };
         const { data, error } = await supabase
             .from('sessions')
-            .select('id,project_id,date,start_time,duration,location_id,session_rate,notes')
+            .select('id,project_id,date,start_time,duration,location_id,session_rate,notes,source,source_id')
             .eq('id', sessionId)
             .maybeSingle();
         if (error) {
@@ -1109,7 +1117,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
             // Fetch project id from session and then project details
             const { data: sessionProject, error: sessionProjectErr } = await supabase
                 .from('sessions')
-                .select('project_id,session_rate,notes')
+                .select('project_id,session_rate,notes,source')
                 .eq('id', input.sessionId)
                 .single();
             if (sessionProjectErr || !sessionProject?.project_id) {
@@ -1117,6 +1125,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 return { success: true };
             }
             const projectId = sessionProject.project_id as string;
+            const sessionSource = sessionProject.source;
 
             const { data: project, error: projectErr } = await supabase
                 .from('projects')
@@ -1128,21 +1137,21 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 return { success: true };
             }
 
-            // Update or create lock date for this session
-            if (project?.artist_id) {
+            // Update or create lock date for this session (skip if source is quick_appointment)
+            if (project?.artist_id && sessionSource !== "quick_appointment") {
                 const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
-                
+
                 // Check if lock date exists for this session
                 const { data: existingLockDate, error: existingLockDateErr } = await supabase
                     .from('lock_dates')
                     .select('id')
                     .eq('session_id', input.sessionId)
                     .maybeSingle();
-                
+
                 if (existingLockDateErr) {
                     console.warn('Failed checking existing lock date for session, will attempt insert:', existingLockDateErr);
                 }
-                
+
                 if (existingLockDate?.id) {
                     // Update existing lock date
                     const { error: updateLockDateErr } = await supabase
@@ -1155,7 +1164,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                             updated_at: new Date().toISOString(),
                         })
                         .eq('id', existingLockDate.id);
-                    
+
                     if (updateLockDateErr) {
                         console.error('Failed to update lock date for session:', updateLockDateErr);
                     }
@@ -1170,7 +1179,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                             start_time: startTimeHhMm,
                             end_time: endTime.hhmm,
                         }]);
-                    
+
                     if (insertLockDateErr) {
                         console.error('Failed to create lock date for session:', insertLockDateErr);
                     }

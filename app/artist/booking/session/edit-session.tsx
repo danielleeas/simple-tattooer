@@ -14,6 +14,7 @@ import { Collapse } from "@/components/lib/collapse";
 import { useAuth, useToast } from "@/lib/contexts";
 import { Locations as ArtistLocation, Artist } from "@/lib/redux/types";
 import { getAvailableDates, getAvailableTimes, getSessionById, createProjectSession, updateProjectSession, getMonthRange } from "@/lib/services/booking-service";
+import { getQuickAppointmentById, updateQuickAppointment } from "@/lib/services/calendar-service";
 import { formatDbDate } from "@/lib/utils";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
@@ -47,6 +48,8 @@ export default function ClientEditSession() {
     const fetchSeqRef = useRef(0);
     const [saving, setSaving] = useState(false);
     const [sessionDateLoaded, setSessionDateLoaded] = useState(false);
+    const [sessionSource, setSessionSource] = useState<string | null>(null);
+    const [sessionSourceId, setSessionSourceId] = useState<string | null>(null);
 
     const toDisplayTime = useCallback((hhmm?: string): string => {
         if (!hhmm) return '';
@@ -57,6 +60,22 @@ export default function ClientEditSession() {
         const period = h < 12 ? 'AM' : 'PM';
         const h12 = ((h + 11) % 12) + 1;
         return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+    }, []);
+
+    const parseDisplayTimeToHhMm = useCallback((display: string): string => {
+        // Expected formats like "1:30 PM" or "10:00 AM"
+        const match = display.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!match) return display; // fallback, store as-is
+        let hours = Number(match[1]);
+        const minutes = match[2];
+        const period = match[3].toUpperCase();
+        if (period === 'AM') {
+            if (hours === 12) hours = 0;
+        } else {
+            if (hours !== 12) hours += 12;
+        }
+        const hh = String(hours).padStart(2, '0');
+        return `${hh}:${minutes}`;
     }, []);
 
     const handleBack = () => {
@@ -147,6 +166,9 @@ export default function ClientEditSession() {
                 locationId: String(d.location_id || ''),
                 sessionStartTime: toDisplayTime(d.start_time),
             });
+            // Store source and source_id for quick appointment updates
+            setSessionSource(d.source || null);
+            setSessionSourceId(d.source_id || null);
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionId]);
@@ -240,6 +262,40 @@ export default function ClientEditSession() {
                     });
                     return;
                 }
+
+                // If source is quick_appointment, also update the quick appointment
+                if (sessionSource === 'quick_appointment' && sessionSourceId && artist?.id) {
+                    try {
+                        // Fetch the quick appointment to get existing data
+                        const quickApptResult = await getQuickAppointmentById(sessionSourceId);
+                        if (quickApptResult.success && quickApptResult.data) {
+                            const quickAppt = quickApptResult.data;
+                            const dateYmd = toYmdLocal(formData.sessionDate as Date) || '';
+                            const startTimeHhMm = parseDisplayTimeToHhMm(formData.sessionStartTime);
+
+                            const updateResult = await updateQuickAppointment(sessionSourceId, artist.id, {
+                                fullName: quickAppt.full_name || '',
+                                email: quickAppt.email || '',
+                                phoneNumber: quickAppt.phone_number || undefined,
+                                date: dateYmd,
+                                startTime: startTimeHhMm,
+                                sessionLength: formData.sessionDuration as number,
+                                notes: quickAppt.notes || undefined,
+                                waiverSigned: quickAppt.waiver_signed || false,
+                                waiverUrl: quickAppt.waiver_url || null,
+                            });
+
+                            if (!updateResult.success) {
+                                console.warn('Failed to update quick appointment:', updateResult.error);
+                                // Don't fail the whole operation, but log the warning
+                            }
+                        }
+                    } catch (e: any) {
+                        console.warn('Error updating quick appointment:', e?.message);
+                        // Don't fail the whole operation, but log the warning
+                    }
+                }
+
                 toast({
                     variant: 'success',
                     title: 'Session updated',
