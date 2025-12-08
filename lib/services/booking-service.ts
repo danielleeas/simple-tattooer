@@ -434,8 +434,8 @@ export const getAvailableTimes = async (
         currentMinutes = nextStartMinutes;
     }
 
-    // Filter out start times that conflict with existing appointment events
-    const appointmentEvents = events.filter((e) => e.source === 'session' || e.source === 'quick_appointment');
+    // Filter out start times that conflict with existing appointment events (including lock events)
+    const appointmentEvents = events.filter((e) => e.source === 'session' || e.source === 'quick_appointment' || e.source === 'lock');
 
     if (appointmentEvents.length > 0) {
         // Parse appointment events to get their time ranges in minutes
@@ -797,29 +797,58 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
             return { success: false, error: sessionError?.message || 'Failed to create sessions' };
         }
 
+        // Create lock events for sessions (before deposit is paid)
         if (input.source !== "quick_appointment") {
-            const lockDatesToInsert: any[] = [];
+            const lockEventsToInsert: any[] = [];
 
             for (const sessionRow of sessionRows) {
                 const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
-                const lockDateToInsert = {
-                    artist_id: input.artistId,
-                    session_id: sessionRow.id,
-                    date: sessionRow.date,
-                    start_time: sessionRow.start_time,
-                    end_time: endTime,
+                
+                // Build start/end datetimes from date + start_time + duration
+                const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
+                const addDaysToYmd = (ymd: string, days: number) => {
+                    if (!days) return ymd;
+                    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+                    if (!m) return ymd;
+                    const y = parseInt(m[1], 10);
+                    const mo = parseInt(m[2], 10) - 1;
+                    const da = parseInt(m[3], 10);
+                    const d0 = new Date(y, mo, da);
+                    d0.setDate(d0.getDate() + days);
+                    const yy = d0.getFullYear();
+                    const mm = String(d0.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d0.getDate()).padStart(2, '0');
+                    return `${yy}-${mm}-${dd}`;
                 };
-                lockDatesToInsert.push(lockDateToInsert);
+                
+                const hhmm = (sessionRow.start_time || '00:00').padStart(5, '0');
+                const startDateTime = toFixedDateTime(sessionRow.date, hhmm);
+                const endDateYmd = addDaysToYmd(sessionRow.date, endTime.ymdOffset);
+                const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
+
+                const lockEventToInsert = {
+                    artist_id: input.artistId,
+                    title: 'Locked',
+                    start_date: startDateTime,
+                    end_date: endDateTime,
+                    color: 'gray',
+                    type: 'item',
+                    source: 'lock',
+                    source_id: sessionRow.id,
+                    updated_at: new Date().toISOString(),
+                };
+                lockEventsToInsert.push(lockEventToInsert);
             }
 
-            const { data: lockDateRows, error: lockDateError } = await supabase
-                .from('lock_dates')
-                .insert(lockDatesToInsert)
-                .select('id');
+            const { error: lockEventError } = await supabase
+                .from('events')
+                .insert(lockEventsToInsert);
 
-            if (lockDateError || !lockDateRows || lockDateRows.length === 0) {
-                // Rollback: delete created project to avoid orphaned rows
-                return { success: false, error: lockDateError?.message || 'Failed to create sessions' };
+            if (lockEventError) {
+                // Rollback: delete created project and sessions to avoid orphaned rows
+                await supabase.from('sessions').delete().eq('project_id', projectId);
+                await supabase.from('projects').delete().eq('id', projectId);
+                return { success: false, error: lockEventError?.message || 'Failed to create lock events' };
             }
         }
 
@@ -915,25 +944,52 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             return { success: false, error: sessionErr?.message || 'Failed to create session' };
         }
 
-        // Create lock date for this session (skip if source is quick_appointment)
-        if (project?.artist_id && input.source !== "quick_appointment") {
+        // Create lock event for this session (before deposit is paid, skip if source is quick_appointment)
+        if (!project?.deposit_paid && project?.artist_id && input.source !== "quick_appointment") {
             const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
-            const { error: lockDateErr } = await supabase
-                .from('lock_dates')
+            
+            // Build start/end datetimes from date + start_time + duration
+            const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
+            const addDaysToYmd = (ymd: string, days: number) => {
+                if (!days) return ymd;
+                const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+                if (!m) return ymd;
+                const y = parseInt(m[1], 10);
+                const mo = parseInt(m[2], 10) - 1;
+                const da = parseInt(m[3], 10);
+                const d0 = new Date(y, mo, da);
+                d0.setDate(d0.getDate() + days);
+                const yy = d0.getFullYear();
+                const mm = String(d0.getMonth() + 1).padStart(2, '0');
+                const dd = String(d0.getDate()).padStart(2, '0');
+                return `${yy}-${mm}-${dd}`;
+            };
+            
+            const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
+            const startDateTime = toFixedDateTime(dateYmd, hhmm);
+            const endDateYmd = addDaysToYmd(dateYmd, endTime.ymdOffset);
+            const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
+
+            const { error: lockEventErr } = await supabase
+                .from('events')
                 .insert([{
                     artist_id: project.artist_id,
-                    session_id: sessionRow.id,
-                    date: dateYmd,
-                    start_time: startTimeHhMm,
-                    end_time: endTime.hhmm,
+                    title: 'Locked',
+                    start_date: startDateTime,
+                    end_date: endDateTime,
+                    color: 'gray',
+                    type: 'item',
+                    source: 'lock',
+                    source_id: sessionRow.id,
+                    updated_at: new Date().toISOString(),
                 }]);
 
-            if (lockDateErr) {
-                console.error('Failed to create lock date for session, session kept:', lockDateErr);
-                // Do not rollback session; lock dates can be created later if needed
+            if (lockEventErr) {
+                console.error('Failed to create lock event for session, session kept:', lockEventErr);
+                // Do not rollback session; lock events can be created later if needed
             }
-        } else {
-            console.warn('Project missing artist_id, skipping lock date creation for session:', input.projectId);
+        } else if (!project?.artist_id) {
+            console.warn('Project missing artist_id, skipping lock event creation for session:', input.projectId);
         }
 
         // Create corresponding calendar event for this session
@@ -1016,12 +1072,12 @@ export async function deleteSessionById(sessionId: string): Promise<{ success: b
     try {
         if (!sessionId) return { success: false, error: 'Missing session id' };
 
-        // Best-effort: remove any calendar events created for this session
+        // Best-effort: remove any calendar events created for this session (both session and lock events)
         await supabase
             .from('events')
             .delete()
-            .eq('source', 'session')
-            .eq('source_id', sessionId);
+            .eq('source_id', sessionId)
+            .in('source', ['session', 'lock']);
 
         const { error } = await supabase
             .from('sessions')
@@ -1137,51 +1193,77 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 return { success: true };
             }
 
-            // Update or create lock date for this session (skip if source is quick_appointment)
-            if (project?.artist_id && sessionSource !== "quick_appointment") {
+            // Update or create lock event for this session (before deposit is paid, skip if source is quick_appointment)
+            if (!project?.deposit_paid && project?.artist_id && sessionSource !== "quick_appointment") {
                 const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
 
-                // Check if lock date exists for this session
-                const { data: existingLockDate, error: existingLockDateErr } = await supabase
-                    .from('lock_dates')
+                // Build start/end datetimes from date + start_time + duration
+                const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
+                const addDaysToYmd = (ymd: string, days: number) => {
+                    if (!days) return ymd;
+                    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+                    if (!m) return ymd;
+                    const y = parseInt(m[1], 10);
+                    const mo = parseInt(m[2], 10) - 1;
+                    const da = parseInt(m[3], 10);
+                    const d0 = new Date(y, mo, da);
+                    d0.setDate(d0.getDate() + days);
+                    const yy = d0.getFullYear();
+                    const mm = String(d0.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d0.getDate()).padStart(2, '0');
+                    return `${yy}-${mm}-${dd}`;
+                };
+                
+                const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
+                const startDateTime = toFixedDateTime(dateYmd, hhmm);
+                const endDateYmd = addDaysToYmd(dateYmd, endTime.ymdOffset);
+                const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
+
+                // Check if lock event exists for this session
+                const { data: existingLockEvent, error: existingLockEventErr } = await supabase
+                    .from('events')
                     .select('id')
-                    .eq('session_id', input.sessionId)
+                    .eq('source', 'lock')
+                    .eq('source_id', input.sessionId)
                     .maybeSingle();
 
-                if (existingLockDateErr) {
-                    console.warn('Failed checking existing lock date for session, will attempt insert:', existingLockDateErr);
+                if (existingLockEventErr) {
+                    console.warn('Failed checking existing lock event for session, will attempt insert:', existingLockEventErr);
                 }
 
-                if (existingLockDate?.id) {
-                    // Update existing lock date
-                    const { error: updateLockDateErr } = await supabase
-                        .from('lock_dates')
+                if (existingLockEvent?.id) {
+                    // Update existing lock event
+                    const { error: updateLockEventErr } = await supabase
+                        .from('events')
                         .update({
                             artist_id: project.artist_id,
-                            date: dateYmd,
-                            start_time: startTimeHhMm,
-                            end_time: endTime.hhmm,
+                            start_date: startDateTime,
+                            end_date: endDateTime,
                             updated_at: new Date().toISOString(),
                         })
-                        .eq('id', existingLockDate.id);
+                        .eq('id', existingLockEvent.id);
 
-                    if (updateLockDateErr) {
-                        console.error('Failed to update lock date for session:', updateLockDateErr);
+                    if (updateLockEventErr) {
+                        console.error('Failed to update lock event for session:', updateLockEventErr);
                     }
                 } else {
-                    // Create new lock date
-                    const { error: insertLockDateErr } = await supabase
-                        .from('lock_dates')
+                    // Create new lock event
+                    const { error: insertLockEventErr } = await supabase
+                        .from('events')
                         .insert([{
                             artist_id: project.artist_id,
-                            session_id: input.sessionId,
-                            date: dateYmd,
-                            start_time: startTimeHhMm,
-                            end_time: endTime.hhmm,
+                            title: 'Locked',
+                            start_date: startDateTime,
+                            end_date: endDateTime,
+                            color: 'gray',
+                            type: 'item',
+                            source: 'lock',
+                            source_id: input.sessionId,
+                            updated_at: new Date().toISOString(),
                         }]);
 
-                    if (insertLockDateErr) {
-                        console.error('Failed to create lock date for session:', insertLockDateErr);
+                    if (insertLockEventErr) {
+                        console.error('Failed to create lock event for session:', insertLockEventErr);
                     }
                 }
             }

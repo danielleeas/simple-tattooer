@@ -487,32 +487,44 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 		return false;
 	}
 
-	// 3) On deposit paid, create calendar events for all sessions of this project
-	if (isPaid) {
-		try {
-			// Get client name for event title
-			const { data: clientRow, error: fetchClientErr } = await supabase
-				.from('clients')
-				.select('full_name')
-				.eq('id', clientId)
-				.single();
+	// 3) Handle events based on deposit status
+	try {
+		// Fetch sessions for the project
+		const { data: sessions, error: sessionsErr } = await supabase
+			.from('sessions')
+			.select('id, date, start_time, duration, source, source_id')
+			.eq('project_id', projectId);
 
-			if (fetchClientErr) {
-				console.warn('Unable to fetch client name for session events:', fetchClientErr);
-			}
+		if (sessionsErr) {
+			console.error('Error fetching sessions for project when updating events:', sessionsErr);
+		} else if (Array.isArray(sessions) && sessions.length > 0) {
+			const sessionIds = sessions.map((s: any) => s.id);
 
-			const eventTitle = clientRow?.full_name || 'Session';
+			if (isPaid) {
+				// Deposit paid: delete lock events and create session events
+				// Delete lock events for these sessions
+				const { error: deleteLockErr } = await supabase
+					.from('events')
+					.delete()
+					.eq('source', 'lock')
+					.in('source_id', sessionIds);
 
-			// Fetch sessions for the project
-			const { data: sessions, error: sessionsErr } = await supabase
-				.from('sessions')
-				.select('id, date, start_time, duration, source, source_id')
-				.eq('project_id', projectId);
+				if (deleteLockErr) {
+					console.warn('Error deleting lock events on deposit paid:', deleteLockErr);
+				}
 
-			if (sessionsErr) {
-				console.error('Error fetching sessions for project when creating events:', sessionsErr);
-			} else if (Array.isArray(sessions) && sessions.length > 0) {
-				const sessionIds = sessions.map((s: any) => s.id);
+				// Get client name for event title
+				const { data: clientRow, error: fetchClientErr } = await supabase
+					.from('clients')
+					.select('full_name')
+					.eq('id', clientId)
+					.single();
+
+				if (fetchClientErr) {
+					console.warn('Unable to fetch client name for session events:', fetchClientErr);
+				}
+
+				const eventTitle = clientRow?.full_name || 'Session';
 
 				// Avoid duplicates: find existing events already created for these sessions
 				const { data: existing, error: existingErr } = await supabase
@@ -570,10 +582,79 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 						console.error('Error inserting session events on deposit paid:', insertErr);
 					}
 				}
+			} else {
+				// Deposit unpaid: delete session events and create lock events
+				// Delete session events for these sessions
+				const { error: deleteSessionErr } = await supabase
+					.from('events')
+					.delete()
+					.eq('source', 'session')
+					.in('source_id', sessionIds);
+
+				if (deleteSessionErr) {
+					console.warn('Error deleting session events on deposit unpaid:', deleteSessionErr);
+				}
+
+				// Create lock events for sessions that don't have them (skip quick_appointment)
+				const { data: existingLockEvents, error: existingLockErr } = await supabase
+					.from('events')
+					.select('source_id')
+					.eq('source', 'lock')
+					.in('source_id', sessionIds);
+
+				if (existingLockErr) {
+					console.warn('Unable to check existing lock events:', existingLockErr);
+				}
+
+				const existingLockSet = new Set<string>((existingLockEvents || []).map((e: any) => e.source_id));
+
+				const lockEventsToInsert = sessions
+					.filter((s: any) => !!s?.id && !!s?.date && !existingLockSet.has(s.id) && s.source !== 'quick_appointment')
+					.map((s: any) => {
+						const rawStart = String(s?.start_time ?? '00:00').padStart(5, '0');
+						const startTime = /^\d{2}:\d{2}$/.test(rawStart) ? rawStart : '00:00';
+						const startStr = `${s.date} ${startTime}`; // "YYYY-MM-DD HH:mm"
+
+						let endStr = startStr;
+						const durationMinutes = Number(s?.duration) || 0;
+						if (durationMinutes > 0) {
+							const startLocal = new Date(`${s.date}T${startTime}:00`);
+							if (!isNaN(startLocal.getTime())) {
+								const endLocal = new Date(startLocal.getTime() + durationMinutes * 60_000);
+								const y = endLocal.getFullYear();
+								const m = String(endLocal.getMonth() + 1).padStart(2, '0');
+								const d = String(endLocal.getDate()).padStart(2, '0');
+								const H = String(endLocal.getHours()).padStart(2, '0');
+								const M = String(endLocal.getMinutes()).padStart(2, '0');
+								endStr = `${y}-${m}-${d} ${H}:${M}`;
+							}
+						}
+						return {
+							artist_id: artistId,
+							title: 'Locked',
+							start_date: startStr,
+							end_date: endStr,
+							color: 'gray',
+							type: 'item',
+							source: 'lock',
+							source_id: s.id,
+							updated_at: nowIso,
+						};
+					});
+
+				if (lockEventsToInsert.length > 0) {
+					const { error: insertLockErr } = await supabase
+						.from('events')
+						.insert(lockEventsToInsert);
+
+					if (insertLockErr) {
+						console.error('Error inserting lock events on deposit unpaid:', insertLockErr);
+					}
+				}
 			}
-		} catch (e: any) {
-			console.error('Unexpected error creating session events on deposit paid:', e);
 		}
+	} catch (e: any) {
+		console.error('Unexpected error updating events on deposit status change:', e);
 	}
 	return true;
 }
