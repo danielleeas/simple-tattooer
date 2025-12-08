@@ -65,14 +65,14 @@ returns void as $$
 declare
   project_record record;
   deposit_remind_hours int;
+  deposit_hold_hours int;
   client_email text;
   client_name text;
-  artist_email text;
-  artist_name text;
   artist_avatar text;
-  studio_name text;
   template_subject text;
   template_body text;
+  deadline_timestamp timestamp with time zone;
+  deadline_formatted text;
   base_url text := 'https://simpletattooer.com';
   http_response record;
   -- Time compression for testing: 1 hour = 1 minute
@@ -104,8 +104,9 @@ begin
     where p.deposit_paid = false
       and (p.send_reminder_email = false or p.send_reminder_email is null)
   loop
-    -- Get deposit_remind_time from rules for this artist
-    select r.deposit_remind_time into deposit_remind_hours
+    -- Get deposit_remind_time and deposit_hold_time from rules for this artist
+    select r.deposit_remind_time, r.deposit_hold_time 
+    into deposit_remind_hours, deposit_hold_hours
     from rules r
     where r.artist_id = project_record.artist_id
     limit 1;
@@ -113,6 +114,11 @@ begin
     -- If no remind time configured, use default 12 hours
     if deposit_remind_hours is null or deposit_remind_hours <= 0 then
       deposit_remind_hours := 12;
+    end if;
+
+    -- If no hold time configured, use default 24 hours
+    if deposit_hold_hours is null or deposit_hold_hours <= 0 then
+      deposit_hold_hours := 24;
     end if;
 
     -- Check if remind time has expired
@@ -130,12 +136,17 @@ begin
         continue;
       end if;
 
-      -- Get artist email, name, avatar, and studio name
-      select a.email, a.full_name, a.avatar, a.studio_name 
-      into artist_email, artist_name, artist_avatar, studio_name
+      -- Get artist avatar
+      select a.avatar into artist_avatar
       from artists a
       where a.id = project_record.artist_id
       limit 1;
+
+      -- Calculate deadline: project.created_at + deposit_hold_time
+      deadline_timestamp := project_record.created_at + (deposit_hold_hours || ' ' || time_unit)::interval;
+      
+      -- Format deadline as "YYYY-MM-DD H:MM AM/PM" (e.g., "2025-12-15 4:00 PM")
+      deadline_formatted := to_char(deadline_timestamp, 'YYYY-MM-DD FMHH12:MI AM');
 
       -- Get template subject and body from templates table
       select 
@@ -166,9 +177,6 @@ begin
           ),
           body := jsonb_build_object(
             'to', client_email,
-            'project_id', project_record.project_id,
-            'client_id', project_record.client_id,
-            'artist_id', project_record.artist_id,
             'email_templates', jsonb_build_object(
               'subject', template_subject,
               'body', template_body
@@ -176,10 +184,7 @@ begin
             'avatar_url', coalesce(artist_avatar, ''),
             'variables', jsonb_build_object(
               'Client First Name', coalesce(split_part(client_name, ' ', 1), ''),
-              'Project Title', coalesce(project_record.title, ''),
-              'Deposit Amount', '$' || project_record.deposit_amount::text,
-              'Your Name', coalesce(artist_name, ''),
-              'Studio Name', coalesce(studio_name, '')
+              'deadline', deadline_formatted
             )
           )
         );
