@@ -780,6 +780,27 @@ CREATE INDEX IF NOT EXISTS idx_consult_requests_status ON consult_requests(statu
 CREATE INDEX IF NOT EXISTS idx_consult_requests_created_at ON consult_requests(created_at);
 CREATE INDEX IF NOT EXISTS idx_consult_requests_updated_at ON consult_requests(updated_at);
 
+-- consult requests table for storing consult requests
+CREATE TABLE IF NOT EXISTS lock_dates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Optimized indexes for lock dates
+CREATE INDEX IF NOT EXISTS idx_lock_dates_artist_id ON lock_dates(artist_id);
+CREATE INDEX IF NOT EXISTS idx_lock_dates_session_id ON lock_dates(session_id);
+CREATE INDEX IF NOT EXISTS idx_lock_dates_date ON lock_dates(date);
+CREATE INDEX IF NOT EXISTS idx_lock_dates_start_time ON lock_dates(start_time);
+CREATE INDEX IF NOT EXISTS idx_lock_dates_end_time ON lock_dates(end_time);
+CREATE INDEX IF NOT EXISTS idx_lock_dates_created_at ON lock_dates(created_at);
+CREATE INDEX IF NOT EXISTS idx_lock_dates_updated_at ON lock_dates(updated_at);
+
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

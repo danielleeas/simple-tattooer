@@ -17,6 +17,18 @@ function toYmd(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
+const addMinutesToTime = (t: string, minutesToAdd: number): { ymdOffset: number; hhmm: string } => {
+    const parts = t.split(':');
+    const h = parseInt(parts[0] || '0', 10);
+    const m = parseInt(parts[1] || '0', 10);
+    const total = h * 60 + m + Number(minutesToAdd || 0);
+    const ymdOffset = Math.floor(total / 1440);
+    const inDay = ((total % 1440) + 1440) % 1440;
+    const eh = Math.floor(inDay / 60);
+    const em = inDay % 60;
+    return { ymdOffset, hhmm: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` };
+};
+
 function parseYmd(ymd: string): Date {
     const [y, m, d] = ymd.split('-').map(Number);
     return new Date(y, (m || 1) - 1, d || 1);
@@ -777,12 +789,36 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         const { data: sessionRows, error: sessionError } = await supabase
             .from('sessions')
             .insert(sessionsToInsert)
-            .select('id');
+            .select('id, date, start_time, duration');
 
         if (sessionError || !sessionRows || sessionRows.length === 0) {
             // Rollback: delete created project to avoid orphaned rows
             await supabase.from('projects').delete().eq('id', projectId);
             return { success: false, error: sessionError?.message || 'Failed to create sessions' };
+        }
+
+        const lockDatesToInsert: any[] = [];
+
+        for (const sessionRow of sessionRows) {
+            const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
+            const lockDateToInsert = {
+                artist_id: input.artistId,
+                session_id: sessionRow.id,
+                date: sessionRow.date,
+                start_time: sessionRow.start_time,
+                end_time: endTime,
+            };
+            lockDatesToInsert.push(lockDateToInsert);
+        }
+
+        const { data: lockDateRows, error: lockDateError } = await supabase
+            .from('lock_dates')
+            .insert(lockDatesToInsert)
+            .select('id');
+
+        if (lockDateError || !lockDateRows || lockDateRows.length === 0) {
+            // Rollback: delete created project to avoid orphaned rows
+            return { success: false, error: lockDateError?.message || 'Failed to create sessions' };
         }
 
         // 3) Update link status to "need_deposit"
@@ -917,17 +953,6 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             const mm = String(d0.getMonth() + 1).padStart(2, '0');
             const dd = String(d0.getDate()).padStart(2, '0');
             return `${yy}-${mm}-${dd}`;
-        };
-        const addMinutesToTime = (t: string, minutesToAdd: number): { ymdOffset: number; hhmm: string } => {
-            const parts = t.split(':');
-            const h = parseInt(parts[0] || '0', 10);
-            const m = parseInt(parts[1] || '0', 10);
-            const total = h * 60 + m + Number(minutesToAdd || 0);
-            const ymdOffset = Math.floor(total / 1440);
-            const inDay = ((total % 1440) + 1440) % 1440;
-            const eh = Math.floor(inDay / 60);
-            const em = inDay % 60;
-            return { ymdOffset, hhmm: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` };
         };
         const startDateTime = toFixedDateTime(dateYmd, hhmm);
         const endCalc = addMinutesToTime(hhmm, Number(input.sessionLengthMinutes || 0));
@@ -1184,17 +1209,6 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 const mm = String(d0.getMonth() + 1).padStart(2, '0');
                 const dd = String(d0.getDate()).padStart(2, '0');
                 return `${yy}-${mm}-${dd}`;
-            };
-            const addMinutesToTime = (t: string, minutesToAdd: number): { ymdOffset: number; hhmm: string } => {
-                const parts = t.split(':');
-                const h = parseInt(parts[0] || '0', 10);
-                const m = parseInt(parts[1] || '0', 10);
-                const total = h * 60 + m + Number(minutesToAdd || 0);
-                const ymdOffset = Math.floor(total / 1440);
-                const inDay = ((total % 1440) + 1440) % 1440;
-                const eh = Math.floor(inDay / 60);
-                const em = inDay % 60;
-                return { ymdOffset, hhmm: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` };
             };
             const startDateTime = toFixedDateTime(dateYmd, hhmm);
             const endCalc = addMinutesToTime(hhmm, Number(input.sessionLengthMinutes || 0));
