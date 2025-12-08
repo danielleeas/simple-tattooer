@@ -72,10 +72,14 @@ declare
   artist_avatar text;
   template_subject text;
   template_body text;
+  request_body text;
   deadline_timestamp timestamp with time zone;
   deadline_formatted text;
   base_url text := 'https://simpletattooer.com';
   http_response record;
+  project_count int;
+  remind_deadline timestamp with time zone;
+  time_until_remind interval;
   -- Time compression for testing: 1 hour = 1 minute
   -- Set to true to enable time compression, false for production
   enable_time_compression boolean := true;
@@ -93,6 +97,14 @@ begin
   -- 2. send_reminder_email = false (hasn't been sent yet)
   -- 3. The reminder time has expired based on project.created_at + deposit_remind_time
   
+  -- Count projects that match criteria for debugging
+  select count(*) into project_count
+  from projects p
+  where p.deposit_paid = false
+    and (p.send_reminder_email = false or p.send_reminder_email is null);
+  
+  raise notice 'Found % projects with deposit_paid=false and send_reminder_email=false/null', project_count;
+  
   for project_record in
     select 
       p.id as project_id,
@@ -105,6 +117,10 @@ begin
     where p.deposit_paid = false
       and (p.send_reminder_email = false or p.send_reminder_email is null)
   loop
+    raise notice 'Processing project % (created_at: %, artist_id: %)', 
+      project_record.project_id, 
+      project_record.created_at,
+      project_record.artist_id;
     -- Get deposit_remind_time and deposit_hold_time from rules for this artist
     select r.deposit_remind_time, r.deposit_hold_time 
     into deposit_remind_hours, deposit_hold_hours
@@ -125,7 +141,17 @@ begin
     -- Check if remind time has expired
     -- Use project.created_at as the start time for the remind period
     -- With time compression: 12 hours becomes 12 minutes
+    remind_deadline := project_record.created_at + (deposit_remind_hours || ' ' || time_unit)::interval;
+    time_until_remind := remind_deadline - now();
+    
+    raise notice 'Project %: remind_deadline=%, time_until_remind=%, deposit_remind_hours=%', 
+      project_record.project_id, 
+      remind_deadline, 
+      time_until_remind,
+      deposit_remind_hours;
+    
     if project_record.created_at + (deposit_remind_hours || ' ' || time_unit)::interval <= now() then
+      raise notice 'Reminder time expired for project %, proceeding to send email', project_record.project_id;
       -- Get client email and name
       select c.email, c.full_name into client_email, client_name
       from clients c
@@ -137,8 +163,8 @@ begin
         continue;
       end if;
 
-      -- Get artist avatar
-      select a.avatar, a.full_name into artist_name, artist_avatar
+      -- Get artist avatar and name
+      select a.full_name, a.avatar into artist_name, artist_avatar
       from artists a
       where a.id = project_record.artist_id
       limit 1;
@@ -170,42 +196,63 @@ begin
         template_body := 'Hi [Client First Name],\n\nHey! Just a quick nudge — your deposit hasn''t come through yet.\nPlease pay by [deadline] to keep your spot.';
       end if;
 
-      -- Send HTTP request to API endpoint
-      -- Using pg_net extension for HTTP requests (requires: CREATE EXTENSION IF NOT EXISTS pg_net;)
-      -- Note: If pg_net is not available, you may need to use Supabase Edge Functions or another method
+      --------------------------------------------------------------------
+      -- Send email via pg_net HTTP request
+      -- Using net.http_post which returns a response record (net.http_response)
+      -- We update send_reminder_email only on 2xx status codes.
+      --------------------------------------------------------------------
+
+      -- Build request body as JSON text (matches your Postman/cURL example)
+      request_body := json_build_object(
+        'to', client_email,
+        'email_templates', json_build_object(
+          'subject', template_subject,
+          'body', template_body
+        ),
+        'avatar_url', coalesce(artist_avatar, ''),
+        'variables', json_build_object(
+          'Your Name', coalesce(artist_name, ''),
+          'Client First Name', coalesce(split_part(client_name, ' ', 1), ''),
+          'deadline', deadline_formatted
+        )
+      )::text;
+
+      -- Call HTTP endpoint via pg_net
       begin
-        select * into http_response
+        select *
+        into http_response
         from net.http_post(
           url := base_url || '/api/deposit-reminder-email',
           headers := jsonb_build_object(
             'Content-Type', 'application/json'
           ),
-          body := jsonb_build_object(
-            'to', client_email,
-            'email_templates', jsonb_build_object(
-              'subject', template_subject,
-              'body', template_body
-            ),
-            'avatar_url', coalesce(artist_avatar, ''),
-            'variables', jsonb_build_object(
-              'Your Name', coalesce(artist_name, ''),
-              'Client First Name', coalesce(split_part(client_name, ' ', 1), ''),
-              'deadline', deadline_formatted
-            )
-          )
+          body := request_body
         );
 
-        -- Update send_reminder_email flag to true to prevent duplicate sends
-        -- Only update if HTTP request was successful (status 200-299)
+        raise notice 'HTTP response for project %: status_code=%', 
+          project_record.project_id,
+          http_response.status_code;
+
+        -- Update flag only if HTTP was successful
         if http_response.status_code >= 200 and http_response.status_code < 300 then
           update projects
           set send_reminder_email = true
           where id = project_record.project_id;
+
+          raise notice 'Marked send_reminder_email = true for project % after successful HTTP', 
+            project_record.project_id;
+        else
+          raise notice 'HTTP call failed for project % with status_code=%', 
+            project_record.project_id,
+            http_response.status_code;
         end if;
+
       exception when others then
-        -- Log error but continue processing other projects
-        -- In production, you might want to log this to a table
-        raise notice 'Failed to send deposit reminder email for project %: %', project_record.project_id, sqlerrm;
+        -- Log error but don't block other projects
+        raise notice 'Exception calling deposit-reminder-email for project %: % (SQLSTATE: %)',
+          project_record.project_id,
+          sqlerrm,
+          sqlstate;
       end;
     end if;
   end loop;
