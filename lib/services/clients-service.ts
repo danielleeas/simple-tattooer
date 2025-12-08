@@ -412,6 +412,7 @@ export async function getClientProjectsWithSessions(artistId: string, clientId: 
 			deposit_payment_method,
 			notes,
 			waiver_signed,
+			waiver_url,
 			created_at,
 			updated_at,
 			drawing:drawings (

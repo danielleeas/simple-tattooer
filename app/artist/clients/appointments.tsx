@@ -21,6 +21,7 @@ import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
 import PLUS_IMAGE from "@/assets/images/icons/plus.png";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDbDate } from "@/lib/utils";
+import { WaiverView } from "@/components/lib/waiver-view";
 
 
 const BUTTON_ICON_STYLE: ImageStyle = {
@@ -70,6 +71,7 @@ export default function ClientAppointments() {
     const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
     const [projectNotes, setProjectNotes] = useState<{ [projectId: string]: string }>({});
     const [saving, setSaving] = useState<{ [projectId: string]: boolean }>({});
+    const [visibleWaiverModal, setVisibleWaiverModal] = useState(false);
     const saveBarAnim = useRef(new Animated.Value(0)).current;
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -84,6 +86,7 @@ export default function ClientAppointments() {
         id: string;
         name: string;
         waiverSigned: boolean;
+        waiverUrl?: string;
         drawingImageUrl?: string;
         sessions: UiSession[];
         notes: string;
@@ -146,6 +149,7 @@ export default function ClientAppointments() {
                             id: p.id,
                             name: String(p.title || 'Untitled Project'),
                             waiverSigned: Boolean(p.waiver_signed),
+                            waiverUrl: String(p.waiver_url || null),
                             drawingImageUrl: drawingRow?.image_url || undefined,
                             sessions: (p.sessions || []).map((s: any) => ({
                                 id: s.id,
@@ -286,7 +290,7 @@ export default function ClientAppointments() {
     const waiverFileName = waiverUrl ? getFileNameFromUrl(waiverUrl) : '';
     const [waiverModalVisible, setWaiverModalVisible] = useState(false);
     const [agreeChecked, setAgreeChecked] = useState<boolean>(false);
-    const [waiverSigned, setWaiverSigned] = useState<boolean>(false);
+    const [visibleWaiverUrl, setVisibleWaiverUrl] = useState<string | null>(null);
     const [addSessionModalVisible, setAddSessionModalVisible] = useState(false);
 
     const handleOpenWaiver = () => {
@@ -406,6 +410,14 @@ export default function ClientAppointments() {
     const handleMenu = () => {
         router.push('/artist/menu');
     };
+
+    const handleVisibleWaiverModal = (waiverUrl: string | undefined, signedUrl: string | undefined) => {
+        if(!waiverUrl && !signedUrl) return;
+
+        console.log(waiverUrl)
+        setVisibleWaiverUrl(signedUrl || waiverUrl || null)
+        setVisibleWaiverModal(true);
+    }
 
     if (loading) {
         return (
@@ -559,7 +571,7 @@ export default function ClientAppointments() {
 
                                                             <View className="gap-2">
                                                                 <Text variant="h4">Sign Waiver</Text>
-                                                                <Pressable className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border" onPress={handleOpenWaiver}>
+                                                                <Pressable onPress={() => handleVisibleWaiverModal(artist?.rule?.waiver_text, project?.waiverUrl)} className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border">
                                                                     <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
                                                                         <Icon as={FileText} strokeWidth={2} size={24} className="text-background" />
                                                                     </View>
@@ -770,6 +782,14 @@ export default function ClientAppointments() {
                         </TouchableOpacity>
                     </TouchableOpacity>
                 </Modal>
+
+                {visibleWaiverUrl && (
+                    <WaiverView 
+                        visible={visibleWaiverModal} 
+                        onClose={() => setVisibleWaiverModal(false)} 
+                        waiverUrl={visibleWaiverUrl}
+                    />
+                )}
 
             </SafeAreaView >
         </>

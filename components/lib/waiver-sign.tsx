@@ -208,14 +208,14 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign, artistId }: Wa
                                         <View className="absolute inset-0 justify-center items-center bg-background z-10">
                                             <ActivityIndicator size="large" />
                                             <Text className="mt-4 text-text-secondary">
-                                                {isUploading ? 'Uploading waiver...' : 'Loading sign page...'}
+                                                {isUploading ? 'Uploading waiver...' : 'Loading waiver sign page...'}
                                             </Text>
                                         </View>
                                     )}
                                     <WebView
                                         ref={webViewRef}
                                         originWhitelist={["*"]}
-                                        source={{ uri: `http://192.168.145.45:3000/sign?waiver=${waiverUrl}` }}
+                                        source={{ uri: `https://simpletattooer.com/sign?waiver=${waiverUrl}` }}
                                         allowFileAccess
                                         javaScriptEnabled={true}
                                         domStorageEnabled={true}

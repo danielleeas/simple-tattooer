@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { View, Image, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,9 +63,12 @@ export default function ClientMoneyStuff() {
     };
     const [projects, setProjects] = useState<UiProject[]>([]);
     const [sessionTipDraft, setSessionTipDraft] = useState<{ [sessionId: string]: string }>({});
+    const hasInitializedExpansion = useRef(false);
 
     useEffect(() => {
         let isMounted = true;
+        // Reset expansion flag when client changes
+        hasInitializedExpansion.current = false;
         async function load() {
             if (!artist?.id || !id) {
                 if (isMounted) {
@@ -138,8 +141,9 @@ export default function ClientMoneyStuff() {
     }, [artist?.id, id]);
 
     // Set default expanded state - first project and first session of each project
+    // Only run once when projects are initially loaded, not on every update
     useEffect(() => {
-        if (projects.length > 0) {
+        if (projects.length > 0 && !hasInitializedExpansion.current) {
             // Expand first project
             setExpandedProjects({ [projects[0].id]: true });
 
@@ -151,6 +155,7 @@ export default function ClientMoneyStuff() {
                 }
             });
             setExpandedSessions(firstSessions);
+            hasInitializedExpansion.current = true;
         }
     }, [projects]);
 
