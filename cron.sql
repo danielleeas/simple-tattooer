@@ -145,8 +145,12 @@ begin
       -- Calculate deadline: project.created_at + deposit_hold_time
       deadline_timestamp := project_record.created_at + (deposit_hold_hours || ' ' || time_unit)::interval;
       
+      -- Convert to Pacific Standard Time (PST/PDT)
       -- Format deadline as "YYYY-MM-DD H:MM AM/PM" (e.g., "2025-12-15 4:00 PM")
-      deadline_formatted := to_char(deadline_timestamp, 'YYYY-MM-DD FMHH12:MI AM');
+      deadline_formatted := to_char(
+        deadline_timestamp AT TIME ZONE 'America/Los_Angeles',
+        'YYYY-MM-DD FMHH12:MI AM'
+      );
 
       -- Get template subject and body from templates table
       select 
