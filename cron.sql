@@ -68,6 +68,7 @@ declare
   deposit_hold_hours int;
   client_email text;
   client_name text;
+  artist_name text;
   artist_avatar text;
   template_subject text;
   template_body text;
@@ -137,7 +138,7 @@ begin
       end if;
 
       -- Get artist avatar
-      select a.avatar into artist_avatar
+      select a.avatar, a.full_name into artist_name, artist_avatar
       from artists a
       where a.id = project_record.artist_id
       limit 1;
@@ -166,7 +167,7 @@ begin
         template_subject := 'Deposit still needed to confirm your date';
       end if;
       if template_body is null or template_body = '' then
-        template_body := 'Hey! Just a quick nudge — your deposit hasn''t come through yet.\nPlease pay by [deadline] to keep your spot.';
+        template_body := 'Hi [Client First Name],\n\nHey! Just a quick nudge — your deposit hasn''t come through yet.\nPlease pay by [deadline] to keep your spot.';
       end if;
 
       -- Send HTTP request to API endpoint
@@ -187,6 +188,7 @@ begin
             ),
             'avatar_url', coalesce(artist_avatar, ''),
             'variables', jsonb_build_object(
+              'Your Name', coalesce(artist_name, ''),
               'Client First Name', coalesce(split_part(client_name, ' ', 1), ''),
               'deadline', deadline_formatted
             )
