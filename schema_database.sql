@@ -578,6 +578,7 @@ CREATE TABLE IF NOT EXISTS projects (
   waiver_url TEXT NULL,
   notes TEXT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
+  send_reminder_email BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
