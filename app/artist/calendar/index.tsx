@@ -66,17 +66,19 @@ export default function CalendarPage() {
             // Map DB rows to Calendar's expected shape
             const map: Record<string, CalendarEvent[]> = {};
             for (const ev of events) {
-                const evStart = parseYmdFromDb(ev.start_date);
-                const evEnd = parseYmdFromDb(ev.end_date);
+                if (ev.source !== 'lock') {
+                    const evStart = parseYmdFromDb(ev.start_date);
+                    const evEnd = parseYmdFromDb(ev.end_date);
 
-                const rangeStart = evStart < visibleStart ? visibleStart : evStart;
-                const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
-                const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
-                while (cursor <= rangeEnd) {
-                    const key = toYmd(cursor);
-                    if (!map[key]) map[key] = [];
-                    map[key].push(ev);
-                    cursor.setDate(cursor.getDate() + 1);
+                    const rangeStart = evStart < visibleStart ? visibleStart : evStart;
+                    const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
+                    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
+                    while (cursor <= rangeEnd) {
+                        const key = toYmd(cursor);
+                        if (!map[key]) map[key] = [];
+                        map[key].push(ev);
+                        cursor.setDate(cursor.getDate() + 1);
+                    }
                 }
             }
             setEvents(map);
@@ -348,7 +350,7 @@ export default function CalendarPage() {
                                 accessibilityRole="button"
                                 accessibilityLabel="Quick Add Appointment"
                             >
-                                <View className="h-4 w-4 rounded-xl bg-blue-500"/>
+                                <View className="h-4 w-4 rounded-xl bg-blue-500" />
                                 <View className="flex-1 gap-1">
                                     <Text className="leading-5 text-sm" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                                         Mark Day as Unavailable
