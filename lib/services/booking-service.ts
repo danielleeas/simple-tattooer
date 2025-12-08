@@ -864,6 +864,16 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
         const dateYmd = toYmd(input.date); // YYYY-MM-DD
         const startTimeHhMm = parseDisplayTimeToHhMm(input.startTimeDisplay); // HH:mm
 
+        // Fetch project early to get artist_id for lock dates
+        const { data: project, error: projectErr } = await supabase
+            .from('projects')
+            .select('artist_id,client_id,deposit_paid')
+            .eq('id', input.projectId)
+            .single();
+        if (projectErr) {
+            return { success: false, error: projectErr?.message || 'Failed to fetch project' };
+        }
+
         // Determine session rate: prefer provided; otherwise fallback to last session's rate or 0
         let sessionRate = Number(input.sessionRate ?? NaN);
         if (!Number.isFinite(sessionRate)) {
@@ -899,17 +909,28 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             return { success: false, error: sessionErr?.message || 'Failed to create session' };
         }
 
-        // Create corresponding calendar event for this session
-        // 1) Fetch project to decide whether to create an event (requires deposit_paid) and get artist_id/client_id
-        const { data: project, error: projectErr } = await supabase
-            .from('projects')
-            .select('artist_id,client_id,deposit_paid')
-            .eq('id', input.projectId)
-            .single();
-        if (projectErr) {
-            console.warn('Failed to fetch project for event creation, skipping event:', projectErr);
-            return { success: true, sessionId: sessionRow.id as string };
+        // Create lock date for this session
+        if (project?.artist_id) {
+            const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
+            const { error: lockDateErr } = await supabase
+                .from('lock_dates')
+                .insert([{
+                    artist_id: project.artist_id,
+                    session_id: sessionRow.id,
+                    date: dateYmd,
+                    start_time: startTimeHhMm,
+                    end_time: endTime.hhmm,
+                }]);
+
+            if (lockDateErr) {
+                console.error('Failed to create lock date for session, session kept:', lockDateErr);
+                // Do not rollback session; lock dates can be created later if needed
+            }
+        } else {
+            console.warn('Project missing artist_id, skipping lock date creation for session:', input.projectId);
         }
+
+        // Create corresponding calendar event for this session
         // Only create event when deposit has been paid
         if (!project?.deposit_paid) {
             return { success: true, sessionId: sessionRow.id as string };
@@ -1083,7 +1104,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
             return { success: false, error: error.message || 'Failed to update session' };
         }
 
-        // If project deposit is paid, update or create corresponding calendar event
+        // Update or create lock date and handle calendar events
         try {
             // Fetch project id from session and then project details
             const { data: sessionProject, error: sessionProjectErr } = await supabase
@@ -1092,7 +1113,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 .eq('id', input.sessionId)
                 .single();
             if (sessionProjectErr || !sessionProject?.project_id) {
-                console.warn('Unable to resolve project for session when updating event, skipping:', sessionProjectErr);
+                console.warn('Unable to resolve project for session when updating lock date/event, skipping:', sessionProjectErr);
                 return { success: true };
             }
             const projectId = sessionProject.project_id as string;
@@ -1103,9 +1124,60 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 .eq('id', projectId)
                 .single();
             if (projectErr) {
-                console.warn('Failed to fetch project for session event update, skipping:', projectErr);
+                console.warn('Failed to fetch project for session update, skipping:', projectErr);
                 return { success: true };
             }
+
+            // Update or create lock date for this session
+            if (project?.artist_id) {
+                const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
+                
+                // Check if lock date exists for this session
+                const { data: existingLockDate, error: existingLockDateErr } = await supabase
+                    .from('lock_dates')
+                    .select('id')
+                    .eq('session_id', input.sessionId)
+                    .maybeSingle();
+                
+                if (existingLockDateErr) {
+                    console.warn('Failed checking existing lock date for session, will attempt insert:', existingLockDateErr);
+                }
+                
+                if (existingLockDate?.id) {
+                    // Update existing lock date
+                    const { error: updateLockDateErr } = await supabase
+                        .from('lock_dates')
+                        .update({
+                            artist_id: project.artist_id,
+                            date: dateYmd,
+                            start_time: startTimeHhMm,
+                            end_time: endTime.hhmm,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', existingLockDate.id);
+                    
+                    if (updateLockDateErr) {
+                        console.error('Failed to update lock date for session:', updateLockDateErr);
+                    }
+                } else {
+                    // Create new lock date
+                    const { error: insertLockDateErr } = await supabase
+                        .from('lock_dates')
+                        .insert([{
+                            artist_id: project.artist_id,
+                            session_id: input.sessionId,
+                            date: dateYmd,
+                            start_time: startTimeHhMm,
+                            end_time: endTime.hhmm,
+                        }]);
+                    
+                    if (insertLockDateErr) {
+                        console.error('Failed to create lock date for session:', insertLockDateErr);
+                    }
+                }
+            }
+
+            // If project deposit is paid, update or create corresponding calendar event
 
             if (!project?.artist_id) {
                 console.warn('Project missing artist_id; skipping session event update.');

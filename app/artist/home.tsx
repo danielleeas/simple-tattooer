@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { type ImageStyle, View, Pressable, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import Splash from '@/components/lib/Splash';
+import Splash from '@/components/lib/splash';
 import Welcome from '@/components/lib/welcome';
 
 import MENU from '@/assets/images/icons/menu.png';

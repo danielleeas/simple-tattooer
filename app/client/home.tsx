@@ -11,7 +11,7 @@ import { setArtist } from '@/lib/redux/slices/artist-slice';
 import { setShowWelcome } from '@/lib/redux/slices/ui-slice';
 import { useAuth } from '@/lib/contexts';
 import { Artist } from '@/lib/redux/types';
-import Splash from '@/components/lib/Splash';
+import Splash from '@/components/lib/splash';
 import Welcome from '@/components/lib/welcome';
 
 const { height: screenHeight } = Dimensions.get('window');

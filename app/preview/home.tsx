@@ -7,7 +7,7 @@ import { setShowPurchase } from '@/lib/redux/slices/ui-slice';
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import Splash from '@/components/lib/Splash';
+import Splash from '@/components/lib/splash';
 import SubscribeModal from '@/components/lib/subscribe-modal';
 
 import MENU from '@/assets/images/icons/menu.png';
