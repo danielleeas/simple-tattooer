@@ -1765,6 +1765,8 @@ export interface CreateQuickAppointmentParams {
 	startTime: string; // "HH:mm"
 	sessionLength: number; // minutes
 	notes?: string;
+	waiverSigned?: boolean;
+	waiverUrl?: string;
 }
 
 export interface CreateQuickAppointmentResult {
@@ -1803,6 +1805,8 @@ export async function createQuickAppointment(params: CreateQuickAppointmentParam
 			start_time: params.startTime,
 			session_length: params.sessionLength,
 			notes: params.notes?.trim() || null,
+			waiver_signed: params.waiverSigned || false,
+			waiver_url: params.waiverUrl || null
 		};
 
 		const { data, error } = await supabase
@@ -1860,6 +1864,8 @@ export interface QuickAppointmentRecord {
 	start_time: string;
 	session_length: number;
 	notes: string | null;
+	waiver_signed: boolean;
+	waiver_url: string;
 	created_at: string;
 	updated_at: string;
 }
@@ -1892,6 +1898,8 @@ export async function updateQuickAppointment(
 		startTime: string;
 		sessionLength: number;
 		notes?: string;
+		waiverSigned?: boolean;
+		waiverUrl?: string | null;
 	}
 ): Promise<{ success: boolean; error?: string }> {
 	try {

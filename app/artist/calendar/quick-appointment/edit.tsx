@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { convertTimeToISOString, convertTimeToHHMMString } from "@/lib/utils";
+import { convertTimeToISOString, convertTimeToHHMMString, truncateFileName } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
@@ -23,6 +23,7 @@ import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
 import { getQuickAppointmentById, updateQuickAppointment } from '@/lib/services/calendar-service';
+import { WaiverSign } from "@/components/lib/waiver-sign";
 
 type QuickAppointmentData = {
     fullName: string;
@@ -42,6 +43,7 @@ export default function QuickAppointmentEditPage() {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const { id } = useLocalSearchParams<{ id: string }>();
+    const [waiverSignVisible, setWaiverSignVisible] = useState(false);
 
     const getFileNameFromUrl = (inputUrl: string): string => {
         if (!inputUrl) return '';
@@ -66,6 +68,7 @@ export default function QuickAppointmentEditPage() {
         sessionLength: '',
         notes: '',
         waiverSigned: false,
+        waiverUrl: ''
     });
 
     const loadAppointment = useCallback(async () => {
@@ -74,6 +77,7 @@ export default function QuickAppointmentEditPage() {
             setLoading(true);
             const res = await getQuickAppointmentById(id);
             if (res.success && res.data) {
+                console.log(res.data)
                 setFormData({
                     fullName: res.data.full_name || '',
                     email: res.data.email || '',
@@ -82,7 +86,8 @@ export default function QuickAppointmentEditPage() {
                     startTime: res.data.start_time || '09:00',
                     sessionLength: res.data.session_length ? String(res.data.session_length) : '',
                     notes: res.data.notes || '',
-                    waiverSigned: false,
+                    waiverSigned: res.data.waiver_signed,
+                    waiverUrl: res.data.waiver_url,
                 });
             }
         } catch (e) {
@@ -142,6 +147,8 @@ export default function QuickAppointmentEditPage() {
                 startTime: formData.startTime,
                 sessionLength: parseInt(formData.sessionLength),
                 notes: formData.notes,
+                waiverSigned: formData.waiverSigned,
+                waiverUrl: formData.waiverUrl || null
             });
 
             if (!result.success) {
@@ -160,6 +167,29 @@ export default function QuickAppointmentEditPage() {
 
     const handleCancel = () => {
         router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
+    };
+
+    const openWaiverSign = (waiverUrl: string | undefined, signedUrl: string | undefined) => {
+
+        if (!waiverUrl && !signedUrl) return;
+        setWaiverSignVisible(true);
+    };
+
+    const handleSignWaiver = async (signedPdfUrl: string) => {
+        try {
+            // The waiver has already been uploaded in the WaiverSign component
+            // We just need to update the form data with the final URL
+            setFormData({ ...formData, waiverSigned: true, waiverUrl: signedPdfUrl });
+            setWaiverSignVisible(false);
+        } catch (error) {
+            console.error('Error handling signed waiver:', error);
+            toast({
+                variant: 'error',
+                title: 'Failed to process waiver',
+                description: error instanceof Error ? error.message : 'Please try again',
+                duration: 3000
+            });
+        }
     };
 
     if (loading) {
@@ -190,7 +220,7 @@ export default function QuickAppointmentEditPage() {
                         <KeyboardAwareScrollView
                             bottomOffset={50}
                             showsVerticalScrollIndicator={false}
-                            
+
                         >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-[22px]">
@@ -296,6 +326,7 @@ export default function QuickAppointmentEditPage() {
                                     </View>
 
                                     <Pressable
+                                        onPress={() => openWaiverSign(artist?.rule?.waiver_text, formData.waiverUrl)}
                                         className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border"
                                     >
                                         <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
@@ -305,10 +336,18 @@ export default function QuickAppointmentEditPage() {
                                             <View style={{ width: formData.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${formData.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
                                                 <Text className={`text-xs items-center justify-center ${formData.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{formData.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
                                             </View>
-                                            <Text variant="small">{waiverFileName || 'No waiver uploaded'}</Text>
+                                            {formData.waiverSigned ?
+                                                (
+                                                    <Text variant="small">Signed.pdf</Text>
+                                                )
+                                                :
+                                                (
+                                                    <Text variant="small">{waiverFileName ? truncateFileName(waiverFileName) : 'No waiver uploaded'}</Text>
+                                                )
+                                            }
                                             <View className="flex-row items-center gap-1">
                                                 <Text variant="small">{formData.waiverSigned ? 'Preview' : 'Preview and Sign'}</Text>
-                                                <Icon as={FileSearch} strokeWidth={1} size={16} />
+                                                <Icon as={FileSearch} strokeWidth={2} size={16} />
                                             </View>
                                         </View>
                                     </Pressable>
@@ -331,6 +370,13 @@ export default function QuickAppointmentEditPage() {
                         </KeyboardAwareScrollView>
                     </View>
                 </StableGestureWrapper >
+                <WaiverSign
+                    visible={waiverSignVisible}
+                    onClose={() => setWaiverSignVisible(false)}
+                    waiverUrl={formData.waiverUrl ? formData.waiverUrl : waiverUrl}
+                    onSign={handleSignWaiver}
+                    artistId={artist?.id}
+                />
             </SafeAreaView >
         </>
     );

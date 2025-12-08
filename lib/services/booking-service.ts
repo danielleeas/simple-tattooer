@@ -701,6 +701,7 @@ export interface CreateManualBookingInput {
     sessionRate: number;
     notes?: string;
     waiverSigned?: boolean;
+    waiverUrl?: string;
     source?: string;
     sourceId?: string;
 }
@@ -743,6 +744,7 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
                 title: input.title.trim(),
                 deposit_amount: input.depositAmount,
                 waiver_signed: input.waiverSigned || false,
+                waiver_url: input.waiverUrl ?? null,
                 notes: input.notes ?? null,
             }])
             .select('id')

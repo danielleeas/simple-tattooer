@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from "@/lib/utils";
+import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb, truncateFileName } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
@@ -58,11 +58,11 @@ const calculateEndTime = (startTime: string, durationMinutes: number): string =>
     const hours = Number(hStr);
     const minutes = Number(mStr);
     if (Number.isNaN(hours) || Number.isNaN(minutes)) return '';
-    
+
     const totalMinutes = hours * 60 + minutes + durationMinutes;
     const endHours = Math.floor(totalMinutes / 60) % 24;
     const endMinutes = totalMinutes % 60;
-    
+
     return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 };
 
@@ -85,23 +85,6 @@ export default function QuickAppointmentAddPage() {
         }
     };
 
-    const truncateFileName = (fileName: string): string => {
-        if (!fileName || fileName.length <= 15) return fileName;
-        
-        const lastDotIndex = fileName.lastIndexOf('.');
-        if (lastDotIndex === -1) {
-            // No extension, just truncate the name
-            return fileName.length > 13 ? `${fileName.slice(0, 6)}....${fileName.slice(-6)}` : fileName;
-        }
-        
-        const nameWithoutExt = fileName.slice(0, lastDotIndex);
-        const extension = fileName.slice(lastDotIndex);
-        
-        if (nameWithoutExt.length <= 13) return fileName;
-        
-        return `${nameWithoutExt.slice(0, 6)}....${nameWithoutExt.slice(-6)}${extension}`;
-    };
-
     const waiverUrl = artist?.rule?.waiver_text || '';
     const waiverFileName = waiverUrl ? getFileNameFromUrl(waiverUrl) : '';
 
@@ -114,6 +97,7 @@ export default function QuickAppointmentAddPage() {
         sessionLength: '',
         notes: '',
         waiverSigned: false,
+        waiverUrl: ''
     });
 
     const handleBack = () => {
@@ -163,7 +147,7 @@ export default function QuickAppointmentAddPage() {
         // Calculate end time from start time and session length
         const sessionLengthMinutes = parseInt(formData.sessionLength);
         const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
-        
+
         if (!endTime) {
             toast({ variant: 'error', title: 'Invalid time calculation', duration: 2500 });
             return;
@@ -189,11 +173,11 @@ export default function QuickAppointmentAddPage() {
             }
 
             if (overlapCheck.hasOverlap) {
-                toast({ 
-                    variant: 'error', 
-                    title: 'Time conflict detected', 
+                toast({
+                    variant: 'error',
+                    title: 'Time conflict detected',
                     description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
-                    duration: 3000 
+                    duration: 3000
                 });
                 setLoading(false);
                 return;
@@ -207,6 +191,8 @@ export default function QuickAppointmentAddPage() {
                 startTime: formData.startTime,
                 sessionLength: parseInt(formData.sessionLength),
                 notes: formData.notes,
+                waiverSigned: formData.waiverSigned,
+                waiverUrl: formData.waiverUrl
             });
 
             if (!result.success) {
@@ -257,6 +243,7 @@ export default function QuickAppointmentAddPage() {
                 sessionRate: 0,
                 notes: formData.notes || '',
                 waiverSigned: formData.waiverSigned,
+                waiverUrl: formData.waiverUrl,
                 source: 'quick_appointment',
                 sourceId: result.id,
             });
@@ -280,15 +267,28 @@ export default function QuickAppointmentAddPage() {
         }
     };
 
-    const handleSignWaiver = () => {
-        setFormData({ ...formData, waiverSigned: true });
-        setWaiverSignVisible(false);
+    const handleSignWaiver = async (signedPdfUrl: string) => {
+        try {
+            // The waiver has already been uploaded in the WaiverSign component
+            // We just need to update the form data with the final URL
+            setFormData({ ...formData, waiverSigned: true, waiverUrl: signedPdfUrl });
+            setWaiverSignVisible(false);
+        } catch (error) {
+            console.error('Error handling signed waiver:', error);
+            toast({ 
+                variant: 'error', 
+                title: 'Failed to process waiver', 
+                description: error instanceof Error ? error.message : 'Please try again',
+                duration: 3000 
+            });
+        }
     };
 
-    const openWaiverSign = (waiverUrl: string | undefined) => {
-        if (!waiverUrl) return;
+    const openWaiverSign = (waiverUrl: string | undefined, signedUrl: string | undefined) => {
+
+        if (!waiverUrl && !signedUrl) return;
         setWaiverSignVisible(true);
-        
+
     };
 
     return (
@@ -308,7 +308,7 @@ export default function QuickAppointmentAddPage() {
                         <KeyboardAwareScrollView
                             bottomOffset={50}
                             showsVerticalScrollIndicator={false}
-                            
+
                         >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-[22px]">
@@ -415,7 +415,7 @@ export default function QuickAppointmentAddPage() {
                                     </View>
 
                                     <Pressable
-                                        onPress={() => openWaiverSign(artist?.rule?.waiver_text)}
+                                        onPress={() => openWaiverSign(artist?.rule?.waiver_text, formData.waiverUrl)}
                                         className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border"
                                     >
                                         <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
@@ -425,7 +425,15 @@ export default function QuickAppointmentAddPage() {
                                             <View style={{ width: formData.waiverSigned ? 50 : 70 }} className={`border items-center justify-center rounded-full px-1 ${formData.waiverSigned ? 'border-green bg-green/10' : 'border-destructive bg-destructive/10'}`}>
                                                 <Text className={`text-xs items-center justify-center ${formData.waiverSigned ? 'text-green' : 'text-destructive'}`} style={{ fontSize: 10 }}>{formData.waiverSigned ? 'Signed' : 'Not Signed'}</Text>
                                             </View>
-                                            <Text variant="small">{waiverFileName ? truncateFileName(waiverFileName) : 'No waiver uploaded'}</Text>
+                                            {formData.waiverSigned ?
+                                                (
+                                                    <Text variant="small">Signed.pdf</Text>
+                                                )
+                                                :
+                                                (
+                                                    <Text variant="small">{waiverFileName ? truncateFileName(waiverFileName) : 'No waiver uploaded'}</Text>
+                                                )
+                                            }
                                             <View className="flex-row items-center gap-1">
                                                 <Text variant="small">{formData.waiverSigned ? 'Preview' : 'Preview and Sign'}</Text>
                                                 <Icon as={FileSearch} strokeWidth={2} size={16} />
@@ -441,7 +449,13 @@ export default function QuickAppointmentAddPage() {
                         </KeyboardAwareScrollView>
                     </View>
                 </StableGestureWrapper >
-                <WaiverSign visible={waiverSignVisible} onClose={() => setWaiverSignVisible(false)} waiverUrl={waiverUrl} onSign={handleSignWaiver} />
+                <WaiverSign 
+                    visible={waiverSignVisible} 
+                    onClose={() => setWaiverSignVisible(false)} 
+                    waiverUrl={formData.waiverUrl? formData.waiverUrl: waiverUrl} 
+                    onSign={handleSignWaiver}
+                    artistId={artist?.id}
+                />
             </SafeAreaView >
         </>
     );

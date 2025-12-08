@@ -9,32 +9,40 @@ import Animated, {
 import { Text } from "@/components/ui/text";
 import { Icon } from "@/components/ui/icon";
 import { X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
-import Pdf from "react-native-pdf";
+import { WebView } from "react-native-webview";
+import * as FileSystem from "expo-file-system";
+import { Asset } from "expo-asset";
+import { uploadFileToStorage } from '@/lib/services/storage-service';
+import { useToast } from "@/lib/contexts/toast-context";
 
 interface WaiverSignProps {
     visible: boolean;
     onClose: () => void;
     waiverUrl: string; // PDF file URL
-    onSign: () => void;
+    onSign: (signedPdfUrl: string) => void;
+    artistId?: string; // Artist ID for upload path
 }
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
 const ANIMATION_DURATION = 100;
 
-export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignProps) => {
+export const WaiverSign = ({ visible, onClose, waiverUrl, onSign, artistId }: WaiverSignProps) => {
     const [isRendered, setIsRendered] = useState(visible);
-    const [pdfLoading, setPdfLoading] = useState(true);
-    const [pdfError, setPdfError] = useState<string | null>(null);
-    const [totalPages, setTotalPages] = useState<number | null>(null);
-    const [pdfDimensions, setPdfDimensions] = useState<{ width: number; height: number } | null>(null);
-    const [pdfUri, setPdfUri] = useState<string | null>(null);
-    const [editMode, setEditMode] = useState<('text' | 'signature') | null>(null);
     const translateY = useSharedValue(screenHeight);
     const backdropOpacity = useSharedValue(0);
     const { top, bottom } = useSafeAreaInsets();
+    const { toast } = useToast();
+
+    const [htmlUri, setHtmlUri] = useState<string | null>(null);
+    const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
+    const [isSigning, setIsSigning] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [webViewError, setWebViewError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const webViewRef = useRef<WebView>(null);
 
     const handleClose = () => {
         // Animate backdrop fade out
@@ -53,14 +61,19 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
         }, ANIMATION_DURATION);
     };
 
+    const modalStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateY: translateY.value }],
+        };
+    });
+
     useEffect(() => {
         if (visible) {
             setIsRendered(true);
-            // Reset PDF state when modal opens
-            setPdfLoading(true);
-            setPdfError(null);
-            setTotalPages(null);
-            setPdfUri(null);
+            setSignedPdfUrl(null);
+            setIsSigning(false);
+            setWebViewError(null);
+            setIsLoading(true);
 
             // Animate backdrop fade in
             backdropOpacity.value = withTiming(1, {
@@ -90,22 +103,52 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
         }
     }, [visible, waiverUrl]);
 
-    const modalStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ translateY: translateY.value }],
-        };
-    });
+    const handleWebViewMessage = async (event: any) => {
+        try {
+            
+            const messageData = event.nativeEvent.data;
+            if (!messageData) {
+                console.warn("No data in WebView message");
+                return;
+            }
 
-    const getContainerWidth = (pageNum: number) => {
-        const containerWidth = screenWidth * pageNum;
-        return containerWidth;
+            const data = typeof messageData === 'string' 
+                ? JSON.parse(messageData) 
+                : messageData;
+            
+            if (data.type === 'SIGNED_PDF_READY') {
+                const downloadUrl = data.payload?.downloadUrl;
+                console.log("Received SIGNED_PDF_READY with URL:", downloadUrl);
+                
+                if (downloadUrl) {
+                    setSignedPdfUrl(downloadUrl);
+                    setIsSigning(false);
+                    onSign(downloadUrl);
+                    handleClose();
+                } else {
+                    console.error("SIGNED_PDF_READY received but no downloadUrl in payload");
+                }
+            } else {
+                // Handle other message types if needed
+                console.log("WebView message (other type):", data);
+            }
+        } catch (error) {
+            console.error("Error parsing WebView message:", error);
+            console.error("Message data that failed:", event.nativeEvent?.data);
+        }
     };
 
-    const handleEditMode = (mode: 'text' | 'signature') => {
-        // Toggle: if the same mode is clicked, deactivate it; otherwise switch to the new mode
-        setEditMode(editMode === mode ? null : mode);
+    const handleConfirmAndSign = () => {
+        setIsSigning(true);
+        // Send a message to the WebView to trigger signing
+        // The WebView will handle the signing and send back the signed PDF URL
+        webViewRef.current?.postMessage(
+            JSON.stringify({
+                type: 'TRIGGER_SIGN',
+            })
+        );
     };
-
+    
     if (!isRendered) return null;
 
     return (
@@ -125,7 +168,7 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
                 >
                     <View className="flex-1">
                         {/* Header */}
-                        <View className="flex-row items-center justify-between p-4 border-b border-border">
+                        <View className="flex-row items-center justify-between p-4">
                             <Text variant="h6" className="leading-tight">Sign Waiver Agreement</Text>
                             <Button variant="ghost" size="icon" onPress={handleClose}>
                                 <Icon as={X} size={24} />
@@ -134,121 +177,75 @@ export const WaiverSign = ({ visible, onClose, waiverUrl, onSign }: WaiverSignPr
 
                         {/* PDF Viewer */}
                         <View className="flex-1" style={{ width: '100%' }}>
-                            {pdfLoading && (
-                                <View className="absolute inset-0 items-center justify-center z-10 bg-background">
-                                    <ActivityIndicator size="large" />
-                                    <Text className="mt-4 text-text-secondary">Loading PDF...</Text>
-                                </View>
-                            )}
-                            {pdfError && (
-                                <View className="flex-1 items-center justify-center p-4">
-                                    <Text className="text-destructive text-center mb-4">{pdfError}</Text>
-                                    <Button variant="outline" onPress={() => {
-                                        setPdfError(null);
-                                        setPdfLoading(true);
-                                    }}>
-                                        <Text>Retry</Text>
+                            {webViewError ? (
+                                <View className="flex-1 justify-center items-center p-6 bg-background">
+                                    <Text variant="h6" className="text-destructive mb-2 text-center">
+                                        Error Loading Page
+                                    </Text>
+                                    <Text className="text-text-secondary mb-4 text-center">
+                                        {webViewError}
+                                    </Text>
+                                    <Text className="text-xs text-text-secondary mb-4 text-center">
+                                        Status Code: 500 - Internal Server Error
+                                    </Text>
+                                    <Text className="text-xs text-text-secondary mb-4 text-center">
+                                        Please check your Next.js server logs for details.
+                                    </Text>
+                                    <Button
+                                        onPress={() => {
+                                            setWebViewError(null);
+                                            setIsLoading(true);
+                                            webViewRef.current?.reload();
+                                        }}
+                                        variant="default"
+                                    >
+                                        <Text className="text-white">Retry</Text>
                                     </Button>
                                 </View>
-                            )}
-                            {waiverUrl && (
-                                <View className="absolute flex-1 top-0 left-0 right-0 bottom-0 opacity-0">
-                                    <Pdf
-                                        source={{
-                                            uri: waiverUrl,
-                                            cache: true,
-                                        }}
-                                        horizontal={true}
-                                        trustAllCerts={false}
-                                        fitPolicy={2} // 0 = fit width, 1 = fit height, 2 = fit both
-                                        onLoadComplete={(numberOfPages, path, size) => {
-                                            setPdfError(null);
-                                            setTotalPages(numberOfPages);
-                                            setPdfUri(path);
-                                            setPdfDimensions({ width: screenWidth, height: (screenWidth / size.width) * size.height });
-                                            console.log('PDF loaded with', numberOfPages, 'pages', path, size);
-                                        }}
-                                        onPageChanged={(page, numberOfPages) => {
-                                            console.log(`Current page: ${page}`);
-                                        }}
-                                        onPageSingleTap={(page, x, y) => {
-                                            console.log(`Single tap on page: ${page}, x: ${x}, y: ${y}`);
-                                        }}
-                                        onError={(error) => {
-                                            setPdfError('Failed to load PDF. Please try again.');
-                                            console.error('PDF Error:', error);
-                                        }}
-                                        style={{
-                                            flex: 1,
-                                            width: 200,
-                                            backgroundColor: '#05080F',
-                                        }}
-                                        enablePaging={true}
-                                        spacing={10}
-                                    />
-                                </View>
-                            )}
-
-                            <View className="flex-row gap-2">
-                                <Button 
-                                    variant={editMode === 'text' ? 'default' : 'outline'} 
-                                    onPress={() => handleEditMode('text')}
-                                >
-                                    <Text>Add Text</Text>
-                                </Button>
-                                <Button 
-                                    variant={editMode === 'signature' ? 'default' : 'outline'} 
-                                    onPress={() => handleEditMode('signature')}
-                                >
-                                    <Text>Add Signature</Text>
-                                </Button>
-                            </View>
-
-                            {pdfUri && !pdfError && pdfDimensions && (
-                                <View className="bg-red-500 w-full" style={{ height: pdfDimensions.height }}>
-                                    <ScrollView
-                                        horizontal
-                                        pagingEnabled
-                                        showsHorizontalScrollIndicator={false}
-                                        scrollEnabled={!editMode}
-                                        contentContainerStyle={{ width: getContainerWidth(totalPages || 1)}}
-                                    >
-                                        <View style={{ position: 'relative', width: getContainerWidth(totalPages || 1), height: pdfDimensions.height }}>
-                                            <View
-                                                className="absolute top-0 left-0 right-0 bottom-0 z-10"
-                                                style={{
-                                                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                                                    width: getContainerWidth(totalPages || 1),
-                                                    height: pdfDimensions.height,
-                                                }}
-                                            >
-                                            </View>
-                                            <Pdf
-                                                source={{
-                                                    uri: waiverUrl,
-                                                    cache: true,
-                                                }}
-                                                horizontal={true}
-                                                trustAllCerts={false}
-                                                onLoadComplete={() => {
-                                                    setPdfLoading(false);
-                                                }}
-                                                onError={(error) => {
-                                                    setPdfLoading(false);
-                                                }}
-                                                style={{
-                                                    width: getContainerWidth(totalPages || 1),
-                                                    height: pdfDimensions.height,
-                                                    backgroundColor: '#05080F',
-                                                }}
-                                                enableDoubleTapZoom={false}
-                                                scrollEnabled={false}
-                                                enablePaging={false}
-                                                spacing={0}
-                                            />
+                            ) : (
+                                <>
+                                    {(isLoading || isUploading) && (
+                                        <View className="absolute inset-0 justify-center items-center bg-background z-10">
+                                            <ActivityIndicator size="large" />
+                                            <Text className="mt-4 text-text-secondary">
+                                                {isUploading ? 'Uploading waiver...' : 'Loading sign page...'}
+                                            </Text>
                                         </View>
-                                    </ScrollView>
-                                </View>
+                                    )}
+                                    <WebView
+                                        ref={webViewRef}
+                                        originWhitelist={["*"]}
+                                        source={{ uri: `http://192.168.145.45:3000/sign?waiver=${waiverUrl}` }}
+                                        allowFileAccess
+                                        javaScriptEnabled={true}
+                                        domStorageEnabled={true}
+                                        onMessage={handleWebViewMessage}
+                                        onError={(syntheticEvent) => {
+                                            const { nativeEvent } = syntheticEvent;
+                                            console.error('WebView error: ', nativeEvent);
+                                            setWebViewError(nativeEvent.description || 'Unknown error occurred');
+                                            setIsLoading(false);
+                                        }}
+                                        onHttpError={(syntheticEvent) => {
+                                            const { nativeEvent } = syntheticEvent;
+                                            console.error('WebView HTTP error: ', nativeEvent);
+                                            const errorMsg = `HTTP ${nativeEvent.statusCode}: ${nativeEvent.description || 'Internal Server Error'}`;
+                                            setWebViewError(errorMsg);
+                                            setIsLoading(false);
+                                        }}
+                                        onLoadEnd={() => {
+                                            console.log('WebView loaded');
+                                            setIsLoading(false);
+                                            setWebViewError(null);
+                                        }}
+                                        onLoadStart={() => {
+                                            console.log('WebView loading started');
+                                            setIsLoading(true);
+                                            setWebViewError(null);
+                                        }}
+                                        mixedContentMode="always"
+                                    />
+                                </>
                             )}
                         </View>
                     </View>

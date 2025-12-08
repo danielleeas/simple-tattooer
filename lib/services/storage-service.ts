@@ -69,12 +69,38 @@ export const uploadFileToStorage = async (
     // For React Native, we need to read the file as base64 first
     // Then convert it to a format that Supabase can handle
     try {
-      // Read the file as base64
-      const response = await fetch(file.uri);
-      const arrayBuffer = await response.arrayBuffer();
+      let uint8Array: Uint8Array;
       
-      // Convert to Uint8Array
-      const uint8Array = new Uint8Array(arrayBuffer);
+      // Check if the URI is a base64 data URI
+      if (file.uri.startsWith('data:')) {
+        // Handle base64 data URI
+        const base64Match = file.uri.match(/^data:([^;]+);base64,(.+)$/);
+        if (!base64Match) {
+          return {
+            success: false,
+            error: 'Invalid base64 data URI format'
+          };
+        }
+        
+        // Extract the base64 string (without the data URI prefix)
+        const base64String = base64Match[2];
+        
+        // Decode base64 to binary string
+        const binaryString = atob(base64String);
+        
+        // Convert binary string to Uint8Array
+        uint8Array = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          uint8Array[i] = binaryString.charCodeAt(i);
+        }
+      } else {
+        // Handle regular URI (file path, URL, etc.)
+        const response = await fetch(file.uri);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        // Convert to Uint8Array
+        uint8Array = new Uint8Array(arrayBuffer);
+      }
       
       // Upload to Supabase storage
       const { data, error } = await supabase.storage

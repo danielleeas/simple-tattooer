@@ -302,3 +302,20 @@ export const getHandler = (full_name: string) => {
   
   return `@${parts.map(part => part.toLowerCase()).join('.')}`;
 };
+
+export const truncateFileName = (fileName: string): string => {
+  if (!fileName || fileName.length <= 15) return fileName;
+
+  const lastDotIndex = fileName.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+      // No extension, just truncate the name
+      return fileName.length > 13 ? `${fileName.slice(0, 6)}....${fileName.slice(-6)}` : fileName;
+  }
+
+  const nameWithoutExt = fileName.slice(0, lastDotIndex);
+  const extension = fileName.slice(lastDotIndex);
+
+  if (nameWithoutExt.length <= 13) return fileName;
+
+  return `${nameWithoutExt.slice(0, 6)}....${nameWithoutExt.slice(-6)}${extension}`;
+};

@@ -632,6 +632,8 @@ CREATE TABLE IF NOT EXISTS quick_appointments (
   date TEXT NOT NULL,
   start_time TEXT NOT NULL,
   session_length INTEGER NOT NULL,
+  waiver_signed BOOLEAN NOT NULL DEFAULT FALSE,
+  waiver_url TEXT NULL,
   notes TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
