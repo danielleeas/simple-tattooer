@@ -61,7 +61,7 @@ $$ language plpgsql security definer;
 -- 2. Ensure the API endpoint /api/deposit-reminder-email exists and is accessible
 -- 3. Projects table must have send_reminder_email column (BOOLEAN, default FALSE)
 create or replace function send_deposit_reminder_email()
-returns void as $$
+returns text as $$
 declare
   project_record record;
   deposit_remind_hours int;
@@ -77,13 +77,18 @@ declare
   deadline_formatted text;
   base_url text := 'https://simpletattooer.com';
   http_response record;
-  project_count int;
+  project_count int := 0;
+  processed_count int := 0;
   remind_deadline timestamp with time zone;
   time_until_remind interval;
   -- Time compression for testing: 1 hour = 1 minute
   -- Set to true to enable time compression, false for production
   enable_time_compression boolean := true;
   time_unit text;
+  
+  -- Variable to collect logs
+  log_output text := '';
+  http_req_id bigint;
 begin
   -- Set time unit based on compression setting
   if enable_time_compression then
@@ -103,7 +108,7 @@ begin
   where p.deposit_paid = false
     and (p.send_reminder_email = false or p.send_reminder_email is null);
   
-  raise notice 'Found % projects with deposit_paid=false and send_reminder_email=false/null', project_count;
+  log_output := log_output || format('Found %s matching projects.', project_count) || E'\n';
   
   for project_record in
     select 
@@ -117,10 +122,8 @@ begin
     where p.deposit_paid = false
       and (p.send_reminder_email = false or p.send_reminder_email is null)
   loop
-    raise notice 'Processing project % (created_at: %, artist_id: %)', 
-      project_record.project_id, 
-      project_record.created_at,
-      project_record.artist_id;
+    log_output := log_output || format('Processing Project %s', project_record.project_id) || E'\n';
+    
     -- Get deposit_remind_time and deposit_hold_time from rules for this artist
     select r.deposit_remind_time, r.deposit_hold_time 
     into deposit_remind_hours, deposit_hold_hours
@@ -144,14 +147,12 @@ begin
     remind_deadline := project_record.created_at + (deposit_remind_hours || ' ' || time_unit)::interval;
     time_until_remind := remind_deadline - now();
     
-    raise notice 'Project %: remind_deadline=%, time_until_remind=%, deposit_remind_hours=%', 
-      project_record.project_id, 
-      remind_deadline, 
-      time_until_remind,
-      deposit_remind_hours;
+    log_output := log_output || format('  - Remind Deadline: %s (Now: %s)', remind_deadline, now()) || E'\n';
     
-    if project_record.created_at + (deposit_remind_hours || ' ' || time_unit)::interval <= now() then
-      raise notice 'Reminder time expired for project %, proceeding to send email', project_record.project_id;
+    if remind_deadline <= now() then
+      processed_count := processed_count + 1;
+      log_output := log_output || '  - Deadline reached. Preparing email...' || E'\n';
+      
       -- Get client email and name
       select c.email, c.full_name into client_email, client_name
       from clients c
@@ -160,6 +161,7 @@ begin
 
       -- Skip if no client email
       if client_email is null or client_email = '' then
+        log_output := log_output || '  - SKIP: No client email.' || E'\n';
         continue;
       end if;
 
@@ -170,7 +172,7 @@ begin
       limit 1;
 
       -- Calculate deadline: project.created_at + deposit_hold_time
-      deadline_timestamp := project_record.created_at + (deposit_hold_hours || ' ' || time_unit)::interval;
+      deadline_timestamp := project_record.created_at + (deposit_hold_hours || ' ' || 'hours')::interval;
       
       -- Convert to Pacific Standard Time (PST/PDT)
       -- Format deadline as "YYYY-MM-DD H:MM AM/PM" (e.g., "2025-12-15 4:00 PM")
@@ -193,13 +195,12 @@ begin
         template_subject := 'Deposit still needed to confirm your date';
       end if;
       if template_body is null or template_body = '' then
-        template_body := 'Hi [Client First Name],\n\nHey! Just a quick nudge — your deposit hasn''t come through yet.\nPlease pay by [deadline] to keep your spot.';
+        template_body := E'Hi [Client First Name],\n\nHey! Just a quick nudge — your deposit hasn''t come through yet.\nPlease pay by [deadline] to keep your spot.';
       end if;
 
       --------------------------------------------------------------------
       -- Send email via pg_net HTTP request
-      -- Using net.http_post which returns a response record (net.http_response)
-      -- We update send_reminder_email only on 2xx status codes.
+      -- Using net.http_post which returns a request ID, then we must query http_request_queue
       --------------------------------------------------------------------
 
       -- Build request body as JSON text (matches your Postman/cURL example)
@@ -218,44 +219,53 @@ begin
       )::text;
 
       -- Call HTTP endpoint via pg_net
+      -- NOTE: pg_net.http_post returns an integer (id), not a record with status_code directly
+      -- The request is asynchronous.
       begin
-        select *
-        into http_response
-        from net.http_post(
+        select net.http_post(
           url := base_url || '/api/deposit-reminder-email',
           headers := jsonb_build_object(
             'Content-Type', 'application/json'
           ),
-          body := request_body
-        );
+          body := jsonb_build_object(
+            'to', client_email,
+            'email_templates', json_build_object(
+                'subject', template_subject,
+                'body', template_body
+            ),
+            'avatar_url', coalesce(artist_avatar, ''),
+            'variables', json_build_object(
+                'Your Name', coalesce(artist_name, ''),
+                'Client First Name', coalesce(split_part(client_name, ' ', 1), ''),
+                'deadline', deadline_formatted
+            )
+          )
+        ) into http_req_id;
 
-        raise notice 'HTTP response for project %: status_code=%', 
-          project_record.project_id,
-          http_response.status_code;
-
-        -- Update flag only if HTTP was successful
-        if http_response.status_code >= 200 and http_response.status_code < 300 then
-          update projects
-          set send_reminder_email = true
-          where id = project_record.project_id;
-
-          raise notice 'Marked send_reminder_email = true for project % after successful HTTP', 
-            project_record.project_id;
-        else
-          raise notice 'HTTP call failed for project % with status_code=%', 
-            project_record.project_id,
-            http_response.status_code;
-        end if;
+        log_output := log_output || format('  - HTTP Request Queued. ID: %s', http_req_id) || E'\n';
+        
+        -- Since pg_net is async, we can't immediately check the status code synchronously in the same transaction easily
+        -- without a sleep loop which is bad practice in triggers/functions.
+        -- HOWEVER, for this cron job, we will assume success for the queuing and mark as sent
+        -- OR strictly we should have a separate process check the status. 
+        -- For simplicity here: We'll mark it as sent so we don't spam.
+        -- If it fails, we'd need a separate mechanism to retry.
+        
+        update projects
+        set send_reminder_email = true
+        where id = project_record.project_id;
+        
+        log_output := log_output || '  - SUCCESS: DB updated (Email queued).' || E'\n';
 
       exception when others then
         -- Log error but don't block other projects
-        raise notice 'Exception calling deposit-reminder-email for project %: % (SQLSTATE: %)',
-          project_record.project_id,
-          sqlerrm,
-          sqlstate;
+        log_output := log_output || format('  - EXCEPTION: %s (SQLSTATE: %s)', sqlerrm, sqlstate) || E'\n';
       end;
+    else
+      log_output := log_output || '  - Not yet time to remind.' || E'\n';
     end if;
   end loop;
+  
+  return log_output;
 end;
 $$ language plpgsql security definer;
-
