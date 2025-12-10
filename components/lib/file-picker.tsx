@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, Pressable, Modal } from 'react-native';
+import { View, Image, Pressable, Modal, Platform } from 'react-native';
 import * as ExpoDocumentPicker from 'expo-document-picker';
 import * as ExpoImagePicker from 'expo-image-picker';
 
@@ -252,9 +252,23 @@ export function FilePicker({
             }
         } catch (error) {
             console.error('Error taking photo:', error);
+
+            // iOS-specific error handling
+            let errorMessage = 'Failed to take photo. Please try again.';
+            if (Platform.OS === 'ios') {
+                const errorString = String(error);
+                if (errorString.includes('permission') || errorString.includes('denied')) {
+                    errorMessage = 'Camera permission denied. Please enable camera access in Settings.';
+                } else if (errorString.includes('cancelled') || errorString.includes('canceled')) {
+                    // User cancelled, don't show error
+                    setLoading(false);
+                    return;
+                }
+            }
+
             toast({
                 title: 'Error',
-                description: 'Failed to take photo. Please try again.',
+                description: errorMessage,
                 variant: 'error',
             });
             setLoading(false);
@@ -266,9 +280,39 @@ export function FilePicker({
         setLoading(true);
 
         try {
+            // On iOS, request media library permissions for image types
+            if (Platform.OS === 'ios' && (allowedFileTypes.includes('image/*') || allowedFileTypes.some(type => type.startsWith('image/')))) {
+                const { status } = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') {
+                    toast({
+                        title: 'Permission Required',
+                        description: 'We need access to your photo library to select images.',
+                        variant: 'error',
+                    });
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // On iOS, we need to ensure proper file type handling
+            // Convert MIME types to formats that work better on iOS
+            const getDocumentPickerType = () => {
+                if (allowedFileTypes.includes('*/*')) {
+                    return '*/*';
+                }
+
+                // For iOS compatibility, handle image types specially
+                if (allowedFileTypes.length === 1 && allowedFileTypes[0] === 'image/*') {
+                    return 'image/*';
+                }
+
+                return allowedFileTypes;
+            };
+
             const result = await ExpoDocumentPicker.getDocumentAsync({
-                type: allowedFileTypes.includes('*/*') ? '*/*' : allowedFileTypes,
+                type: getDocumentPickerType(),
                 copyToCacheDirectory: true,
+                multiple: false,
             });
 
             console.log('result', result);
@@ -324,9 +368,24 @@ export function FilePicker({
             }
         } catch (error) {
             console.error('Error picking file:', error);
+
+            // iOS-specific error handling
+            let errorMessage = 'Failed to pick file. Please try again.';
+            if (Platform.OS === 'ios') {
+                // Check if it's a permission error
+                const errorString = String(error);
+                if (errorString.includes('permission') || errorString.includes('denied')) {
+                    errorMessage = 'Permission denied. Please enable file access in Settings.';
+                } else if (errorString.includes('cancelled') || errorString.includes('canceled')) {
+                    // User cancelled, don't show error
+                    setLoading(false);
+                    return;
+                }
+            }
+
             toast({
                 title: 'Error',
-                description: 'Failed to pick file. Please try again.',
+                description: errorMessage,
                 variant: 'error',
             });
             setLoading(false);
@@ -438,32 +497,46 @@ export function FilePicker({
             <Modal
                 visible={optionOpen}
                 transparent
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setOptionOpen(false)}
+                statusBarTranslucent
             >
-                <View className="flex-1 justify-center p-4">
-                    <Pressable
-                        className="absolute inset-0 bg-black/50"
-                        onPress={() => setOptionOpen(false)}
-                    />
-                    <View className="bg-background-secondary p-4 rounded-2xl">
-                        <View className="mb-2">
-                            <Text className="text-lg font-semibold">Select File</Text>
-                            <Text className="text-text-secondary mt-1">Choose how you want to add a file</Text>
+                <Pressable
+                    className="flex-1 justify-end bg-black/50"
+                    onPress={() => setOptionOpen(false)}
+                >
+                    <Pressable onPress={(e) => e.stopPropagation()}>
+                        <View className="bg-background-secondary p-6 rounded-t-3xl">
+                            <View className="mb-4">
+                                <Text className="text-lg font-semibold">Select File</Text>
+                                <Text className="text-text-secondary mt-1">Choose how you want to add a file</Text>
+                            </View>
+                            <View className='gap-3'>
+                                <Button
+                                    variant="outline"
+                                    onPress={takePhoto}
+                                    className="w-full"
+                                >
+                                    <Text>Take Photo</Text>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onPress={pickFileFromLibrary}
+                                    className="w-full"
+                                >
+                                    <Text>Choose from Library</Text>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onPress={() => setOptionOpen(false)}
+                                    className="w-full"
+                                >
+                                    <Text>Cancel</Text>
+                                </Button>
+                            </View>
                         </View>
-                        <View className='flex-row gap-2 items-center justify-center'>
-                            <Button variant="outline" onPress={takePhoto}>
-                                <Text>Camera</Text>
-                            </Button>
-                            <Button variant="outline" onPress={pickFileFromLibrary}>
-                                <Text>File Library</Text>
-                            </Button>
-                            <Button variant="outline" onPress={() => setOptionOpen(false)}>
-                                <Text>Cancel</Text>
-                            </Button>
-                        </View>
-                    </View>
-                </View>
+                    </Pressable>
+                </Pressable>
             </Modal>
         </View>
     );
