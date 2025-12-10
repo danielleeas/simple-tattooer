@@ -5,9 +5,8 @@ import Animated, {
     withTiming,
     withSpring,
     Easing,
-    withDecay,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { Text } from "@/components/ui/text";
 import { Icon } from "@/components/ui/icon";
 import { X, ZoomIn, ZoomOut, Maximize2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react-native";
@@ -71,6 +70,27 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
     const translateY2 = useSharedValue(0);
     const savedTranslateX = useSharedValue(0);
     const savedTranslateY = useSharedValue(0);
+
+    // Logging functions for gestures (must use runOnJS)
+    const logPinch = (scaleValue: number) => {
+        console.log('Pinch scale:', scaleValue);
+    };
+
+    const logPinchEnd = (scaleValue: number) => {
+        console.log('Pinch end scale:', scaleValue);
+    };
+
+    const logPan = (x: number, y: number) => {
+        console.log('Pan translation:', x, y);
+    };
+
+    const logPanEnd = (x: number, y: number) => {
+        console.log('Pan end translation:', x, y);
+    };
+
+    const logDoubleTap = () => {
+        console.log('Double tap detected - resetting zoom');
+    };
 
     const handleClose = () => {
         // Animate backdrop fade out
@@ -175,15 +195,21 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
     const panGesture = Gesture.Pan()
         .minPointers(1)
         .maxPointers(1)
+        .activeOffsetX([-10, 10]) // Require 10px movement to activate
+        .activeOffsetY([-10, 10])
         .onUpdate((e) => {
-            translateX.value = savedTranslateX.value + e.translationX;
-            translateY2.value = savedTranslateY.value + e.translationY;
+            // Only allow panning when zoomed in
+            if (savedScale.value > 1) {
+                translateX.value = savedTranslateX.value + e.translationX;
+                translateY2.value = savedTranslateY.value + e.translationY;
+            }
         })
         .onEnd(() => {
-            savedTranslateX.value = translateX.value;
-            savedTranslateY.value = translateY2.value;
-        })
-        .enabled(true);
+            if (savedScale.value > 1) {
+                savedTranslateX.value = translateX.value;
+                savedTranslateY.value = translateY2.value;
+            }
+        });
 
     // Double tap to reset zoom
     const doubleTap = Gesture.Tap()
@@ -270,20 +296,21 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
 
     return (
         <Modal visible={visible} onRequestClose={handleClose} transparent animationType="none">
-            <View className="flex-1 justify-end items-center">
-                <Animated.View
-                    style={[
-                        {
-                            height: screenHeight,
-                            width: '100%',
-                            paddingTop: top,
-                            paddingBottom: bottom,
-                        },
-                        modalStyle
-                    ]}
-                    className="bg-background"
-                >
-                    <View className="flex-1">
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <View className="flex-1 justify-end items-center">
+                    <Animated.View
+                        style={[
+                            {
+                                height: screenHeight,
+                                width: '100%',
+                                paddingTop: top,
+                                paddingBottom: bottom,
+                            },
+                            modalStyle
+                        ]}
+                        className="bg-background"
+                    >
+                        <View className="flex-1">
                         {/* Header */}
                         <View className="flex-row items-center justify-between p-4">
                             <Text variant="h6" className="leading-tight">Sign Waiver Agreement</Text>
@@ -396,32 +423,34 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
                             {/* Image Viewer with Pinch-to-Zoom */}
                             {fileType === 'image' && waiverUrl && !imageError && (
                                 <>
-                                    <GestureDetector gesture={composedGesture}>
-                                        <View className="flex-1 items-center justify-center" style={{ width: screenWidth }}>
-                                            <Animated.Image
-                                                source={{ uri: waiverUrl }}
-                                                style={[
-                                                    {
-                                                        width: screenWidth,
-                                                        height: screenHeight - top - bottom - 200,
-                                                    },
-                                                    imageAnimatedStyle,
-                                                ]}
-                                                resizeMode="contain"
-                                                onLoadStart={() => {
-                                                    setImageLoading(true);
-                                                    setImageError(null);
-                                                }}
-                                                onLoad={() => {
-                                                    setImageLoading(false);
-                                                }}
-                                                onError={() => {
-                                                    setImageLoading(false);
-                                                    setImageError('Failed to load image. Please try again.');
-                                                }}
-                                            />
-                                        </View>
-                                    </GestureDetector>
+                                    <View className="flex-1 items-center justify-center" style={{ width: screenWidth }}>
+                                        <GestureDetector gesture={composedGesture}>
+                                            <Animated.View style={{ width: screenWidth, height: screenHeight - top - bottom - 200 }}>
+                                                <Animated.Image
+                                                    source={{ uri: waiverUrl }}
+                                                    style={[
+                                                        {
+                                                            width: screenWidth,
+                                                            height: screenHeight - top - bottom - 200,
+                                                        },
+                                                        imageAnimatedStyle,
+                                                    ]}
+                                                    resizeMode="contain"
+                                                    onLoadStart={() => {
+                                                        setImageLoading(true);
+                                                        setImageError(null);
+                                                    }}
+                                                    onLoad={() => {
+                                                        setImageLoading(false);
+                                                    }}
+                                                    onError={() => {
+                                                        setImageLoading(false);
+                                                        setImageError('Failed to load image. Please try again.');
+                                                    }}
+                                                />
+                                            </Animated.View>
+                                        </GestureDetector>
+                                    </View>
 
                                     {/* Test Controls for Emulator - Remove after testing */}
                                     <View className="absolute bottom-0 left-0 right-0 bg-background-secondary p-4 border-t border-border">
@@ -450,36 +479,6 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
                                                 <Icon as={ZoomIn} size={20} />
                                             </Pressable>
                                         </View>
-
-                                        {/* Pan Controls */}
-                                        <View className="items-center">
-                                            <Pressable
-                                                onPress={() => handlePan('up')}
-                                                className="bg-background border border-border rounded-lg p-2 active:opacity-70 mb-2"
-                                            >
-                                                <Icon as={ArrowUp} size={16} />
-                                            </Pressable>
-                                            <View className="flex-row gap-2">
-                                                <Pressable
-                                                    onPress={() => handlePan('left')}
-                                                    className="bg-background border border-border rounded-lg p-2 active:opacity-70"
-                                                >
-                                                    <Icon as={ArrowLeft} size={16} />
-                                                </Pressable>
-                                                <Pressable
-                                                    onPress={() => handlePan('right')}
-                                                    className="bg-background border border-border rounded-lg p-2 active:opacity-70"
-                                                >
-                                                    <Icon as={ArrowRight} size={16} />
-                                                </Pressable>
-                                            </View>
-                                            <Pressable
-                                                onPress={() => handlePan('down')}
-                                                className="bg-background border border-border rounded-lg p-2 active:opacity-70 mt-2"
-                                            >
-                                                <Icon as={ArrowDown} size={16} />
-                                            </Pressable>
-                                        </View>
                                     </View>
                                 </>
                             )}
@@ -487,6 +486,7 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
                     </View>
                 </Animated.View>
             </View>
+            </GestureHandlerRootView>
         </Modal>
     );
 };
