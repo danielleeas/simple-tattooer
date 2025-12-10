@@ -5,6 +5,7 @@ import { router, Stack } from "expo-router";
 import { useState } from "react";
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
+import CustomModal from '@/components/lib/custom-modal';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { useToast } from "@/lib/contexts/toast-context";
+import { checkArtistExists, checkArtistExistsByPhone } from "@/lib/services/auth-service";
+import { createClientWithAuth, checkClientExists, checkClientExistsByPhone } from "@/lib/services/clients-service";
 
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
 import PLUS_THIN_IMAGE from "@/assets/images/icons/plus_thin.png";
-import { createClientWithAuth } from "@/lib/services/clients-service";
 
 export default function AddClient() {
 
@@ -29,9 +31,39 @@ export default function AddClient() {
         project_notes: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [emailError, setEmailError] = useState<string>('');
+    const [showExistingClientModal, setShowExistingClientModal] = useState(false);
+    const [existingClientData, setExistingClientData] = useState<any>(null);
+
+    // Email validation function
+    const validateEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    // Check if form is valid
+    const isFormValid = () => {
+        return (
+            formData.full_name.trim() !== '' &&
+            formData.email.trim() !== '' &&
+            validateEmail(formData.email) &&
+            formData.phone_number.trim() !== ''
+        );
+    };
 
     const handleBack = () => {
         router.back();
+    };
+
+    const handleEmailChange = (text: string) => {
+        setFormData({ ...formData, email: text });
+
+        // Validate email format
+        if (text.trim() && !validateEmail(text)) {
+            setEmailError('Please enter a valid email address');
+        } else {
+            setEmailError('');
+        }
     };
 
     const handleCreateClient = async () => {
@@ -40,6 +72,15 @@ export default function AddClient() {
                 variant: 'error',
                 title: 'Missing information',
                 description: 'Full name, email, and phone number are required.',
+            });
+            return;
+        }
+
+        if (!validateEmail(formData.email)) {
+            toast({
+                variant: 'error',
+                title: 'Invalid email',
+                description: 'Please enter a valid email address.',
             });
             return;
         }
@@ -55,6 +96,78 @@ export default function AddClient() {
 
         try {
             setIsSubmitting(true);
+
+            // Check if an artist exists with the same email
+            const artistCheck = await checkArtistExists(formData.email.trim().toLowerCase());
+            if (artistCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify email. Please try again.',
+                });
+                return;
+            }
+            if (artistCheck.exists) {
+                toast({
+                    variant: 'error',
+                    title: 'Email already exists',
+                    description: 'An artist with this email already exists.',
+                });
+                return;
+            }
+
+            // Check if a client exists with the same email
+            const clientCheck = await checkClientExists(formData.email.trim());
+            if (clientCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify email. Please try again.',
+                });
+                return;
+            }
+            if (clientCheck.exists && clientCheck.client) {
+                // Show modal to confirm using existing client
+                setExistingClientData(clientCheck.client);
+                setShowExistingClientModal(true);
+                return;
+            }
+
+            // Check if an artist exists with the same phone number
+            const artistPhoneCheck = await checkArtistExistsByPhone(formData.phone_number.trim());
+            if (artistPhoneCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify phone number. Please try again.',
+                });
+                return;
+            }
+            if (artistPhoneCheck.exists) {
+                toast({
+                    variant: 'error',
+                    title: 'Phone number already exists',
+                    description: 'An artist with this phone number already exists.',
+                });
+                return;
+            }
+
+            // Check if a client exists with the same phone number
+            const clientPhoneCheck = await checkClientExistsByPhone(formData.phone_number.trim());
+            if (clientPhoneCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify phone number. Please try again.',
+                });
+                return;
+            }
+            if (clientPhoneCheck.exists && clientPhoneCheck.client) {
+                // Show modal to confirm using existing client
+                setExistingClientData(clientPhoneCheck.client);
+                setShowExistingClientModal(true);
+                return;
+            }
 
             const created = await createClientWithAuth({
                 full_name: formData.full_name,
@@ -105,6 +218,30 @@ export default function AddClient() {
         }
     };
 
+    const handleContinueWithExistingClient = () => {
+        if (existingClientData) {
+            setShowExistingClientModal(false);
+            toast({
+                variant: 'success',
+                title: 'Opening existing client',
+                duration: 2000,
+            });
+            setTimeout(() => {
+                router.push({
+                    pathname: '/artist/clients/[id]',
+                    params: {
+                        id: existingClientData.id,
+                    },
+                });
+            }, 100);
+        }
+    };
+
+    const handleCancelExistingClient = () => {
+        setShowExistingClientModal(false);
+        setExistingClientData(null);
+    };
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -153,7 +290,10 @@ export default function AddClient() {
                                             placeholder="Enter email"
                                             keyboardType="email-address"
                                             value={formData.email}
-                                            onChangeText={(text) => setFormData({ ...formData, email: text })} />
+                                            onChangeText={handleEmailChange}
+                                            helperText={emailError}
+                                            error={!!emailError}
+                                        />
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Phone Number</Text>
@@ -190,7 +330,7 @@ export default function AddClient() {
                                 </Button>
                             </View>
                             <View className="flex-1">
-                                <Button variant='outline' onPress={handleCreateClient} disabled={isSubmitting}>
+                                <Button variant='outline' onPress={handleCreateClient} disabled={!isFormValid() || isSubmitting}>
                                     <Text variant='h5'>{isSubmitting ? 'Saving' : 'Save'}</Text>
                                 </Button>
                             </View>
@@ -198,6 +338,45 @@ export default function AddClient() {
                     </View>
                 </StableGestureWrapper>
             </SafeAreaView>
+
+            {/* Existing Client Confirmation Modal */}
+            <CustomModal
+                visible={showExistingClientModal}
+                onClose={handleCancelExistingClient}
+                variant="center"
+                showCloseButton={false}
+                closeOnBackdrop={false}
+            >
+                <View className="px-6 py-6 bg-background">
+                    <View className="items-center gap-4 mb-6">
+                        <Text variant="h4" className="text-center">Client Already Exists</Text>
+                        <Text className="text-center text-text-secondary">
+                            A client with this {existingClientData?.email === formData.email ? 'email' : 'phone number'} already exists.
+                        </Text>
+                        <View className="mt-2 w-full bg-muted rounded-lg p-4">
+                            <Text variant="h6" className="mb-2">Existing Client:</Text>
+                            <Text className="text-text-secondary">Name: {existingClientData?.full_name}</Text>
+                            <Text className="text-text-secondary">Email: {existingClientData?.email}</Text>
+                            <Text className="text-text-secondary">Phone: {existingClientData?.phone_number}</Text>
+                        </View>
+                        <Text className="text-center text-text-secondary mt-2">
+                            You will continue with this existing client.
+                        </Text>
+                    </View>
+                    <View className="flex-row gap-3">
+                        <View className="flex-1">
+                            <Button variant="outline" onPress={handleCancelExistingClient}>
+                                <Text variant="h5">Cancel</Text>
+                            </Button>
+                        </View>
+                        <View className="flex-1">
+                            <Button variant="outline" onPress={handleContinueWithExistingClient}>
+                                <Text variant="h5">Continue</Text>
+                            </Button>
+                        </View>
+                    </View>
+                </View>
+            </CustomModal>
         </>
     );
 }
