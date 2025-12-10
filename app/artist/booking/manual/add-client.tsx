@@ -27,11 +27,39 @@ export default function AddClient() {
         phone_number: '',
         project_notes: '',
     });
+	const [emailError, setEmailError] = useState<string>('');
 	const [isSubmitting] = useState(false);
+
+	// Email validation function
+	const validateEmail = (email: string): boolean => {
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		return emailRegex.test(email);
+	};
+
+	// Check if form is valid
+	const isFormValid = () => {
+		return (
+			formData.full_name.trim() !== '' &&
+			formData.email.trim() !== '' &&
+			validateEmail(formData.email) &&
+			formData.phone_number.trim() !== ''
+		);
+	};
 
     const handleBack = () => {
         router.back();
     };
+
+	const handleEmailChange = (text: string) => {
+		setFormData({ ...formData, email: text });
+
+		// Validate email format
+		if (text.trim() && !validateEmail(text)) {
+			setEmailError('Please enter a valid email address');
+		} else {
+			setEmailError('');
+		}
+	};
 
 	const handleCreateClient = async () => {
 		if (!formData.full_name.trim() || !formData.email.trim() || !formData.phone_number.trim()) {
@@ -39,6 +67,15 @@ export default function AddClient() {
 				variant: 'error',
 				title: 'Missing information',
 				description: 'Full name, email, and phone number are required.',
+			});
+			return;
+		}
+
+		if (!validateEmail(formData.email)) {
+			toast({
+				variant: 'error',
+				title: 'Invalid email',
+				description: 'Please enter a valid email address.',
 			});
 			return;
 		}
@@ -93,7 +130,14 @@ export default function AddClient() {
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Email</Text>
-                                        <Input placeholder="Enter email" keyboardType="email-address" value={formData.email} onChangeText={(text) => setFormData({ ...formData, email: text })} />
+                                        <Input
+                                            placeholder="Enter email"
+                                            keyboardType="email-address"
+                                            value={formData.email}
+                                            onChangeText={handleEmailChange}
+                                            helperText={emailError}
+                                            error={!!emailError}
+                                        />
                                     </View>
                                     <View className="gap-2">
                                         <Text variant="h5">Phone Number</Text>
@@ -113,7 +157,7 @@ export default function AddClient() {
                                 </Button>
                             </View>
                             <View className="flex-1">
-								<Button variant='outline' onPress={handleCreateClient} disabled={isSubmitting}>
+								<Button variant='outline' onPress={handleCreateClient} disabled={!isFormValid() || isSubmitting}>
 									<Text variant='h5'>{isSubmitting ? 'Creating…' : 'Create Quote'}</Text>
                                 </Button>
                             </View>
