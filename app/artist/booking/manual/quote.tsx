@@ -53,7 +53,7 @@ export default function QuoteBooking() {
         startTimes: {},
         depositAmount: '',
         sessionRate: '',
-        notes: typeof project_notes === 'string' ? project_notes : '',
+        notes: '',
     });
 
     const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
@@ -63,6 +63,7 @@ export default function QuoteBooking() {
             if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
             const days = await getAvailableDates(artist as any, locationId, start, end);
+            console.log(days);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);
@@ -384,11 +385,11 @@ export default function QuoteBooking() {
                                 <View className="flex-row items-center justify-between gap-3">
                                     <View className="flex-1 gap-2">
                                         <Text variant="h5">Deposit Amount</Text>
-                                        <Input value={formData.depositAmount} onChangeText={(text) => setFormData({ ...formData, depositAmount: text })} leftIcon={DollarSignIcon} />
+                                        <Input inputMode="numeric" value={formData.depositAmount} onChangeText={(text) => setFormData({ ...formData, depositAmount: text })} leftIcon={DollarSignIcon} />
                                     </View>
                                     <View className="flex-1 gap-2">
                                         <Text variant="h5">Session rate</Text>
-                                        <Input value={formData.sessionRate} onChangeText={(text) => setFormData({ ...formData, sessionRate: text })} leftIcon={DollarSignIcon} />
+                                        <Input inputMode="numeric" value={formData.sessionRate} onChangeText={(text) => setFormData({ ...formData, sessionRate: text })} leftIcon={DollarSignIcon} />
                                     </View>
                                 </View>
 

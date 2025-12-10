@@ -20,17 +20,17 @@ import PLUS_THIN_IMAGE from "@/assets/images/icons/plus_thin.png";
 
 export default function AddClient() {
 
-    const { artist } = useAuth();
+	const { artist } = useAuth();
 	const { toast } = useToast();
 
-    const [formData, setFormData] = useState({
-        full_name: '',
-        email: '',
-        phone_number: '',
-        project_notes: '',
-    });
+	const [formData, setFormData] = useState({
+		full_name: '',
+		email: '',
+		phone_number: '',
+		project_notes: '',
+	});
 	const [emailError, setEmailError] = useState<string>('');
-	const [isSubmitting] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Email validation function
 	const validateEmail = (email: string): boolean => {
@@ -48,9 +48,9 @@ export default function AddClient() {
 		);
 	};
 
-    const handleBack = () => {
-        router.back();
-    };
+	const handleBack = () => {
+		router.back();
+	};
 
 	const handleEmailChange = (text: string) => {
 		setFormData({ ...formData, email: text });
@@ -91,120 +91,130 @@ export default function AddClient() {
 			return;
 		}
 
-		// Check if an artist exists with the same email
-		const artistCheck = await checkArtistExists(formData.email.trim());
-		if (artistCheck.error) {
-			toast({
-				variant: 'error',
-				title: 'Error',
-				description: 'Failed to verify email. Please try again.',
-			});
-			return;
-		}
-		if (artistCheck.exists) {
-			toast({
-				variant: 'error',
-				title: 'Email already exists',
-				description: 'An artist with this email already exists.',
-			});
-			return;
-		}
+		try {
+			setIsSubmitting(true);
 
-		// Check if a client exists with the same email
-		const clientCheck = await checkClientExists(formData.email.trim());
-		if (clientCheck.error) {
-			toast({
-				variant: 'error',
-				title: 'Error',
-				description: 'Failed to verify email. Please try again.',
-			});
-			return;
-		}
-		if (clientCheck.exists) {
-			toast({
-				variant: 'error',
-				title: 'Email already exists',
-				description: 'A client with this email already exists.',
-			});
-			return;
-		}
+			// Check if an artist exists with the same email
+			const artistCheck = await checkArtistExists(formData.email.trim().toLowerCase());
+			if (artistCheck.error) {
+				toast({
+					variant: 'error',
+					title: 'Error',
+					description: 'Failed to verify email. Please try again.',
+				});
+				return;
+			}
+			if (artistCheck.exists) {
+				toast({
+					variant: 'error',
+					title: 'Email already exists',
+					description: 'An artist with this email already exists.',
+				});
+				return;
+			}
 
-        router.push({
-            pathname: '/artist/booking/manual/quote',
-            params: {
-                full_name: formData.full_name,
-                email: formData.email,
-                phone_number: formData.phone_number,
-                project_notes: formData.project_notes,
-            },
-        });
-    };
+			// Check if a client exists with the same email
+			const clientCheck = await checkClientExists(formData.email.trim());
+			if (clientCheck.error) {
+				toast({
+					variant: 'error',
+					title: 'Error',
+					description: 'Failed to verify email. Please try again.',
+				});
+				return;
+			}
+			if (clientCheck.exists) {
+				toast({
+					variant: 'error',
+					title: 'Email already exists',
+					description: 'A client with this email already exists.',
+				});
+				return;
+			}
 
-    return (
-        <>
-            <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
-            <SafeAreaView className='flex-1 bg-background'>
-                <Header leftButtonImage={BACK_IMAGE} leftButtonTitle="Back" onLeftButtonPress={handleBack} />
-                <StableGestureWrapper
-                    onSwipeRight={handleBack}
-                    threshold={80}
-                    enabled={true}
-                >
-                    <View className="flex-1 bg-background px-4">
-                        <View className="flex-1">
-                            <KeyboardAwareScrollView bottomOffset={50} contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
-                                <View className="gap-6 pb-10">
-                                    <View className="items-center justify-center pb-9">
-                                        <Image
-                                            source={PLUS_THIN_IMAGE}
-                                            style={{ width: 56, height: 56 }}
-                                            resizeMode="contain"
-                                        />
-                                        <Text variant="h6" className="text-center uppercase">Add</Text>
-                                        <Text variant="h6" className="text-center uppercase leading-none">new Client</Text>
-                                        <Text className="text-center text-text-secondary mt-[18px]">{artist?.full_name} Booking Form</Text>
-                                    </View>
-                                    <View className="gap-2">
-                                        <Text variant="h5">Full Name</Text>
-                                        <Input placeholder="Enter full name" helperText="First and last, please" value={formData.full_name} onChangeText={(text) => setFormData({ ...formData, full_name: text })} />
-                                    </View>
-                                    <View className="gap-2">
-                                        <Text variant="h5">Email</Text>
-                                        <Input
-                                            placeholder="Enter email"
-                                            keyboardType="email-address"
-                                            value={formData.email}
-                                            onChangeText={handleEmailChange}
-                                            helperText={emailError}
-                                            error={!!emailError}
-                                        />
-                                    </View>
-                                    <View className="gap-2">
-                                        <Text variant="h5">Phone Number</Text>
-                                        <Input placeholder="Enter phone number" value={formData.phone_number} onChangeText={(text) => setFormData({ ...formData, phone_number: text })} />
-                                    </View>
-                                    <View className="gap-2">
-                                        <Text variant="h5">Project Notes</Text>
-                                        <Textarea placeholder="Enter project notes" className="min-h-28" value={formData.project_notes} onChangeText={(text) => setFormData({ ...formData, project_notes: text })} />
-                                    </View>
-                                </View>
-                            </KeyboardAwareScrollView>
-                        </View>
-                        <View className="flex-row gap-3 py-4">
-                            <View className="flex-1">
+			router.push({
+				pathname: '/artist/booking/manual/quote',
+				params: {
+					full_name: formData.full_name,
+					email: formData.email,
+					phone_number: formData.phone_number,
+					project_notes: formData.project_notes,
+				},
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	return (
+		<>
+			<Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
+			<SafeAreaView className='flex-1 bg-background'>
+				<Header leftButtonImage={BACK_IMAGE} leftButtonTitle="Back" onLeftButtonPress={handleBack} />
+				<StableGestureWrapper
+					onSwipeRight={handleBack}
+					threshold={80}
+					enabled={true}
+				>
+					<View className="flex-1 bg-background px-4">
+						<View className="flex-1">
+							<KeyboardAwareScrollView bottomOffset={50} contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
+								<View className="gap-6 pb-10">
+									<View className="items-center justify-center pb-9">
+										<Image
+											source={PLUS_THIN_IMAGE}
+											style={{ width: 56, height: 56 }}
+											resizeMode="contain"
+										/>
+										<Text variant="h6" className="text-center uppercase">Add</Text>
+										<Text variant="h6" className="text-center uppercase leading-none">new Client</Text>
+										<Text className="text-center text-text-secondary mt-[18px]">{artist?.full_name} Booking Form</Text>
+									</View>
+									<View className="gap-2">
+										<Text variant="h5">Full Name</Text>
+										<Input placeholder="Enter full name" helperText="First and last, please" value={formData.full_name} onChangeText={(text) => setFormData({ ...formData, full_name: text })} />
+									</View>
+									<View className="gap-2">
+										<Text variant="h5">Email</Text>
+										<Input
+											placeholder="Enter email"
+											keyboardType="email-address"
+											value={formData.email}
+											onChangeText={handleEmailChange}
+											helperText={emailError}
+											error={!!emailError}
+											autoCapitalize="none"
+											autoCorrect={false}
+											spellCheck={false}
+											autoComplete="email"
+										/>
+									</View>
+									<View className="gap-2">
+										<Text variant="h5">Phone Number</Text>
+										<Input placeholder="Enter phone number" value={formData.phone_number} onChangeText={(text) => setFormData({ ...formData, phone_number: text })} />
+									</View>
+									<View className="gap-2">
+										<Text variant="h5">Project Notes</Text>
+										<Textarea placeholder="Enter project notes" className="min-h-28" value={formData.project_notes} onChangeText={(text) => setFormData({ ...formData, project_notes: text })} />
+									</View>
+								</View>
+							</KeyboardAwareScrollView>
+						</View>
+						<View className="flex-row gap-3 py-4">
+							<View className="flex-1">
 								<Button variant="outline" onPress={handleBack}>
-                                    <Text variant='h5'>Cancel</Text>
-                                </Button>
-                            </View>
-                            <View className="flex-1">
+									<Text variant='h5'>Cancel</Text>
+								</Button>
+							</View>
+							<View className="flex-1">
 								<Button variant='outline' onPress={handleCreateClient} disabled={!isFormValid() || isSubmitting}>
 									<Text variant='h5'>{isSubmitting ? 'Creating…' : 'Create Quote'}</Text>
-                                </Button>
-                            </View>
-                        </View>
-                    </View>
-                </StableGestureWrapper>
-            </SafeAreaView>
-        </>
-    );
+								</Button>
+							</View>
+						</View>
+					</View>
+				</StableGestureWrapper>
+			</SafeAreaView>
+		</>
+	);
 }
