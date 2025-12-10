@@ -21,11 +21,13 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.darkocean.simpletattooer",
       "associatedDomains": [
-        "applinks:simpletattooer.com"
+        "applinks:simpletattooer.com",
+        "webcredentials:simpletattooer.com"
       ],
       "infoPlist": {
         "NSCalendarsUsageDescription": "This app needs calendar access to sync and display your events."
-      }
+      },
+      "usesIcloudStorage": true
     },
     "android": {
       "edgeToEdgeEnabled": true,
@@ -34,6 +36,7 @@
         "backgroundColor": "#05080F"
       },
       "package": "com.darkocean.simpletattooer",
+      "allowBackup": true,
       "intentFilters": [
         {
           "action": "VIEW",
