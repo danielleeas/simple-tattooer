@@ -10,11 +10,11 @@ import { Input } from '@/components/ui/input';
 import { LoadingOverlay } from '@/components/lib/loading-overlay';
 import { router, Stack } from 'expo-router';
 import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
-import { clearSubscribeData } from '@/lib/redux/slices/subscribe-slice';
 import { signupArtist, setMode } from '@/lib/redux/slices/auth-slice';
 import { useToast } from '@/lib/contexts';
-import { Icon } from '@/components/ui/icon';
-import { X } from 'lucide-react-native';
+import Header from '@/components/lib/Header';
+import X_IMAGE from "@/assets/images/icons/x.png";
+import { saveCredentials } from '@/lib/utils/credentials-manager';
 
 export default function SignupPage() {
   const dispatch = useAppDispatch();
@@ -94,6 +94,9 @@ export default function SignupPage() {
 
         // Check if signup was successful
         if (signupArtist.fulfilled.match(resultAction)) {
+          // Save credentials for future autofill
+          await saveCredentials(formData.email, formData.password);
+
           // Show success message
           toast({
             title: 'Account Created!',
@@ -146,146 +149,149 @@ export default function SignupPage() {
     <>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       <SafeAreaView className='flex-1 bg-background'>
-        <View className='relative flex-1'>
-          <Pressable onPress={handleBack} className='absolute top-4 right-4 z-10'>
-            <Icon as={X} size={24} />
-          </Pressable>
-          <KeyboardAwareScrollView
-            bottomOffset={50}
+        <Header
+          leftButtonImage={X_IMAGE}
+          onLeftButtonPress={handleBack}
+        />
+        <KeyboardAwareScrollView
+          bottomOffset={50}
 
-            showsVerticalScrollIndicator={false}
-          >
-            <View className="flex-1 px-6 py-8 gap-6">
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-6 gap-6">
+            <View>
+              <Text variant="h2">
+                Create Account
+              </Text>
+              <Text className="mt-2 text-text-secondary">
+                Welcome to Simple Tattooer!
+              </Text>
+            </View>
+
+            <View className="gap-5">
               <View>
-                <Text variant="h2">
-                  Create Account
+                <Text variant="large" className="mb-2">
+                  Name
                 </Text>
-                <Text className="mt-2 text-text-secondary">
-                  Welcome to Simple Tattooer!
-                </Text>
+                <Input
+                  placeholder="Enter your name"
+                  value={formData.name}
+                  onChangeText={(text: string) => {
+                    setFormData({ ...formData, name: text });
+                    if (errors.name) validateField('name', text);
+                  }}
+                  onBlur={() => validateField('name', formData.name)}
+                  autoCapitalize="words"
+                  error={!!errors.name}
+                  errorText={errors.name}
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="name"
+                  textContentType="name"
+                  importantForAutofill="yes"
+                />
               </View>
 
-              <View className="gap-5">
-                <View>
-                  <Text variant="large" className="mb-2">
-                    Name
-                  </Text>
-                  <Input
-                    placeholder="Enter your name"
-                    value={formData.name}
-                    onChangeText={(text: string) => {
-                      setFormData({ ...formData, name: text });
-                      if (errors.name) validateField('name', text);
-                    }}
-                    onBlur={() => validateField('name', formData.name)}
-                    autoCapitalize="words"
-                    error={!!errors.name}
-                    errorText={errors.name}
-                    autoCorrect={false}
-                    spellCheck={false}
-                    autoComplete="name"
-                    textContentType="name"
-                  />
-                </View>
-
-                <View>
-                  <Text variant="large" className="mb-2">
-                    Email
-                  </Text>
-                  <Input
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChangeText={(text: string) => {
-                      setFormData({ ...formData, email: text });
-                      if (errors.email) validateField('email', text);
-                    }}
-                    onBlur={() => validateField('email', formData.email)}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    error={!!errors.email}
-                    errorText={errors.email}
-                    autoCorrect={false}
-                    spellCheck={false}
-                    autoComplete="email"
-                    textContentType="emailAddress"
-                  />
-                </View>
-
-                <View>
-                  <Text variant="large" className="mb-2">
-                    Password
-                  </Text>
-                  <Input
-                    placeholder="Create a password"
-                    value={formData.password}
-                    onChangeText={(text: string) => {
-                      setFormData({ ...formData, password: text });
-                      if (errors.password) validateField('password', text);
-                      // Also validate confirm password if it has a value
-                      if (formData.confirmPassword) validateField('confirmPassword', formData.confirmPassword);
-                    }}
-                    onBlur={() => validateField('password', formData.password)}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    rightIcon={showPassword ? EyeOff : Eye}
-                    onRightIconPress={() => setShowPassword(!showPassword)}
-                    rightIconLabel="Toggle password visibility"
-                    error={!!errors.password}
-                    errorText={errors.password}
-                    autoCorrect={false}
-                    spellCheck={false}
-                    autoComplete="password-new"
-                    textContentType="newPassword"
-                  />
-                </View>
-
-                <View>
-                  <Text variant="large" className="mb-2">
-                    Confirm Password
-                  </Text>
-                  <Input
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
-                    onChangeText={(text: string) => {
-                      setFormData({ ...formData, confirmPassword: text });
-                      if (errors.confirmPassword) validateField('confirmPassword', text);
-                    }}
-                    onBlur={() => validateField('confirmPassword', formData.confirmPassword)}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    rightIcon={showConfirmPassword ? EyeOff : Eye}
-                    onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    rightIconLabel="Toggle password visibility"
-                    error={!!errors.confirmPassword}
-                    errorText={errors.confirmPassword}
-                    autoCorrect={false}
-                    spellCheck={false}
-                    autoComplete="password-new"
-                    textContentType="newPassword"
-                  />
-                </View>
+              <View>
+                <Text variant="large" className="mb-2">
+                  Email
+                </Text>
+                <Input
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChangeText={(text: string) => {
+                    setFormData({ ...formData, email: text });
+                    if (errors.email) validateField('email', text);
+                  }}
+                  onBlur={() => validateField('email', formData.email)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  error={!!errors.email}
+                  errorText={errors.email}
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  importantForAutofill="yes"
+                />
               </View>
 
-              <View className="mt-4 gap-4">
-                <Button
-                  variant="outline"
-                  onPress={handleSignup}
-                  size="lg"
-                  className="w-full"
-                  disabled={signupLoading}
-                >
-                  <Text>{signupLoading ? 'Creating Account...' : 'Submit'}</Text>
-                </Button>
-                <View className="flex-row items-center justify-center">
-                  <Text>Already have an account? </Text>
-                  <Pressable onPress={handleSignin}>
-                    <Text className="text-primary underline">Sign in</Text>
-                  </Pressable>
-                </View>
+              <View>
+                <Text variant="large" className="mb-2">
+                  Password
+                </Text>
+                <Input
+                  placeholder="Create a password"
+                  value={formData.password}
+                  onChangeText={(text: string) => {
+                    setFormData({ ...formData, password: text });
+                    if (errors.password) validateField('password', text);
+                    // Also validate confirm password if it has a value
+                    if (formData.confirmPassword) validateField('confirmPassword', formData.confirmPassword);
+                  }}
+                  onBlur={() => validateField('password', formData.password)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  rightIcon={showPassword ? EyeOff : Eye}
+                  onRightIconPress={() => setShowPassword(!showPassword)}
+                  rightIconLabel="Toggle password visibility"
+                  error={!!errors.password}
+                  errorText={errors.password}
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="password-new"
+                  textContentType="newPassword"
+                  importantForAutofill="yes"
+                />
+              </View>
+
+              <View>
+                <Text variant="large" className="mb-2">
+                  Confirm Password
+                </Text>
+                <Input
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChangeText={(text: string) => {
+                    setFormData({ ...formData, confirmPassword: text });
+                    if (errors.confirmPassword) validateField('confirmPassword', text);
+                  }}
+                  onBlur={() => validateField('confirmPassword', formData.confirmPassword)}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  rightIcon={showConfirmPassword ? EyeOff : Eye}
+                  onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  rightIconLabel="Toggle password visibility"
+                  error={!!errors.confirmPassword}
+                  errorText={errors.confirmPassword}
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="password-new"
+                  textContentType="newPassword"
+                  importantForAutofill="yes"
+                />
               </View>
             </View>
-          </KeyboardAwareScrollView>
-        </View>
+
+            <View className="mt-4 gap-4">
+              <Button
+                variant="outline"
+                onPress={handleSignup}
+                size="lg"
+                className="w-full"
+                disabled={signupLoading}
+              >
+                <Text>{signupLoading ? 'Creating Account...' : 'Submit'}</Text>
+              </Button>
+              <View className="flex-row items-center justify-center">
+                <Text>Already have an account? </Text>
+                <Pressable onPress={handleSignin}>
+                  <Text className="text-primary underline">Sign in</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </KeyboardAwareScrollView>
 
         {/* Loading Overlay */}
         <LoadingOverlay

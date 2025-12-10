@@ -58,7 +58,7 @@ export default function SubscribeModal() {
                         <Text className="text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Preview Mode - tap outside this box to look around.</Text>
                     </View>
                     <Text className="text-center text-text-secondary" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Create an Account or Sign In to unlock full access.</Text>
-                    <View className="flex-row items-center justify-center gap-2">
+                    <View className="flex-row items-center justify-center gap-4">
                         <View className="flex-1">
                             <Button variant="outline" className="mt-4" onPress={handleCreateAccountPage}>
                                 <Text className="uppercase" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>create account</Text>

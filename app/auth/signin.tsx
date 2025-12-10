@@ -14,6 +14,7 @@ import { signinWithAuth, setMode } from '@/lib/redux/slices/auth-slice';
 import { useToast } from '@/lib/contexts';
 import Header from '@/components/lib/Header';
 import X_IMAGE from "@/assets/images/icons/x.png";
+import { getCredentials, saveCredentials } from '@/lib/utils/credentials-manager';
 
 export default function SigninPage() {
   const dispatch = useAppDispatch();
@@ -29,6 +30,25 @@ export default function SigninPage() {
     email: '',
     password: '',
   });
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const savedCreds = await getCredentials();
+        if (savedCreds) {
+          setFormData({
+            email: savedCreds.email,
+            password: savedCreds.password,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading saved credentials:', error);
+      }
+    };
+
+    loadSavedCredentials();
+  }, []);
 
   const validateField = (field: string, value: string) => {
     let error = '';
@@ -69,6 +89,9 @@ export default function SigninPage() {
         // Check if signin was successful
         if (signinWithAuth.fulfilled.match(resultAction)) {
           const { artist, session } = resultAction.payload;
+
+          // Save credentials for future autofill
+          await saveCredentials(formData.email, formData.password);
 
           // Show success message
           toast({
@@ -164,6 +187,7 @@ export default function SigninPage() {
                   spellCheck={false}
                   autoComplete="email"
                   textContentType="emailAddress"
+                  importantForAutofill="yes"
                   error={!!errors.email}
                   errorText={errors.email}
                 />
@@ -192,6 +216,7 @@ export default function SigninPage() {
                   spellCheck={false}
                   autoComplete="password"
                   textContentType="password"
+                  importantForAutofill="yes"
                 />
               </View>
 
