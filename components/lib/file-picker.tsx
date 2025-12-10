@@ -48,13 +48,6 @@ export function FilePicker({
     showImagePreview = true,
     enableCamera, // Will be determined based on allowedFileTypes if not provided
 }: FilePickerProps) {
-    // Determine if camera should be enabled
-    // Enable camera by default if only images are allowed, otherwise disable
-    const shouldEnableCamera = enableCamera !== undefined
-        ? enableCamera
-        : (allowedFileTypes.length > 0 &&
-            (allowedFileTypes.includes('image/*') ||
-                allowedFileTypes.every(type => type.startsWith('image/'))));
     // Helper function to detect MIME type from URL
     const detectMimeTypeFromUri = (uri: string): string => {
         // Check if it's a URL (http/https) or file URI and try to detect from extension
@@ -277,6 +270,8 @@ export function FilePicker({
                 type: allowedFileTypes.includes('*/*') ? '*/*' : allowedFileTypes,
                 copyToCacheDirectory: true,
             });
+
+            console.log('result', result);
 
             if (!result.canceled && result.assets[0]) {
                 const selectedFile = result.assets[0];

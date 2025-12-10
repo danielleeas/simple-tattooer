@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, Dimensions, TouchableOpacity, Image, type ImageStyle } from 'react-native';
+import { View, Animated, TouchableOpacity, Image, type ImageStyle } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface Toast {
   id: string;
@@ -64,6 +65,7 @@ const ICON_STYLE: ImageStyle = {
 };
 
 export function ToastComponent({ toast, onDismiss, index = 0 }: ToastProps) {
+  const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
@@ -124,7 +126,7 @@ export function ToastComponent({ toast, onDismiss, index = 0 }: ToastProps) {
   };
 
   // Calculate top position for stacking toasts
-  const topPosition = 48 + (index * 80); // 48px from top + 80px spacing per toast
+  const topPosition = insets.top + (index * 80); // 48px from top + 80px spacing per toast
 
   return (
     <Animated.View
