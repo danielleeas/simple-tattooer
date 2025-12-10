@@ -6,7 +6,6 @@ import Animated, {
     useAnimatedStyle,
     withTiming,
     withSpring,
-    useDerivedValue,
     runOnJS,
     Easing,
 } from 'react-native-reanimated';
@@ -40,6 +39,7 @@ export function PhotoViewer({
     renderWatermark,
 }: PhotoViewerProps) {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
     // Animated values for zoom and pan (current image only)
     const scale = useSharedValue(1);
@@ -52,9 +52,6 @@ export function PhotoViewer({
     // Carousel offset - moves all images together
     const carouselOffset = useSharedValue(0);
 
-    // Derived value to track if zoomed
-    const isZoomed = useDerivedValue(() => scale.value > 1.1);
-
     const resetZoom = useCallback(() => {
         scale.value = 1;
         savedScale.value = 1;
@@ -62,6 +59,36 @@ export function PhotoViewer({
         translationY.value = 0;
         savedTranslationX.value = 0;
         savedTranslationY.value = 0;
+    }, []);
+
+    // Calculate actual displayed image size based on aspect ratio
+    const loadImageDimensions = useCallback((imageUri: string) => {
+        Image.getSize(
+            imageUri,
+            (width, height) => {
+                const imageAspectRatio = width / height;
+                const containerAspectRatio = IMAGE_CONTAINER_WIDTH / IMAGE_CONTAINER_HEIGHT;
+
+                let displayWidth: number;
+                let displayHeight: number;
+
+                if (imageAspectRatio > containerAspectRatio) {
+                    // Image is wider - fit to width
+                    displayWidth = IMAGE_CONTAINER_WIDTH;
+                    displayHeight = IMAGE_CONTAINER_WIDTH / imageAspectRatio;
+                } else {
+                    // Image is taller - fit to height
+                    displayHeight = IMAGE_CONTAINER_HEIGHT;
+                    displayWidth = IMAGE_CONTAINER_HEIGHT * imageAspectRatio;
+                }
+
+                setImageDimensions({ width: displayWidth, height: displayHeight });
+            },
+            () => {
+                // Fallback to container size
+                setImageDimensions({ width: IMAGE_CONTAINER_WIDTH, height: IMAGE_CONTAINER_HEIGHT });
+            }
+        );
     }, []);
 
     React.useEffect(() => {
@@ -72,67 +99,94 @@ export function PhotoViewer({
         }
     }, [visible, initialIndex]);
 
-    // Navigation handlers - instant index change, no animation needed
-    const navigateToIndex = useCallback((newIndex: number) => {
-        if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
-            carouselOffset.value = 0;
-            setCurrentIndex(newIndex);
+    // Load dimensions when current image changes
+    React.useEffect(() => {
+        if (visible && images[currentIndex]) {
+            loadImageDimensions(images[currentIndex]);
         }
-    }, [currentIndex, images.length]);
+    }, [visible, currentIndex, images, loadImageDimensions]);
+
+    // Track if animation is in progress
+    const isAnimating = React.useRef(false);
+    // Track pending index change to sync with offset reset
+    const pendingIndexChange = React.useRef<number | null>(null);
+
+    // Reset offset when index changes - this happens during render, before paint
+    React.useLayoutEffect(() => {
+        if (pendingIndexChange.current !== null) {
+            carouselOffset.value = 0;
+            pendingIndexChange.current = null;
+            isAnimating.current = false;
+        }
+    }, [currentIndex]);
 
     const goToNext = useCallback(() => {
-        if (currentIndex < images.length - 1) {
-            // Animate then change index
-            carouselOffset.value = withTiming(-SCREEN_WIDTH, { duration: 200 });
+        if (currentIndex < images.length - 1 && !isAnimating.current) {
+            isAnimating.current = true;
+            carouselOffset.value = withTiming(-SCREEN_WIDTH, { duration: 220, easing: Easing.out(Easing.cubic) });
             setTimeout(() => {
-                carouselOffset.value = 0;
-                setCurrentIndex(currentIndex + 1);
+                pendingIndexChange.current = currentIndex + 1;
+                setCurrentIndex(prev => prev + 1);
                 resetZoom();
-            }, 200);
+            }, 230);
         }
     }, [currentIndex, images.length, resetZoom]);
 
     const goToPrevious = useCallback(() => {
-        if (currentIndex > 0) {
-            // Animate then change index
-            carouselOffset.value = withTiming(SCREEN_WIDTH, { duration: 200 });
+        if (currentIndex > 0 && !isAnimating.current) {
+            isAnimating.current = true;
+            carouselOffset.value = withTiming(SCREEN_WIDTH, { duration: 220, easing: Easing.out(Easing.cubic) });
             setTimeout(() => {
-                carouselOffset.value = 0;
-                setCurrentIndex(currentIndex - 1);
+                pendingIndexChange.current = currentIndex - 1;
+                setCurrentIndex(prev => prev - 1);
                 resetZoom();
-            }, 200);
+            }, 230);
         }
     }, [currentIndex, resetZoom]);
 
     // Handle swipe end on JS thread
     const handleSwipeComplete = useCallback((direction: 'next' | 'prev' | 'none') => {
+        if (isAnimating.current) return;
+
         if (direction === 'next' && currentIndex < images.length - 1) {
-            // Complete the slide animation
-            carouselOffset.value = withTiming(
-                -SCREEN_WIDTH,
-                { duration: 180, easing: Easing.out(Easing.quad) }
-            );
-            // Change index after animation - reset offset immediately before state change
+            isAnimating.current = true;
+            const currentOffset = carouselOffset.value;
+            const remainingDistance = Math.abs(-SCREEN_WIDTH - currentOffset);
+            const duration = Math.max(80, Math.min(180, remainingDistance * 0.25));
+
+            carouselOffset.value = withTiming(-SCREEN_WIDTH, {
+                duration,
+                easing: Easing.out(Easing.cubic)
+            });
+
             setTimeout(() => {
-                carouselOffset.value = 0;
-                setCurrentIndex(prev => Math.min(images.length - 1, prev + 1));
-            }, 180);
+                pendingIndexChange.current = currentIndex + 1;
+                setCurrentIndex(prev => prev + 1);
+                resetZoom();
+            }, duration + 10);
+
         } else if (direction === 'prev' && currentIndex > 0) {
-            // Complete the slide animation
-            carouselOffset.value = withTiming(
-                SCREEN_WIDTH,
-                { duration: 180, easing: Easing.out(Easing.quad) }
-            );
-            // Change index after animation - reset offset immediately before state change
+            isAnimating.current = true;
+            const currentOffset = carouselOffset.value;
+            const remainingDistance = Math.abs(SCREEN_WIDTH - currentOffset);
+            const duration = Math.max(80, Math.min(180, remainingDistance * 0.25));
+
+            carouselOffset.value = withTiming(SCREEN_WIDTH, {
+                duration,
+                easing: Easing.out(Easing.cubic)
+            });
+
             setTimeout(() => {
-                carouselOffset.value = 0;
-                setCurrentIndex(prev => Math.max(0, prev - 1));
-            }, 180);
+                pendingIndexChange.current = currentIndex - 1;
+                setCurrentIndex(prev => prev - 1);
+                resetZoom();
+            }, duration + 10);
+
         } else {
             // Snap back
-            carouselOffset.value = withSpring(0, { damping: 25, stiffness: 300 });
+            carouselOffset.value = withSpring(0, { damping: 20, stiffness: 400 });
         }
-    }, [currentIndex, images.length]);
+    }, [currentIndex, images.length, resetZoom]);
 
     // Pinch gesture for zoom
     const pinchGesture = Gesture.Pinch()
@@ -241,10 +295,6 @@ export function PhotoViewer({
         opacity: 1,
     }));
 
-    // Watermark opacity
-    const watermarkStyle = useAnimatedStyle(() => ({
-        opacity: withTiming(isZoomed.value ? 0 : 1, { duration: 150 }),
-    }));
 
     const handleClose = useCallback(() => {
         resetZoom();
@@ -304,16 +354,19 @@ export function PhotoViewer({
 
                                 {/* Current Image */}
                                 <Animated.View style={[styles.slideContainer, styles.currentSlide, currentImageStyle]}>
-                                    <View style={styles.imageFrame}>
+                                    <View style={[
+                                        styles.imageFrame,
+                                        imageDimensions && { width: imageDimensions.width, height: imageDimensions.height }
+                                    ]}>
                                         <Image
                                             source={{ uri: images[currentIndex] }}
                                             style={styles.mainImage}
                                             resizeMode="contain"
                                         />
-                                        {renderWatermark && (
-                                            <Animated.View style={[styles.watermark, watermarkStyle]}>
-                                                {renderWatermark(IMAGE_CONTAINER_WIDTH, IMAGE_CONTAINER_HEIGHT)}
-                                            </Animated.View>
+                                        {renderWatermark && imageDimensions && (
+                                            <View style={styles.watermark}>
+                                                {renderWatermark(imageDimensions.width, imageDimensions.height)}
+                                            </View>
                                         )}
                                     </View>
                                 </Animated.View>
@@ -443,9 +496,9 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     imageFrame: {
-        width: IMAGE_CONTAINER_WIDTH,
-        height: IMAGE_CONTAINER_HEIGHT,
         position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     mainImage: {
         width: '100%',
