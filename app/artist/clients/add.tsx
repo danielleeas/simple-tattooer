@@ -218,25 +218,6 @@ export default function AddClient() {
         }
     };
 
-    const handleContinueWithExistingClient = () => {
-        if (existingClientData) {
-            setShowExistingClientModal(false);
-            toast({
-                variant: 'success',
-                title: 'Opening existing client',
-                duration: 2000,
-            });
-            setTimeout(() => {
-                router.push({
-                    pathname: '/artist/clients/[id]',
-                    params: {
-                        id: existingClientData.id,
-                    },
-                });
-            }, 100);
-        }
-    };
-
     const handleCancelExistingClient = () => {
         setShowExistingClientModal(false);
         setExistingClientData(null);
