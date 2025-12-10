@@ -28,6 +28,10 @@ interface PhotoViewerProps {
     renderWatermark?: (width: number, height: number) => React.ReactNode;
 }
 
+// Fixed image container dimensions
+const IMAGE_CONTAINER_WIDTH = SCREEN_WIDTH - 24;
+const IMAGE_CONTAINER_HEIGHT = SCREEN_HEIGHT - 200;
+
 export function PhotoViewer({
     visible,
     images,
@@ -36,7 +40,6 @@ export function PhotoViewer({
     renderWatermark,
 }: PhotoViewerProps) {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
-    const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
     // Animated values for zoom and pan (current image only)
     const scale = useSharedValue(1);
@@ -53,102 +56,83 @@ export function PhotoViewer({
     const isZoomed = useDerivedValue(() => scale.value > 1.1);
 
     const resetZoom = useCallback(() => {
-        scale.value = withTiming(1, { duration: 200 });
+        scale.value = 1;
         savedScale.value = 1;
-        translationX.value = withTiming(0, { duration: 200 });
-        translationY.value = withTiming(0, { duration: 200 });
+        translationX.value = 0;
+        translationY.value = 0;
         savedTranslationX.value = 0;
         savedTranslationY.value = 0;
     }, []);
 
-    const loadImageDimensions = useCallback((imageUri: string) => {
-        Image.getSize(
-            imageUri,
-            (width, height) => {
-                const aspectRatio = width / height;
-                const maxWidth = SCREEN_WIDTH - 32;
-                const maxHeight = SCREEN_HEIGHT - 220;
-
-                let optimalWidth = maxWidth;
-                let optimalHeight = maxWidth / aspectRatio;
-
-                if (optimalHeight > maxHeight) {
-                    optimalHeight = maxHeight;
-                    optimalWidth = maxHeight * aspectRatio;
-                }
-
-                setImageDimensions({ width: optimalWidth, height: optimalHeight });
-            },
-            () => {
-                setImageDimensions({ width: SCREEN_WIDTH - 32, height: SCREEN_HEIGHT - 220 });
-            }
-        );
-    }, []);
-
-    React.useEffect(() => {
-        if (visible && images[currentIndex]) {
-            loadImageDimensions(images[currentIndex]);
-            carouselOffset.value = 0;
-            resetZoom();
-        }
-    }, [visible, currentIndex, images]);
-
     React.useEffect(() => {
         if (visible) {
             setCurrentIndex(initialIndex);
-        }
-    }, [visible, initialIndex]);
-
-    // Navigation handlers
-    const navigateToIndex = useCallback((newIndex: number) => {
-        if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
-            setCurrentIndex(newIndex);
             carouselOffset.value = 0;
             resetZoom();
         }
-    }, [currentIndex, images.length, resetZoom]);
+    }, [visible, initialIndex]);
+
+    // Navigation handlers - instant index change, no animation needed
+    const navigateToIndex = useCallback((newIndex: number) => {
+        if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
+            carouselOffset.value = 0;
+            setCurrentIndex(newIndex);
+        }
+    }, [currentIndex, images.length]);
 
     const goToNext = useCallback(() => {
         if (currentIndex < images.length - 1) {
-            navigateToIndex(currentIndex + 1);
+            // Animate then change index
+            carouselOffset.value = withTiming(-SCREEN_WIDTH, { duration: 200 });
+            setTimeout(() => {
+                carouselOffset.value = 0;
+                setCurrentIndex(currentIndex + 1);
+                resetZoom();
+            }, 200);
         }
-    }, [currentIndex, images.length, navigateToIndex]);
+    }, [currentIndex, images.length, resetZoom]);
 
     const goToPrevious = useCallback(() => {
         if (currentIndex > 0) {
-            navigateToIndex(currentIndex - 1);
+            // Animate then change index
+            carouselOffset.value = withTiming(SCREEN_WIDTH, { duration: 200 });
+            setTimeout(() => {
+                carouselOffset.value = 0;
+                setCurrentIndex(currentIndex - 1);
+                resetZoom();
+            }, 200);
         }
-    }, [currentIndex, navigateToIndex]);
+    }, [currentIndex, resetZoom]);
 
     // Handle swipe end on JS thread
     const handleSwipeComplete = useCallback((direction: 'next' | 'prev' | 'none') => {
         if (direction === 'next' && currentIndex < images.length - 1) {
-            // Animate out to left, then update index
+            // Complete the slide animation
             carouselOffset.value = withTiming(
                 -SCREEN_WIDTH,
-                { duration: 250, easing: Easing.out(Easing.cubic) },
-                () => {
-                    'worklet';
-                    carouselOffset.value = 0;
-                }
+                { duration: 180, easing: Easing.out(Easing.quad) }
             );
-            setTimeout(() => navigateToIndex(currentIndex + 1), 220);
+            // Change index after animation - reset offset immediately before state change
+            setTimeout(() => {
+                carouselOffset.value = 0;
+                setCurrentIndex(prev => Math.min(images.length - 1, prev + 1));
+            }, 180);
         } else if (direction === 'prev' && currentIndex > 0) {
-            // Animate out to right, then update index
+            // Complete the slide animation
             carouselOffset.value = withTiming(
                 SCREEN_WIDTH,
-                { duration: 250, easing: Easing.out(Easing.cubic) },
-                () => {
-                    'worklet';
-                    carouselOffset.value = 0;
-                }
+                { duration: 180, easing: Easing.out(Easing.quad) }
             );
-            setTimeout(() => navigateToIndex(currentIndex - 1), 220);
+            // Change index after animation - reset offset immediately before state change
+            setTimeout(() => {
+                carouselOffset.value = 0;
+                setCurrentIndex(prev => Math.max(0, prev - 1));
+            }, 180);
         } else {
             // Snap back
-            carouselOffset.value = withSpring(0, { damping: 20, stiffness: 200 });
+            carouselOffset.value = withSpring(0, { damping: 25, stiffness: 300 });
         }
-    }, [currentIndex, images.length, navigateToIndex]);
+    }, [currentIndex, images.length]);
 
     // Pinch gesture for zoom
     const pinchGesture = Gesture.Pinch()
@@ -320,20 +304,18 @@ export function PhotoViewer({
 
                                 {/* Current Image */}
                                 <Animated.View style={[styles.slideContainer, styles.currentSlide, currentImageStyle]}>
-                                    {imageDimensions && (
-                                        <View style={[styles.imageFrame, { width: imageDimensions.width, height: imageDimensions.height }]}>
-                                            <Image
-                                                source={{ uri: images[currentIndex] }}
-                                                style={styles.mainImage}
-                                                resizeMode="contain"
-                                            />
-                                            {renderWatermark && (
-                                                <Animated.View style={[styles.watermark, watermarkStyle]}>
-                                                    {renderWatermark(imageDimensions.width, imageDimensions.height)}
-                                                </Animated.View>
-                                            )}
-                                        </View>
-                                    )}
+                                    <View style={styles.imageFrame}>
+                                        <Image
+                                            source={{ uri: images[currentIndex] }}
+                                            style={styles.mainImage}
+                                            resizeMode="contain"
+                                        />
+                                        {renderWatermark && (
+                                            <Animated.View style={[styles.watermark, watermarkStyle]}>
+                                                {renderWatermark(IMAGE_CONTAINER_WIDTH, IMAGE_CONTAINER_HEIGHT)}
+                                            </Animated.View>
+                                        )}
+                                    </View>
                                 </Animated.View>
 
                                 {/* Next Image */}
@@ -451,8 +433,8 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     slideImageWrapper: {
-        width: SCREEN_WIDTH - 32,
-        height: SCREEN_HEIGHT - 220,
+        width: IMAGE_CONTAINER_WIDTH,
+        height: IMAGE_CONTAINER_HEIGHT,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -461,6 +443,8 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     imageFrame: {
+        width: IMAGE_CONTAINER_WIDTH,
+        height: IMAGE_CONTAINER_HEIGHT,
         position: 'relative',
     },
     mainImage: {
