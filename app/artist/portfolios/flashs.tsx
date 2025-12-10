@@ -16,6 +16,7 @@ import { createFlash, deleteFlash, getArtistFlashs, updateFlash, upsertFlashes }
 import * as ExpoImagePicker from 'expo-image-picker';
 import { uploadFileToStorage } from "@/lib/services/storage-service";
 import { compressImage } from "@/lib/utils";
+import { PhotoViewer } from "@/components/lib/photo-viewer";
 
 interface MediaChunk {
     id?: string;
@@ -45,8 +46,7 @@ export default function UploadFlashs() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingFlashId, setDeletingFlashId] = useState<string | null>(null);
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-    const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
-    const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number; aspectRatio: number } | null>(null);
+    const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
     const [uploadingImages, setUploadingImages] = useState<{ id: string, progress: number, status: 'uploading' | 'completed' | 'error', imageUri: string }[]>([]);
     const [priceInputs, setPriceInputs] = useState<{ [key: string]: string }>({});
     const [watermarkDimensions, setWatermarkDimensions] = useState<{ width: number; height: number; aspectRatio: number } | null>(null);
@@ -480,37 +480,21 @@ export default function UploadFlashs() {
         );
     };
 
-    const handleImagePress = async (imageSource: any) => {
+    const handleImagePress = (imageSource: any) => {
         Keyboard.dismiss();
-        console.log('Opening image viewer for:', imageSource);
 
-        try {
-            // Convert URI string to proper format for Image component
-            const imageToShow = typeof imageSource === 'string' ? { uri: imageSource } : imageSource;
-            setSelectedImageSource(imageToShow);
+        // Find the index of the clicked image
+        const imageUri = typeof imageSource === 'string' ? imageSource : imageSource.uri;
+        const index = flashs.findIndex(flash => flash.flash_image === imageUri);
 
-            // Get image dimensions
-            const imageUri = typeof imageSource === 'string' ? imageSource : imageSource.uri;
-            const dimensions = await getImageDimensions(imageUri);
-
-            console.log('dimensions', dimensions);
-            setImageDimensions(dimensions);
-
-            setIsImageViewerVisible(true);
-        } catch (error) {
-            console.error('Error getting image dimensions:', error);
-            // Fallback to showing image without dimension optimization
-            const imageToShow = typeof imageSource === 'string' ? { uri: imageSource } : imageSource;
-            setSelectedImageSource(imageToShow);
-            setImageDimensions(null);
+        if (index !== -1) {
+            setSelectedImageIndex(index);
             setIsImageViewerVisible(true);
         }
     };
 
     const handleCloseImageViewer = () => {
         setIsImageViewerVisible(false);
-        setSelectedImageSource(null);
-        setImageDimensions(null);
     };
 
     return (
@@ -764,28 +748,13 @@ export default function UploadFlashs() {
                 </View>
             </Modal>
 
-            <Modal
+            <PhotoViewer
                 visible={isImageViewerVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={handleCloseImageViewer}
-            >
-                <Pressable
-                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}
-                    onPress={handleCloseImageViewer}
-                >
-                    {imageDimensions && (
-                        <View className="overflow-hidden relative" style={calculateOptimalDimensions(imageDimensions)}>
-                            <Image
-                                source={selectedImageSource}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode="contain"
-                            />
-                            {renderWatermark(calculateOptimalDimensions(imageDimensions).width, calculateOptimalDimensions(imageDimensions).height)}
-                        </View>
-                    )}
-                </Pressable>
-            </Modal>
+                images={flashs.map(flash => flash.flash_image || '').filter(img => img !== '')}
+                initialIndex={selectedImageIndex}
+                onClose={handleCloseImageViewer}
+                renderWatermark={renderWatermark}
+            />
         </View>
     );
 }

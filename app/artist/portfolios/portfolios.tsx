@@ -16,6 +16,7 @@ import * as ExpoImagePicker from 'expo-image-picker';
 import { uploadFileToStorage } from "@/lib/services/storage-service";
 import { compressImage } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { PhotoViewer } from "@/components/lib/photo-viewer";
 
 interface MediaChunk {
     id?: string;
@@ -43,33 +44,19 @@ export default function UploadPortfolios() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingPortfolioId, setDeletingPortfolioId] = useState<string | null>(null);
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-    const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
+    const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
     const [uploadingImages, setUploadingImages] = useState<{ id: string, progress: number, status: 'uploading' | 'completed' | 'error', imageUri: string }[]>([]);
-    const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number; aspectRatio: number } | null>(null);
-    const [watermarkDimensions, setWatermarkDimensions] = useState<{ width: number; height: number; aspectRatio: number } | null>(null);
 
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
     useEffect(() => {
         loadPortfolios();
-        loadWatermarkDimensions();
     }, []);
 
     const hasChanges = useMemo(() => {
         const isSame = JSON.stringify(portfolios) === JSON.stringify(originalPortfolios);
         return !isSame;
     }, [portfolios, originalPortfolios]);
-
-    const loadWatermarkDimensions = async () => {
-        if (!artist?.app?.watermark_image) return;
-
-        try {
-            const dimensions = await getImageDimensions(artist.app.watermark_image);
-            setWatermarkDimensions(dimensions);
-        } catch (error) {
-            console.error('Error getting watermark dimensions:', error);
-        }
-    };
 
     const loadPortfolios = async () => {
         if (!artist?.id) return;
@@ -280,24 +267,6 @@ export default function UploadPortfolios() {
         }
     };
 
-    const calculateOptimalDimensions = (imageDimensions: { width: number; height: number; aspectRatio: number }) => {
-        const { aspectRatio } = imageDimensions;
-        const maxWidth = screenWidth - 40; // Account for padding
-        const maxHeight = screenHeight - 100; // Account for modal padding and header
-
-        let optimalWidth = maxWidth;
-        let optimalHeight = maxWidth / aspectRatio;
-
-        // If height exceeds max height, scale down based on height
-        if (optimalHeight > maxHeight) {
-            optimalHeight = maxHeight;
-            optimalWidth = maxHeight * aspectRatio;
-        }
-
-        const round2 = (n: number) => Math.round(n * 100) / 100;
-        return { width: round2(optimalWidth), height: round2(optimalHeight) };
-    };
-
     const mediaChunks = useMemo(() => {
         // Create chunks for regular portfolios
         const portfolioChunks: MediaChunk[] = [...portfolios.map(portfolio => ({ ...portfolio, chunk_type: 'portfolio' }))];
@@ -330,53 +299,21 @@ export default function UploadPortfolios() {
         }
     };
 
-    const getImageDimensions = async (imageUri: string): Promise<{ width: number; height: number; aspectRatio: number }> => {
-        return new Promise((resolve, reject) => {
-            Image.getSize(
-                imageUri,
-                (width, height) => {
-                    const round2 = (n: number) => Math.round(n * 100) / 100;
-                    const roundedWidth = round2(width);
-                    const roundedHeight = round2(height);
-                    const aspectRatio = roundedWidth / roundedHeight;
-                    resolve({ width: roundedWidth, height: roundedHeight, aspectRatio: round2(aspectRatio) });
-                },
-                (error) => {
-                    console.error('Error getting image dimensions:', error);
-                    reject(error);
-                }
-            );
-        });
-    };
-
-    const handleImagePress = async (imageSource: any) => {
+    const handleImagePress = (imageSource: any) => {
         Keyboard.dismiss();
-        console.log('Opening image viewer for:', imageSource);
 
-        try {
-            // Convert URI string to proper format for Image component
-            const imageToShow = typeof imageSource === 'string' ? { uri: imageSource } : imageSource;
-            setSelectedImageSource(imageToShow);
+        // Find the index of the clicked image
+        const imageUri = typeof imageSource === 'string' ? imageSource : imageSource.uri;
+        const index = portfolios.findIndex(portfolio => portfolio.portfolio_image === imageUri);
 
-            // Get image dimensions
-            const imageUri = typeof imageSource === 'string' ? imageSource : imageSource.uri;
-            const dimensions = await getImageDimensions(imageUri);
-
-            setImageDimensions(dimensions);
-
-            setIsImageViewerVisible(true);
-        } catch (error) {
-            // Fallback to showing image without dimension optimization
-            const imageToShow = typeof imageSource === 'string' ? { uri: imageSource } : imageSource;
-            setSelectedImageSource(imageToShow);
-            setImageDimensions(null);
+        if (index !== -1) {
+            setSelectedImageIndex(index);
             setIsImageViewerVisible(true);
         }
     };
 
     const handleCloseImageViewer = () => {
         setIsImageViewerVisible(false);
-        setSelectedImageSource(null);
     };
 
     return (
@@ -575,27 +512,12 @@ export default function UploadPortfolios() {
                 </View>
             </Modal>
 
-            <Modal
+            <PhotoViewer
                 visible={isImageViewerVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={handleCloseImageViewer}
-            >
-                <Pressable
-                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}
-                    onPress={handleCloseImageViewer}
-                >
-                    {imageDimensions && (
-                        <View className="overflow-hidden relative" style={calculateOptimalDimensions(imageDimensions)}>
-                            <Image
-                                source={selectedImageSource}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    )}
-                </Pressable>
-            </Modal>
+                images={portfolios.map(portfolio => portfolio.portfolio_image || '').filter(img => img !== '')}
+                initialIndex={selectedImageIndex}
+                onClose={handleCloseImageViewer}
+            />
         </View>
     );
 }
