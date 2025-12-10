@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, View, Image, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -16,7 +16,7 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 const SWIPE_VELOCITY_THRESHOLD = 400;
 
 interface PhotoViewerProps {
@@ -27,9 +27,9 @@ interface PhotoViewerProps {
     renderWatermark?: (width: number, height: number) => React.ReactNode;
 }
 
-// Fixed image container dimensions
-const IMAGE_CONTAINER_WIDTH = SCREEN_WIDTH - 24;
-const IMAGE_CONTAINER_HEIGHT = SCREEN_HEIGHT - 200;
+// Fixed container dimensions
+const CONTAINER_WIDTH = SCREEN_WIDTH;
+const CONTAINER_HEIGHT = SCREEN_HEIGHT - 200;
 
 export function PhotoViewer({
     visible,
@@ -39,156 +39,114 @@ export function PhotoViewer({
     renderWatermark,
 }: PhotoViewerProps) {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
-    const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+    const [imageSizes, setImageSizes] = useState<Map<number, { width: number; height: number }>>(new Map());
 
-    // Animated values for zoom and pan (current image only)
+    // Carousel position - represents which image is centered
+    const translateX = useSharedValue(0);
+
+    // Zoom and pan for current image
     const scale = useSharedValue(1);
     const savedScale = useSharedValue(1);
-    const translationX = useSharedValue(0);
-    const translationY = useSharedValue(0);
-    const savedTranslationX = useSharedValue(0);
-    const savedTranslationY = useSharedValue(0);
-
-    // Carousel offset - moves all images together
-    const carouselOffset = useSharedValue(0);
+    const panX = useSharedValue(0);
+    const panY = useSharedValue(0);
+    const savedPanX = useSharedValue(0);
+    const savedPanY = useSharedValue(0);
 
     const resetZoom = useCallback(() => {
         scale.value = 1;
         savedScale.value = 1;
-        translationX.value = 0;
-        translationY.value = 0;
-        savedTranslationX.value = 0;
-        savedTranslationY.value = 0;
+        panX.value = 0;
+        panY.value = 0;
+        savedPanX.value = 0;
+        savedPanY.value = 0;
     }, []);
 
-    // Calculate actual displayed image size based on aspect ratio
-    const loadImageDimensions = useCallback((imageUri: string) => {
+    // Load image dimensions for watermark sizing
+    const loadImageSize = useCallback((index: number, uri: string) => {
         Image.getSize(
-            imageUri,
+            uri,
             (width, height) => {
                 const imageAspectRatio = width / height;
-                const containerAspectRatio = IMAGE_CONTAINER_WIDTH / IMAGE_CONTAINER_HEIGHT;
+                const containerAspectRatio = (CONTAINER_WIDTH - 24) / CONTAINER_HEIGHT;
 
                 let displayWidth: number;
                 let displayHeight: number;
 
                 if (imageAspectRatio > containerAspectRatio) {
-                    // Image is wider - fit to width
-                    displayWidth = IMAGE_CONTAINER_WIDTH;
-                    displayHeight = IMAGE_CONTAINER_WIDTH / imageAspectRatio;
+                    displayWidth = CONTAINER_WIDTH - 24;
+                    displayHeight = (CONTAINER_WIDTH - 24) / imageAspectRatio;
                 } else {
-                    // Image is taller - fit to height
-                    displayHeight = IMAGE_CONTAINER_HEIGHT;
-                    displayWidth = IMAGE_CONTAINER_HEIGHT * imageAspectRatio;
+                    displayHeight = CONTAINER_HEIGHT;
+                    displayWidth = CONTAINER_HEIGHT * imageAspectRatio;
                 }
 
-                setImageDimensions({ width: displayWidth, height: displayHeight });
+                setImageSizes(prev => new Map(prev).set(index, { width: displayWidth, height: displayHeight }));
             },
             () => {
-                // Fallback to container size
-                setImageDimensions({ width: IMAGE_CONTAINER_WIDTH, height: IMAGE_CONTAINER_HEIGHT });
+                setImageSizes(prev => new Map(prev).set(index, { width: CONTAINER_WIDTH - 24, height: CONTAINER_HEIGHT }));
             }
         );
     }, []);
 
-    React.useEffect(() => {
+    // Initialize when opened
+    useEffect(() => {
         if (visible) {
             setCurrentIndex(initialIndex);
-            carouselOffset.value = 0;
+            translateX.value = -initialIndex * SCREEN_WIDTH;
             resetZoom();
-        }
-    }, [visible, initialIndex]);
 
-    // Load dimensions when current image changes
-    React.useEffect(() => {
-        if (visible && images[currentIndex]) {
-            loadImageDimensions(images[currentIndex]);
+            // Load all image sizes
+            images.forEach((uri, index) => {
+                loadImageSize(index, uri);
+            });
         }
-    }, [visible, currentIndex, images, loadImageDimensions]);
+    }, [visible, initialIndex, images]);
 
-    // Track if animation is in progress
-    const isAnimating = React.useRef(false);
-    // Track pending index change to sync with offset reset
-    const pendingIndexChange = React.useRef<number | null>(null);
-
-    // Reset offset when index changes - this happens during render, before paint
-    React.useLayoutEffect(() => {
-        if (pendingIndexChange.current !== null) {
-            carouselOffset.value = 0;
-            pendingIndexChange.current = null;
-            isAnimating.current = false;
-        }
-    }, [currentIndex]);
+    // Animate to specific index
+    const animateToIndex = useCallback((index: number, duration: number = 250) => {
+        translateX.value = withTiming(-index * SCREEN_WIDTH, {
+            duration,
+            easing: Easing.out(Easing.cubic),
+        });
+        setCurrentIndex(index);
+        resetZoom();
+    }, [resetZoom]);
 
     const goToNext = useCallback(() => {
-        if (currentIndex < images.length - 1 && !isAnimating.current) {
-            isAnimating.current = true;
-            carouselOffset.value = withTiming(-SCREEN_WIDTH, { duration: 220, easing: Easing.out(Easing.cubic) });
-            setTimeout(() => {
-                pendingIndexChange.current = currentIndex + 1;
-                setCurrentIndex(prev => prev + 1);
-                resetZoom();
-            }, 230);
+        if (currentIndex < images.length - 1) {
+            animateToIndex(currentIndex + 1);
         }
-    }, [currentIndex, images.length, resetZoom]);
+    }, [currentIndex, images.length, animateToIndex]);
 
     const goToPrevious = useCallback(() => {
-        if (currentIndex > 0 && !isAnimating.current) {
-            isAnimating.current = true;
-            carouselOffset.value = withTiming(SCREEN_WIDTH, { duration: 220, easing: Easing.out(Easing.cubic) });
-            setTimeout(() => {
-                pendingIndexChange.current = currentIndex - 1;
-                setCurrentIndex(prev => prev - 1);
-                resetZoom();
-            }, 230);
+        if (currentIndex > 0) {
+            animateToIndex(currentIndex - 1);
         }
-    }, [currentIndex, resetZoom]);
+    }, [currentIndex, animateToIndex]);
 
-    // Handle swipe end on JS thread
-    const handleSwipeComplete = useCallback((direction: 'next' | 'prev' | 'none') => {
-        if (isAnimating.current) return;
+    // Handle swipe completion
+    const handleSwipeEnd = useCallback((velocityX: number, translationAmount: number) => {
+        const currentOffset = translateX.value;
+        const currentPosition = -currentOffset / SCREEN_WIDTH;
 
-        if (direction === 'next' && currentIndex < images.length - 1) {
-            isAnimating.current = true;
-            const currentOffset = carouselOffset.value;
-            const remainingDistance = Math.abs(-SCREEN_WIDTH - currentOffset);
-            const duration = Math.max(80, Math.min(180, remainingDistance * 0.25));
+        let targetIndex: number;
 
-            carouselOffset.value = withTiming(-SCREEN_WIDTH, {
-                duration,
-                easing: Easing.out(Easing.cubic)
-            });
-
-            setTimeout(() => {
-                pendingIndexChange.current = currentIndex + 1;
-                setCurrentIndex(prev => prev + 1);
-                resetZoom();
-            }, duration + 10);
-
-        } else if (direction === 'prev' && currentIndex > 0) {
-            isAnimating.current = true;
-            const currentOffset = carouselOffset.value;
-            const remainingDistance = Math.abs(SCREEN_WIDTH - currentOffset);
-            const duration = Math.max(80, Math.min(180, remainingDistance * 0.25));
-
-            carouselOffset.value = withTiming(SCREEN_WIDTH, {
-                duration,
-                easing: Easing.out(Easing.cubic)
-            });
-
-            setTimeout(() => {
-                pendingIndexChange.current = currentIndex - 1;
-                setCurrentIndex(prev => prev - 1);
-                resetZoom();
-            }, duration + 10);
-
+        if (velocityX < -SWIPE_VELOCITY_THRESHOLD || translationAmount < -SWIPE_THRESHOLD) {
+            // Swipe left - go to next
+            targetIndex = Math.min(images.length - 1, Math.ceil(currentPosition));
+        } else if (velocityX > SWIPE_VELOCITY_THRESHOLD || translationAmount > SWIPE_THRESHOLD) {
+            // Swipe right - go to previous
+            targetIndex = Math.max(0, Math.floor(currentPosition));
         } else {
-            // Snap back
-            carouselOffset.value = withSpring(0, { damping: 20, stiffness: 400 });
+            // Snap to nearest
+            targetIndex = Math.round(currentPosition);
         }
-    }, [currentIndex, images.length, resetZoom]);
 
-    // Pinch gesture for zoom
+        targetIndex = Math.max(0, Math.min(images.length - 1, targetIndex));
+        animateToIndex(targetIndex, 200);
+    }, [images.length, animateToIndex]);
+
+    // Pinch gesture
     const pinchGesture = Gesture.Pinch()
         .onUpdate((e) => {
             'worklet';
@@ -200,43 +158,33 @@ export function PhotoViewer({
             if (scale.value < 1.1) {
                 scale.value = withSpring(1);
                 savedScale.value = 1;
-                translationX.value = withSpring(0);
-                translationY.value = withSpring(0);
-                savedTranslationX.value = 0;
-                savedTranslationY.value = 0;
+                panX.value = withSpring(0);
+                panY.value = withSpring(0);
+                savedPanX.value = 0;
+                savedPanY.value = 0;
             }
         });
 
-    // Pan gesture - handles both zoom panning and carousel swiping
+    // Pan gesture - handles zoom panning and carousel swiping
     const panGesture = Gesture.Pan()
         .onUpdate((e) => {
             'worklet';
             if (savedScale.value > 1) {
                 // Zoomed: pan the image
-                translationX.value = savedTranslationX.value + e.translationX;
-                translationY.value = savedTranslationY.value + e.translationY;
+                panX.value = savedPanX.value + e.translationX;
+                panY.value = savedPanY.value + e.translationY;
             } else {
-                // Not zoomed: swipe carousel
-                carouselOffset.value = e.translationX;
+                // Not zoomed: move carousel
+                translateX.value = -currentIndex * SCREEN_WIDTH + e.translationX;
             }
         })
         .onEnd((e) => {
             'worklet';
             if (savedScale.value > 1) {
-                savedTranslationX.value = translationX.value;
-                savedTranslationY.value = translationY.value;
+                savedPanX.value = panX.value;
+                savedPanY.value = panY.value;
             } else {
-                // Determine swipe direction
-                const swipedLeft = e.translationX < -SWIPE_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
-                const swipedRight = e.translationX > SWIPE_THRESHOLD || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
-
-                if (swipedLeft) {
-                    runOnJS(handleSwipeComplete)('next');
-                } else if (swipedRight) {
-                    runOnJS(handleSwipeComplete)('prev');
-                } else {
-                    runOnJS(handleSwipeComplete)('none');
-                }
+                runOnJS(handleSwipeEnd)(e.velocityX, e.translationX);
             }
         });
 
@@ -248,62 +196,45 @@ export function PhotoViewer({
             if (scale.value > 1) {
                 scale.value = withTiming(1);
                 savedScale.value = 1;
-                translationX.value = withTiming(0);
-                translationY.value = withTiming(0);
-                savedTranslationX.value = 0;
-                savedTranslationY.value = 0;
+                panX.value = withTiming(0);
+                panY.value = withTiming(0);
+                savedPanX.value = 0;
+                savedPanY.value = 0;
             } else {
                 const focalX = e.x - SCREEN_WIDTH / 2;
                 const focalY = e.y - SCREEN_HEIGHT / 2;
                 scale.value = withTiming(2.5);
                 savedScale.value = 2.5;
-                translationX.value = withTiming(-focalX * 1.5);
-                translationY.value = withTiming(-focalY * 1.5);
-                savedTranslationX.value = -focalX * 1.5;
-                savedTranslationY.value = -focalY * 1.5;
+                panX.value = withTiming(-focalX * 1.5);
+                panY.value = withTiming(-focalY * 1.5);
+                savedPanX.value = -focalX * 1.5;
+                savedPanY.value = -focalY * 1.5;
             }
         });
 
-    // Combine gestures
     const composedGesture = Gesture.Race(
         doubleTapGesture,
         Gesture.Simultaneous(pinchGesture, panGesture)
     );
 
-    // Animated styles for current image (zoom + pan + carousel offset)
-    const currentImageStyle = useAnimatedStyle(() => ({
+    // Carousel container style
+    const carouselStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: translateX.value }],
+    }));
+
+    // Current image transform (zoom + pan)
+    const currentImageTransform = useAnimatedStyle(() => ({
         transform: [
-            { translateX: carouselOffset.value + translationX.value },
-            { translateY: translationY.value },
+            { translateX: panX.value },
+            { translateY: panY.value },
             { scale: scale.value },
         ],
     }));
 
-    // Animated style for previous image (left side)
-    const prevImageStyle = useAnimatedStyle(() => ({
-        transform: [
-            { translateX: carouselOffset.value - SCREEN_WIDTH },
-        ],
-        opacity: 1,
-    }));
-
-    // Animated style for next image (right side)
-    const nextImageStyle = useAnimatedStyle(() => ({
-        transform: [
-            { translateX: carouselOffset.value + SCREEN_WIDTH },
-        ],
-        opacity: 1,
-    }));
-
-
     const handleClose = useCallback(() => {
         resetZoom();
-        carouselOffset.value = 0;
         onClose();
     }, [onClose, resetZoom]);
-
-    const canGoPrev = currentIndex > 0;
-    const canGoNext = currentIndex < images.length - 1;
 
     if (!visible) return null;
 
@@ -335,54 +266,42 @@ export function PhotoViewer({
                         </Pressable>
                     </View>
 
-                    {/* Carousel */}
+                    {/* Carousel - All images rendered */}
                     <View style={styles.carouselWrapper}>
                         <GestureDetector gesture={composedGesture}>
-                            <Animated.View style={styles.carousel}>
-                                {/* Previous Image */}
-                                {canGoPrev && (
-                                    <Animated.View style={[styles.slideContainer, prevImageStyle]}>
-                                        <View style={styles.slideImageWrapper}>
-                                            <Image
-                                                source={{ uri: images[currentIndex - 1] }}
-                                                style={styles.slideImage}
-                                                resizeMode="contain"
-                                            />
-                                        </View>
-                                    </Animated.View>
-                                )}
+                            <Animated.View style={[styles.carousel, carouselStyle]}>
+                                {images.map((uri, index) => {
+                                    const isCurrentImage = index === currentIndex;
+                                    const imageSize = imageSizes.get(index);
 
-                                {/* Current Image */}
-                                <Animated.View style={[styles.slideContainer, styles.currentSlide, currentImageStyle]}>
-                                    <View style={[
-                                        styles.imageFrame,
-                                        imageDimensions && { width: imageDimensions.width, height: imageDimensions.height }
-                                    ]}>
-                                        <Image
-                                            source={{ uri: images[currentIndex] }}
-                                            style={styles.mainImage}
-                                            resizeMode="contain"
-                                        />
-                                        {renderWatermark && imageDimensions && (
-                                            <View style={styles.watermark}>
-                                                {renderWatermark(imageDimensions.width, imageDimensions.height)}
+                                    return (
+                                        <Animated.View
+                                            key={index}
+                                            style={[
+                                                styles.slide,
+                                                { left: index * SCREEN_WIDTH },
+                                                isCurrentImage && currentImageTransform,
+                                            ]}
+                                        >
+                                            <View style={[
+                                                styles.imageFrame,
+                                                imageSize && { width: imageSize.width, height: imageSize.height }
+                                            ]}>
+                                                <Image
+                                                    source={{ uri }}
+                                                    style={styles.image}
+                                                    resizeMode="contain"
+                                                />
+                                                {/* Watermark only on current image */}
+                                                {isCurrentImage && renderWatermark && imageSize && (
+                                                    <View style={styles.watermark}>
+                                                        {renderWatermark(imageSize.width, imageSize.height)}
+                                                    </View>
+                                                )}
                                             </View>
-                                        )}
-                                    </View>
-                                </Animated.View>
-
-                                {/* Next Image */}
-                                {canGoNext && (
-                                    <Animated.View style={[styles.slideContainer, nextImageStyle]}>
-                                        <View style={styles.slideImageWrapper}>
-                                            <Image
-                                                source={{ uri: images[currentIndex + 1] }}
-                                                style={styles.slideImage}
-                                                resizeMode="contain"
-                                            />
-                                        </View>
-                                    </Animated.View>
-                                )}
+                                        </Animated.View>
+                                    );
+                                })}
                             </Animated.View>
                         </GestureDetector>
                     </View>
@@ -392,15 +311,15 @@ export function PhotoViewer({
                         <View style={styles.navRow}>
                             <Pressable
                                 onPress={goToPrevious}
-                                disabled={!canGoPrev}
-                                style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
+                                disabled={currentIndex === 0}
+                                style={[styles.navBtn, currentIndex === 0 && styles.navBtnDisabled]}
                             >
                                 <Icon as={ChevronLeft} size={26} className="text-white" strokeWidth={2.5} />
                             </Pressable>
                             <Pressable
                                 onPress={goToNext}
-                                disabled={!canGoNext}
-                                style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
+                                disabled={currentIndex === images.length - 1}
+                                style={[styles.navBtn, currentIndex === images.length - 1 && styles.navBtnDisabled]}
                             >
                                 <Icon as={ChevronRight} size={26} className="text-white" strokeWidth={2.5} />
                             </Pressable>
@@ -472,35 +391,20 @@ const styles = StyleSheet.create({
     },
     carousel: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        flexDirection: 'row',
     },
-    slideContainer: {
+    slide: {
         position: 'absolute',
         width: SCREEN_WIDTH,
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    currentSlide: {
-        zIndex: 10,
-    },
-    slideImageWrapper: {
-        width: IMAGE_CONTAINER_WIDTH,
-        height: IMAGE_CONTAINER_HEIGHT,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    slideImage: {
-        width: '100%',
-        height: '100%',
-    },
     imageFrame: {
-        position: 'relative',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    mainImage: {
+    image: {
         width: '100%',
         height: '100%',
     },
