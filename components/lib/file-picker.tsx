@@ -50,11 +50,11 @@ export function FilePicker({
 }: FilePickerProps) {
     // Determine if camera should be enabled
     // Enable camera by default if only images are allowed, otherwise disable
-    const shouldEnableCamera = enableCamera !== undefined 
-        ? enableCamera 
-        : (allowedFileTypes.length > 0 && 
-           (allowedFileTypes.includes('image/*') || 
-            allowedFileTypes.every(type => type.startsWith('image/'))));
+    const shouldEnableCamera = enableCamera !== undefined
+        ? enableCamera
+        : (allowedFileTypes.length > 0 &&
+            (allowedFileTypes.includes('image/*') ||
+                allowedFileTypes.every(type => type.startsWith('image/'))));
     // Helper function to detect MIME type from URL
     const detectMimeTypeFromUri = (uri: string): string => {
         // Check if it's a URL (http/https) or file URI and try to detect from extension
@@ -216,7 +216,7 @@ export function FilePicker({
         if (!finalFileData.type || finalFileData.type === 'application/octet-stream') {
             finalFileData.type = fileData.type;
         }
-        
+
         onFileSelected?.(finalFileData);
         setLoading(false);
     };
@@ -245,7 +245,7 @@ export function FilePicker({
             if (!result.canceled && result.assets[0]) {
                 const selectedImage = result.assets[0];
                 const fileName = `photo_${Date.now()}.jpg`;
-                
+
                 const fileData = {
                     uri: selectedImage.uri,
                     name: fileName,
@@ -338,17 +338,6 @@ export function FilePicker({
         }
     };
 
-    const pickFile = async () => {
-        // If camera is enabled, show option modal instead of directly picking file
-        if (shouldEnableCamera) {
-            setOptionOpen(true);
-            return;
-        }
-
-        // Otherwise, directly pick from library
-        await pickFileFromLibrary();
-    };
-
     const removeFile = () => {
         setFile(null);
         onFileRemoved?.();
@@ -410,7 +399,7 @@ export function FilePicker({
                 </View>
             ) : (
                 <Pressable
-                    onPress={pickFile}
+                    onPress={() => setOptionOpen(true)}
                     disabled={loading}
                     className='w-full h-full py-4 px-5 border border-dashed border-border rounded-xl items-center justify-center'
                 >
@@ -450,38 +439,37 @@ export function FilePicker({
                     )}
                 </Pressable>
             )}
-            {shouldEnableCamera && (
-                <Modal
-                    visible={optionOpen}
-                    transparent
-                    animationType="fade"
-                    onRequestClose={() => setOptionOpen(false)}
-                >
-                    <View className="flex-1 justify-center p-4">
-                        <Pressable
-                            className="absolute inset-0 bg-black/50"
-                            onPress={() => setOptionOpen(false)}
-                        />
-                        <View className="bg-background-secondary p-4 rounded-2xl">
-                            <View className="mb-2">
-                                <Text className="text-lg font-semibold">Select File</Text>
-                                <Text className="text-text-secondary mt-1">Choose how you want to add a file</Text>
-                            </View>
-                            <View className='flex-row gap-2 items-center justify-center'>
-                                <Button variant="outline" onPress={takePhoto}>
-                                    <Text>Camera</Text>
-                                </Button>
-                                <Button variant="outline" onPress={pickFileFromLibrary}>
-                                    <Text>File Library</Text>
-                                </Button>
-                                <Button variant="outline" onPress={() => setOptionOpen(false)}>
-                                    <Text>Cancel</Text>
-                                </Button>
-                            </View>
+
+            <Modal
+                visible={optionOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOptionOpen(false)}
+            >
+                <View className="flex-1 justify-center p-4">
+                    <Pressable
+                        className="absolute inset-0 bg-black/50"
+                        onPress={() => setOptionOpen(false)}
+                    />
+                    <View className="bg-background-secondary p-4 rounded-2xl">
+                        <View className="mb-2">
+                            <Text className="text-lg font-semibold">Select File</Text>
+                            <Text className="text-text-secondary mt-1">Choose how you want to add a file</Text>
+                        </View>
+                        <View className='flex-row gap-2 items-center justify-center'>
+                            <Button variant="outline" onPress={takePhoto}>
+                                <Text>Camera</Text>
+                            </Button>
+                            <Button variant="outline" onPress={pickFileFromLibrary}>
+                                <Text>File Library</Text>
+                            </Button>
+                            <Button variant="outline" onPress={() => setOptionOpen(false)}>
+                                <Text>Cancel</Text>
+                            </Button>
                         </View>
                     </View>
-                </Modal>
-            )}
+                </View>
+            </Modal>
         </View>
     );
 }
