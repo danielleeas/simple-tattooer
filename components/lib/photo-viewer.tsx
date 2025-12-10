@@ -9,6 +9,7 @@ import Animated, {
     useDerivedValue,
     interpolate,
     Extrapolate,
+    runOnJS,
 } from 'react-native-reanimated';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -162,30 +163,28 @@ export function PhotoViewer({
                 if (event.translationX > threshold || velocity > 500) {
                     // Swipe right - go to previous
                     if (currentIndex > 0) {
-                        slideX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
+                        slideX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, (finished) => {
                             'worklet';
-                            slideX.value = 0;
-                            savedSlideX.value = 0;
+                            if (finished) {
+                                slideX.value = 0;
+                                savedSlideX.value = 0;
+                                runOnJS(goToPreviousImage)();
+                            }
                         });
-                        // Use a delayed callback to change index
-                        setTimeout(() => {
-                            goToPreviousImage();
-                        }, 50);
                     } else {
                         slideX.value = withSpring(0);
                     }
                 } else if (event.translationX < -threshold || velocity < -500) {
                     // Swipe left - go to next
                     if (currentIndex < images.length - 1) {
-                        slideX.value = withTiming(-SCREEN_WIDTH, { duration: 300 }, () => {
+                        slideX.value = withTiming(-SCREEN_WIDTH, { duration: 300 }, (finished) => {
                             'worklet';
-                            slideX.value = 0;
-                            savedSlideX.value = 0;
+                            if (finished) {
+                                slideX.value = 0;
+                                savedSlideX.value = 0;
+                                runOnJS(goToNextImage)();
+                            }
                         });
-                        // Use a delayed callback to change index
-                        setTimeout(() => {
-                            goToNextImage();
-                        }, 50);
                     } else {
                         slideX.value = withSpring(0);
                     }
