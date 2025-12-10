@@ -171,8 +171,10 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
             }
         });
 
-    // Pan gesture for moving zoomed image
+    // Pan gesture for moving zoomed image (works with mouse drag on emulator)
     const panGesture = Gesture.Pan()
+        .minPointers(1)
+        .maxPointers(1)
         .onUpdate((e) => {
             translateX.value = savedTranslateX.value + e.translationX;
             translateY2.value = savedTranslateY.value + e.translationY;
@@ -180,7 +182,8 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
         .onEnd(() => {
             savedTranslateX.value = translateX.value;
             savedTranslateY.value = translateY2.value;
-        });
+        })
+        .enabled(true);
 
     // Double tap to reset zoom
     const doubleTap = Gesture.Tap()
@@ -194,8 +197,11 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
             savedTranslateY.value = 0;
         });
 
-    // Combine gestures
-    const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture, doubleTap);
+    // Combine gestures - Pan and Pinch can happen simultaneously
+    const composedGesture = Gesture.Race(
+        doubleTap,
+        Gesture.Simultaneous(pinchGesture, panGesture)
+    );
 
     // Animated style for image with zoom and pan
     const imageAnimatedStyle = useAnimatedStyle(() => {
