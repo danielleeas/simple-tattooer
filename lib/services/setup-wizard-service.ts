@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { uploadFileToStorage, FileUpload } from '@/lib/services/storage-service';
+import { generateAndUploadQRCode } from '@/lib/services/qrcode-service';
 import { BASE_URL } from '@/lib/constants';
 import { buildBookingLink } from '@/lib/utils';
 import { Artist } from '@/lib/redux/types';
@@ -119,8 +120,33 @@ export async function saveSetupWizard(
     throw new Error(`Failed to update artist: ${artistError.message}`);
   }
 
+  // 2.5) Generate and upload QR code for booking link
+  if (updateArtist.booking_link) {
+    progress(0.28, 'Generating QR code for booking link');
+    const qrCodeResult = await generateAndUploadQRCode(updateArtist.booking_link, artistId);
+
+    if (qrCodeResult.success && qrCodeResult.url) {
+      // Update artist with QR code URL
+      const { error: qrUpdateError } = await supabase
+        .from('artists')
+        .update({
+          qr_code_url: qrCodeResult.url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', artistId);
+
+      if (qrUpdateError) {
+        console.warn('Failed to save QR code URL:', qrUpdateError.message);
+        // Don't throw error - QR code generation is not critical
+      }
+    } else {
+      console.warn('Failed to generate QR code:', qrCodeResult.error);
+      // Don't throw error - QR code generation is not critical
+    }
+  }
+
   // 3) Replace locations with current selections
-  progress(0.35, 'Saving locations');
+  progress(0.37, 'Saving locations');
   const { error: delLocError } = await supabase
     .from('locations')
     .delete()
@@ -153,7 +179,7 @@ export async function saveSetupWizard(
   }
 
   // 4) Upsert apps
-  progress(0.5, 'Configuring app settings');
+  progress(0.52, 'Configuring app settings');
   const { data: existingApp, error: appFetchErr } = await supabase
     .from('apps')
     .select('id')
@@ -193,7 +219,7 @@ export async function saveSetupWizard(
   }
 
   // 5) Upsert rules
-  progress(0.65, 'Applying booking rules');
+  progress(0.67, 'Applying booking rules');
   const { data: existingRule, error: ruleFetchErr } = await supabase
     .from('rules')
     .select('id')
@@ -244,7 +270,7 @@ export async function saveSetupWizard(
   }
 
   // 6) Upsert flows (calendar and scheduling config)
-  progress(0.8, 'Finalizing availability');
+  progress(0.82, 'Finalizing availability');
   const { data: existingFlow, error: flowFetchErr } = await supabase
     .from('flows')
     .select('id')

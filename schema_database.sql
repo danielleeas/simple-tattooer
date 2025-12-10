@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS artists (
   photo TEXT,
   avatar TEXT,
   booking_link TEXT UNIQUE NOT NULL,
+  qr_code_url TEXT,
   studio_name TEXT,
   social_handler TEXT,
   subscription_active BOOLEAN DEFAULT FALSE,
@@ -809,6 +810,7 @@ RETURNS TABLE (
   avatar TEXT,
   studio_name TEXT,
   booking_link TEXT,
+  qr_code_url TEXT,
   social_handler TEXT,
   subscription_active BOOLEAN,
   subscription_type TEXT,
@@ -821,7 +823,7 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     a.id,
     a.email,
     a.full_name,
@@ -829,6 +831,7 @@ BEGIN
     a.avatar,
     a.studio_name,
     a.booking_link,
+    a.qr_code_url,
     a.social_handler,
     a.subscription_active,
     a.subscription_type,
@@ -838,9 +841,9 @@ BEGIN
     to_jsonb(f.*) as flow,
     to_jsonb(t.*) as template,
     COALESCE(
-      (SELECT jsonb_agg(to_jsonb(l.*)) 
-       FROM locations l 
-       WHERE l.artist_id = a.id), 
+      (SELECT jsonb_agg(to_jsonb(l.*))
+       FROM locations l
+       WHERE l.artist_id = a.id),
       '[]'::jsonb
     ) as locations
   FROM artists a
@@ -862,6 +865,7 @@ RETURNS TABLE (
   avatar TEXT,
   studio_name TEXT,
   booking_link TEXT,
+  qr_code_url TEXT,
   social_handler TEXT,
   subscription_active BOOLEAN,
   subscription_type TEXT,
@@ -882,6 +886,7 @@ BEGIN
     a.avatar,
     a.studio_name,
     a.booking_link,
+    a.qr_code_url,
     a.social_handler,
     a.subscription_active,
     a.subscription_type,
