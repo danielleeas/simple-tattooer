@@ -137,7 +137,7 @@ export default function QuickAppointmentAddPage() {
         }
     };
 
-    const handleContinueWithExistingClient = () => {
+    const handleContinueWithExistingClient = async () => {
         if (existingClientData) {
             setShowExistingClientModal(false);
             // Continue with the existing client data
@@ -147,6 +147,10 @@ export default function QuickAppointmentAddPage() {
                 email: existingClientData.email,
                 phoneNumber: existingClientData.phone_number,
             });
+            await handleCreateQuickAppointment(existingClientData.full_name, existingClientData.email, existingClientData.phone_number);
+
+            toast({ variant: 'success', title: 'Quick appointment created', duration: 2500 });
+            router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
         }
     };
 
@@ -155,121 +159,34 @@ export default function QuickAppointmentAddPage() {
         setExistingClientData(null);
     };
 
-    const handleSave = async () => {
-        // Basic validations (mirror off-days add flow)
-        if (!artist?.id) {
-            toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
-            return;
-        }
-        if (!formData.fullName?.trim()) {
-            toast({ variant: 'error', title: 'Full name is required', duration: 2500 });
-            return;
-        }
-        if (!formData.email?.trim()) {
-            toast({ variant: 'error', title: 'Email is required', duration: 2500 });
-            return;
-        }
-        if (!validateEmail(formData.email)) {
-            toast({ variant: 'error', title: 'Invalid email', description: 'Please enter a valid email address.', duration: 2500 });
-            return;
-        }
-        if (!formData.startTime?.trim()) {
-            toast({ variant: 'error', title: 'Start time is required', duration: 2500 });
-            return;
-        }
-        if (!formData.sessionLength?.trim()) {
-            toast({ variant: 'error', title: 'Session length is required', duration: 2500 });
-            return;
-        }
-
-        // Check if an artist exists with the same email
-        const artistCheck = await checkArtistExists(formData.email.trim().toLowerCase());
-        if (artistCheck.error) {
-            toast({
-                variant: 'error',
-                title: 'Error',
-                description: 'Failed to verify email. Please try again.',
-                duration: 2500
-            });
-            return;
-        }
-        if (artistCheck.exists) {
-            toast({
-                variant: 'error',
-                title: 'Email already exists',
-                description: 'An artist with this email already exists.',
-                duration: 2500
-            });
-            return;
-        }
-
-        // Check if a client exists with the same email
-        const clientCheck = await checkClientExists(formData.email.trim());
-        if (clientCheck.error) {
-            toast({
-                variant: 'error',
-                title: 'Error',
-                description: 'Failed to verify email. Please try again.',
-                duration: 2500
-            });
-            return;
-        }
-        if (clientCheck.exists && clientCheck.client) {
-            // Show modal to confirm using existing client
-            setExistingClientData(clientCheck.client);
-            setShowExistingClientModal(true);
-            return;
-        }
-
-        // Check if a client exists with the same phone number (if phone provided)
-        if (formData.phoneNumber?.trim()) {
-            const clientPhoneCheck = await checkClientExistsByPhone(formData.phoneNumber.trim());
-            if (clientPhoneCheck.error) {
-                toast({
-                    variant: 'error',
-                    title: 'Error',
-                    description: 'Failed to verify phone number. Please try again.',
-                    duration: 2500
-                });
-                return;
-            }
-            if (clientPhoneCheck.exists && clientPhoneCheck.client) {
-                // Show modal to confirm using existing client
-                setExistingClientData(clientPhoneCheck.client);
-                setShowExistingClientModal(true);
-                return;
-            }
-        }
-
-        const dateStr = (() => {
-            const pad = (n: number) => String(n).padStart(2, '0');
-            if (date) {
-                try {
-                    const d = parseYmdFromDb(String(date));
-                    if (!isNaN(d.getTime())) {
-                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                    }
-                } catch { /* noop */ }
-                // Fallback: if string starts with YYYY-MM-DD, take that portion
-                const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date));
-                if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-            }
-            const now = new Date();
-            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        })();
-
-        // Calculate end time from start time and session length
-        const sessionLengthMinutes = parseInt(formData.sessionLength);
-        const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
-
-        if (!endTime) {
-            toast({ variant: 'error', title: 'Invalid time calculation', duration: 2500 });
-            return;
-        }
-
-        // Check for overlapping events before creating
-        setLoading(true);
+    const handleCreateQuickAppointment = async (fullName: string, email: string, phoneNumber: string) => {
         try {
+            setLoading(true);
+            if (!artist?.id) {
+                toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
+                return;
+            }
+            const dateStr = (() => {
+                const pad = (n: number) => String(n).padStart(2, '0');
+                if (date) {
+                    try {
+                        const d = parseYmdFromDb(String(date));
+                        if (!isNaN(d.getTime())) {
+                            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                        }
+                    } catch { /* noop */ }
+                    // Fallback: if string starts with YYYY-MM-DD, take that portion
+                    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date));
+                    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+                }
+                const now = new Date();
+                return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+            })();
+    
+            // Calculate end time from start time and session length
+            const sessionLengthMinutes = parseInt(formData.sessionLength);
+            const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
+
             const break_time = (artist?.flow as any)?.break_time || 0;
             const overlapCheck = await checkEventOverlap({
                 artistId: artist.id,
@@ -299,9 +216,9 @@ export default function QuickAppointmentAddPage() {
             const result = await createQuickAppointment({
                 artistId: artist.id,
                 date: dateStr,
-                fullName: formData.fullName,
-                email: formData.email,
-                phoneNumber: formData.phoneNumber,
+                fullName: fullName,
+                email: email,
+                phoneNumber: phoneNumber,
                 startTime: formData.startTime,
                 sessionLength: parseInt(formData.sessionLength),
                 notes: formData.notes,
@@ -371,6 +288,104 @@ export default function QuickAppointmentAddPage() {
                 });
                 return;
             }
+        } catch (error) {
+            toast({ variant: 'error', title: 'Failed to create quick appointment', duration: 2500 });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        // Basic validations (mirror off-days add flow)
+        if (!artist?.id) {
+            toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
+            return;
+        }
+        if (!formData.fullName?.trim()) {
+            toast({ variant: 'error', title: 'Full name is required', duration: 2500 });
+            return;
+        }
+        if (!formData.email?.trim()) {
+            toast({ variant: 'error', title: 'Email is required', duration: 2500 });
+            return;
+        }
+        if (!validateEmail(formData.email)) {
+            toast({ variant: 'error', title: 'Invalid email', description: 'Please enter a valid email address.', duration: 2500 });
+            return;
+        }
+        if (!formData.startTime?.trim()) {
+            toast({ variant: 'error', title: 'Start time is required', duration: 2500 });
+            return;
+        }
+        if (!formData.sessionLength?.trim()) {
+            toast({ variant: 'error', title: 'Session length is required', duration: 2500 });
+            return;
+        }
+
+        // Check for overlapping events before creating
+        try {
+            setLoading(true);
+
+            // Check if an artist exists with the same email
+            const artistCheck = await checkArtistExists(formData.email.trim().toLowerCase());
+            if (artistCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify email. Please try again.',
+                    duration: 2500
+                });
+                return;
+            }
+            if (artistCheck.exists) {
+                toast({
+                    variant: 'error',
+                    title: 'Email already exists',
+                    description: 'An artist with this email already exists.',
+                    duration: 2500
+                });
+                return;
+            }
+
+            // Check if a client exists with the same email
+            const clientCheck = await checkClientExists(formData.email.trim());
+            if (clientCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify email. Please try again.',
+                    duration: 2500
+                });
+                return;
+            }
+            if (clientCheck.exists && clientCheck.client) {
+                // Show modal to confirm using existing client
+                setExistingClientData(clientCheck.client);
+                setShowExistingClientModal(true);
+                return;
+            }
+
+            // Check if a client exists with the same phone number (if phone provided)
+            if (formData.phoneNumber?.trim()) {
+                const clientPhoneCheck = await checkClientExistsByPhone(formData.phoneNumber.trim());
+                if (clientPhoneCheck.error) {
+                    toast({
+                        variant: 'error',
+                        title: 'Error',
+                        description: 'Failed to verify phone number. Please try again.',
+                        duration: 2500
+                    });
+                    return;
+                }
+                if (clientPhoneCheck.exists && clientPhoneCheck.client) {
+                    // Show modal to confirm using existing client
+                    setExistingClientData(clientPhoneCheck.client);
+                    setShowExistingClientModal(true);
+                    return;
+                }
+            }
+
+            await handleCreateQuickAppointment(formData.fullName.trim(), formData.email.trim(), formData.phoneNumber?.trim() || '');
 
             toast({ variant: 'success', title: 'Quick appointment created', duration: 2500 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
@@ -389,11 +404,11 @@ export default function QuickAppointmentAddPage() {
             setWaiverSignVisible(false);
         } catch (error) {
             console.error('Error handling signed waiver:', error);
-            toast({ 
-                variant: 'error', 
-                title: 'Failed to process waiver', 
+            toast({
+                variant: 'error',
+                title: 'Failed to process waiver',
                 description: error instanceof Error ? error.message : 'Please try again',
-                duration: 3000 
+                duration: 3000
             });
         }
     };
@@ -609,7 +624,7 @@ export default function QuickAppointmentAddPage() {
                 <WaiverSign
                     visible={waiverSignVisible}
                     onClose={() => setWaiverSignVisible(false)}
-                    waiverUrl={formData.waiverUrl? formData.waiverUrl: waiverUrl}
+                    waiverUrl={formData.waiverUrl ? formData.waiverUrl : waiverUrl}
                     onSign={handleSignWaiver}
                     artistId={artist?.id}
                 />

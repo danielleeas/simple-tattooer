@@ -149,7 +149,7 @@ export default function ClientAppointments() {
                             id: p.id,
                             name: String(p.title || 'Untitled Project'),
                             waiverSigned: Boolean(p.waiver_signed),
-                            waiverUrl: String(p.waiver_url || null),
+                            waiverUrl: p.waiver_url || undefined,
                             drawingImageUrl: drawingRow?.image_url || undefined,
                             sessions: (p.sessions || []).map((s: any) => ({
                                 id: s.id,
@@ -411,10 +411,18 @@ export default function ClientAppointments() {
         router.push('/artist/menu');
     };
 
-    const handleVisibleWaiverModal = (waiverUrl: string | undefined, signedUrl: string | undefined) => {
-        if(!waiverUrl && !signedUrl) return;
+    const handleVisibleWaiverModal = (waiverUrl: string | null, signedUrl: string | null) => {
+        console.log(waiverUrl, signedUrl)
+        if(!waiverUrl && !signedUrl) {
+            toast({
+                variant: 'error',
+                title: 'No waiver found',
+                description: 'No waiver found for this project',
+            });
+            return;
+        }
 
-        console.log(waiverUrl)
+        console.log(signedUrl)
         setVisibleWaiverUrl(signedUrl || waiverUrl || null)
         setVisibleWaiverModal(true);
     }
@@ -571,7 +579,7 @@ export default function ClientAppointments() {
 
                                                             <View className="gap-2">
                                                                 <Text variant="h4">Sign Waiver</Text>
-                                                                <Pressable onPress={() => handleVisibleWaiverModal(artist?.rule?.waiver_text, project?.waiverUrl)} className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border">
+                                                                <Pressable onPress={() => handleVisibleWaiverModal(artist?.rule?.waiver_text || null, project?.waiverUrl || null)} className="flex-row gap-2 bg-background-secondary p-4 rounded-lg border border-border">
                                                                     <View className="h-12 w-12 rounded-full bg-foreground items-center justify-center">
                                                                         <Icon as={FileText} strokeWidth={2} size={24} className="text-background" />
                                                                     </View>
