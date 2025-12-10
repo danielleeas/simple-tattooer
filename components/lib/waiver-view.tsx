@@ -5,7 +5,9 @@ import Animated, {
     withTiming,
     withSpring,
     Easing,
+    withDecay,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Text } from "@/components/ui/text";
 import { Icon } from "@/components/ui/icon";
 import { X } from "lucide-react-native";
@@ -62,6 +64,14 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
     const backdropOpacity = useSharedValue(0);
     const { top, bottom } = useSafeAreaInsets();
 
+    // Image zoom and pan state
+    const scale = useSharedValue(1);
+    const savedScale = useSharedValue(1);
+    const translateX = useSharedValue(0);
+    const translateY2 = useSharedValue(0);
+    const savedTranslateX = useSharedValue(0);
+    const savedTranslateY = useSharedValue(0);
+
     const handleClose = () => {
         // Animate backdrop fade out
         backdropOpacity.value = withTiming(0, {
@@ -96,6 +106,13 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
             } else if (detectedFileType === 'image') {
                 setImageLoading(true);
                 setImageError(null);
+                // Reset zoom and pan for image
+                scale.value = 1;
+                savedScale.value = 1;
+                translateX.value = 0;
+                translateY2.value = 0;
+                savedTranslateX.value = 0;
+                savedTranslateY.value = 0;
             }
 
             // Animate backdrop fade in
@@ -129,6 +146,65 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
     const modalStyle = useAnimatedStyle(() => {
         return {
             transform: [{ translateY: translateY.value }],
+        };
+    });
+
+    // Pinch gesture for zooming
+    const pinchGesture = Gesture.Pinch()
+        .onUpdate((e) => {
+            scale.value = savedScale.value * e.scale;
+        })
+        .onEnd(() => {
+            // Limit zoom between 1x and 3x
+            if (scale.value < 1) {
+                scale.value = withSpring(1);
+                savedScale.value = 1;
+                translateX.value = withSpring(0);
+                translateY2.value = withSpring(0);
+                savedTranslateX.value = 0;
+                savedTranslateY.value = 0;
+            } else if (scale.value > 3) {
+                scale.value = withSpring(3);
+                savedScale.value = 3;
+            } else {
+                savedScale.value = scale.value;
+            }
+        });
+
+    // Pan gesture for moving zoomed image
+    const panGesture = Gesture.Pan()
+        .onUpdate((e) => {
+            translateX.value = savedTranslateX.value + e.translationX;
+            translateY2.value = savedTranslateY.value + e.translationY;
+        })
+        .onEnd(() => {
+            savedTranslateX.value = translateX.value;
+            savedTranslateY.value = translateY2.value;
+        });
+
+    // Double tap to reset zoom
+    const doubleTap = Gesture.Tap()
+        .numberOfTaps(2)
+        .onEnd(() => {
+            scale.value = withSpring(1);
+            savedScale.value = 1;
+            translateX.value = withSpring(0);
+            translateY2.value = withSpring(0);
+            savedTranslateX.value = 0;
+            savedTranslateY.value = 0;
+        });
+
+    // Combine gestures
+    const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture, doubleTap);
+
+    // Animated style for image with zoom and pan
+    const imageAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [
+                { translateX: translateX.value },
+                { translateY: translateY2.value },
+                { scale: scale.value },
+            ],
         };
     });
 
@@ -259,35 +335,34 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
                                 </>
                             )}
 
-                            {/* Image Viewer */}
+                            {/* Image Viewer with Pinch-to-Zoom */}
                             {fileType === 'image' && waiverUrl && !imageError && (
-                                <ScrollView
-                                    contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
-                                    maximumZoomScale={3}
-                                    minimumZoomScale={1}
-                                    showsVerticalScrollIndicator={false}
-                                    showsHorizontalScrollIndicator={false}
-                                >
-                                    <Image
-                                        source={{ uri: waiverUrl }}
-                                        style={{
-                                            width: screenWidth,
-                                            height: screenHeight - top - bottom - 80,
-                                        }}
-                                        resizeMode="contain"
-                                        onLoadStart={() => {
-                                            setImageLoading(true);
-                                            setImageError(null);
-                                        }}
-                                        onLoad={() => {
-                                            setImageLoading(false);
-                                        }}
-                                        onError={() => {
-                                            setImageLoading(false);
-                                            setImageError('Failed to load image. Please try again.');
-                                        }}
-                                    />
-                                </ScrollView>
+                                <GestureDetector gesture={composedGesture}>
+                                    <View className="flex-1 items-center justify-center" style={{ width: screenWidth }}>
+                                        <Animated.Image
+                                            source={{ uri: waiverUrl }}
+                                            style={[
+                                                {
+                                                    width: screenWidth,
+                                                    height: screenHeight - top - bottom - 80,
+                                                },
+                                                imageAnimatedStyle,
+                                            ]}
+                                            resizeMode="contain"
+                                            onLoadStart={() => {
+                                                setImageLoading(true);
+                                                setImageError(null);
+                                            }}
+                                            onLoad={() => {
+                                                setImageLoading(false);
+                                            }}
+                                            onError={() => {
+                                                setImageLoading(false);
+                                                setImageError('Failed to load image. Please try again.');
+                                            }}
+                                        />
+                                    </View>
+                                </GestureDetector>
                             )}
                         </View>
                     </View>
