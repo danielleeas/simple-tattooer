@@ -174,7 +174,7 @@ export default function YourFlow() {
     };
 
     const handleMenu = () => {
-        // router.push('/production/menu');
+        router.push('/artist/menu');
     };
 
     const updateWorkDayData = (updates: Partial<WorkDayDataProps>) => {

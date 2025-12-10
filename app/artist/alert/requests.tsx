@@ -17,7 +17,7 @@ export default function Requests() {
     };
 
     const handleMenu = () => {
-        router.push('/preview/menu');
+        router.push('/artist/menu');
     };
 
     const handleHome = () => {

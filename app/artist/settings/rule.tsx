@@ -198,7 +198,7 @@ export default function YourRules() {
     };
 
     const handleMenu = () => {
-        // router.push('/production/menu');
+        router.push('/artist/menu');
     };
 
     const updateDepositData = (updates: Partial<DepositDataProps>) => {

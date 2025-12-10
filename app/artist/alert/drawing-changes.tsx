@@ -21,7 +21,7 @@ export default function DrawingChanges() {
     }
 
     const handleMenu = () => {
-        router.push('/preview/menu');
+        router.push('/artist/menu');
     };
 
     return (
