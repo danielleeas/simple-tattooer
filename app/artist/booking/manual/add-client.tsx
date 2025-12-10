@@ -275,13 +275,13 @@ export default function AddClient() {
 				showCloseButton={false}
 				closeOnBackdrop={false}
 			>
-				<View className="px-6 py-6 bg-background">
+				<View className="px-6 py-6 bg-background-secondary rounded-lg">
 					<View className="items-center gap-4 mb-6">
 						<Text variant="h4" className="text-center">Client Already Exists</Text>
 						<Text className="text-center text-text-secondary">
 							A client with this {existingClientData?.email === formData.email ? 'email' : 'phone number'} already exists.
 						</Text>
-						<View className="mt-2 w-full bg-muted rounded-lg p-4">
+						<View className="mt-2 w-full bg-background rounded-lg p-4">
 							<Text variant="h6" className="mb-2">Existing Client:</Text>
 							<Text className="text-text-secondary">Name: {existingClientData?.full_name}</Text>
 							<Text className="text-text-secondary">Email: {existingClientData?.email}</Text>
