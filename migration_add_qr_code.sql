@@ -1,5 +1,8 @@
 -- Migration to add QR code URL column to artists table
 -- Run this migration on your Supabase database if you already have the artists table created
+--
+-- QR codes are generated as BMP (Bitmap) images for maximum email compatibility
+-- BMP format works perfectly in ALL email clients (Gmail, Outlook, Apple Mail, etc.)
 
 -- Add qr_code_url column to artists table
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS qr_code_url TEXT;
