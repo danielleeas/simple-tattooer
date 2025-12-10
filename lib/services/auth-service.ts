@@ -24,6 +24,27 @@ export const checkArtistExists = async (email: string): Promise<{ exists: boolea
   }
 };
 
+// Check if artist already exists by phone number
+export const checkArtistExistsByPhone = async (phoneNumber: string): Promise<{ exists: boolean; error?: any }> => {
+  try {
+    const { data, error } = await supabase
+      .from('artists')
+      .select('id, phone_number')
+      .eq('phone_number', phoneNumber)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking artist existence by phone:', error);
+      return { exists: false, error };
+    }
+
+    return { exists: !!data, error: null };
+  } catch (error) {
+    console.error('Error checking artist existence by phone:', error);
+    return { exists: false, error };
+  }
+};
+
 // Sign up user with Supabase Auth
 export const signUpUser = async (signupData: SignupData): Promise<{ user: any; session: any; error: any }> => {
   try {
