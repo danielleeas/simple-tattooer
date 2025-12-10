@@ -61,7 +61,7 @@ export default function Consults() {
                                         
                                         {/* Remaining requests - two per row */}
                                         <View className="flex-1 items-center justify-center">
-                                            <Text>No consults found</Text>
+                                        <Text className="text-center max-w-[300px]">No New Consult Requests Right Now — Enjoy your day!</Text>
                                         </View>
                                     </View>
                                 </View>

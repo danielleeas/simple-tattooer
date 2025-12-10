@@ -96,8 +96,8 @@ export default function Menu() {
                                             <Pressable onPress={handleNewAppointment} className='items-center justify-center gap-1'>
                                                 <Image source={PLUS_IMAGE} style={ICON_STYLE} />
                                                 <View className="items-center">
-                                                    <Text variant="h6" className='uppercase'>new</Text>
-                                                    <Text variant="h6" className='uppercase leading-none'>appointment</Text>
+                                                    <Text variant="h6" className='uppercase'>auto</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>booking</Text>
                                                 </View>
                                             </Pressable>
                                         </View>
@@ -106,7 +106,7 @@ export default function Menu() {
                                                 <Image source={PLUS_IMAGE} style={ICON_STYLE} />
                                                 <View className="items-center">
                                                     <Text variant="h6" className='uppercase'>Manual</Text>
-                                                    <Text variant="h6" className='uppercase leading-none'>appointment</Text>
+                                                    <Text variant="h6" className='uppercase leading-none'>booking</Text>
                                                 </View>
                                             </Pressable>
                                         </View>

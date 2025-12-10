@@ -59,7 +59,7 @@ export default function CancelReschedule() {
 
                                     <View className="gap-6">
                                         <View className="flex-1 items-center justify-center">
-                                            <Text>No cancel reschedules found</Text>
+                                        <Text className="text-center max-w-[300px]">No Cancellations Or Reschedule Requests Right Now — Breathe Easy</Text>
                                         </View>
                                     </View>
                                 </View>

@@ -61,9 +61,6 @@ export default function Messages() {
                                             resizeMode="contain"
                                         />
                                         <Text variant="h6" className="text-center uppercase">messages</Text>
-                                        <Pressable onPress={() => setMessageAllClientsModalOpen(true)} className="absolute bottom-0 right-0 px-3 py-2 border border-border-secondary rounded-full">
-                                            <Text className="text-xs text-text-secondary" style={{ lineHeight: 14 }}>Message all  clients</Text>
-                                        </Pressable>
                                     </View>
 
                                     <View className="flex-1">
@@ -82,6 +79,11 @@ export default function Messages() {
                                     </View>
                                 </View>
                             </ScrollView>
+                        </View>
+                        <View className="items-center justify-center w-full">
+                            <Pressable onPress={() => setMessageAllClientsModalOpen(true)} className="px-3 py-2 border border-border-secondary rounded-full">
+                                <Text className="text-xs text-text-secondary" style={{ lineHeight: 14 }}>Message all  clients</Text>
+                            </Pressable>
                         </View>
                     </View>
 

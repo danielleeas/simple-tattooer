@@ -61,7 +61,7 @@ export default function DrawingChanges() {
                                         
                                         {/* Remaining requests - two per row */}
                                         <View className="flex-1 items-center justify-center">
-                                            <Text>No drawing changes found</Text>
+                                        <Text className="text-center max-w-[300px]">No Drawing Changes Right Now — You're All Caught Up!</Text>
                                         </View>
                                     </View>
                                 </View>

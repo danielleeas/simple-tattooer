@@ -61,7 +61,7 @@ export default function Requests() {
                                         
                                         {/* Remaining requests - two per row */}
                                         <View className="flex-1 items-center justify-center">
-                                            <Text>No requests found</Text>
+                                        <Text className="text-center max-w-[300px]">No New Booking Requests Right Now — Enjoy The Quiet While It Lasts</Text>
                                         </View>
                                     </View>
                                 </View>
