@@ -44,6 +44,9 @@ export function PhotoViewer({
     // Carousel position - represents which image is centered
     const translateX = useSharedValue(0);
 
+    // Shared value for current index (needed for worklet access)
+    const currentIndexShared = useSharedValue(initialIndex);
+
     // Zoom and pan for current image
     const scale = useSharedValue(1);
     const savedScale = useSharedValue(1);
@@ -91,6 +94,7 @@ export function PhotoViewer({
     // Initialize when opened
     useEffect(() => {
         if (visible) {
+            currentIndexShared.value = initialIndex;
             setCurrentIndex(initialIndex);
             translateX.value = -initialIndex * SCREEN_WIDTH;
             resetZoom();
@@ -108,6 +112,7 @@ export function PhotoViewer({
             duration,
             easing: Easing.out(Easing.cubic),
         });
+        currentIndexShared.value = index;
         setCurrentIndex(index);
         resetZoom();
     }, [resetZoom]);
@@ -175,7 +180,7 @@ export function PhotoViewer({
                 panY.value = savedPanY.value + e.translationY;
             } else {
                 // Not zoomed: move carousel
-                translateX.value = -currentIndex * SCREEN_WIDTH + e.translationX;
+                translateX.value = -currentIndexShared.value * SCREEN_WIDTH + e.translationX;
             }
         })
         .onEnd((e) => {
@@ -191,7 +196,7 @@ export function PhotoViewer({
     // Double tap to zoom
     const doubleTapGesture = Gesture.Tap()
         .numberOfTaps(2)
-        .onEnd((e) => {
+        .onEnd(() => {
             'worklet';
             if (scale.value > 1) {
                 // Zoom out
@@ -268,8 +273,8 @@ export function PhotoViewer({
                     </View>
 
                     {/* Carousel - All images rendered */}
-                    <View style={styles.carouselWrapper}>
-                        <GestureDetector gesture={composedGesture}>
+                    <GestureDetector gesture={composedGesture}>
+                        <Animated.View style={styles.carouselWrapper}>
                             <Animated.View style={[styles.carousel, carouselStyle]}>
                                 {images.map((uri, index) => {
                                     const isCurrentImage = index === currentIndex;
@@ -304,8 +309,8 @@ export function PhotoViewer({
                                     );
                                 })}
                             </Animated.View>
-                        </GestureDetector>
-                    </View>
+                        </Animated.View>
+                    </GestureDetector>
 
                     {/* Navigation Buttons */}
                     {images.length > 1 && (
