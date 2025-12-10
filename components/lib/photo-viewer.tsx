@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Modal, View, Image, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -7,9 +7,8 @@ import Animated, {
     withTiming,
     withSpring,
     useDerivedValue,
-    interpolate,
-    Extrapolate,
     runOnJS,
+    Easing,
 } from 'react-native-reanimated';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -18,6 +17,8 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
+const SWIPE_VELOCITY_THRESHOLD = 400;
 
 interface PhotoViewerProps {
     visible: boolean;
@@ -37,7 +38,7 @@ export function PhotoViewer({
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
-    // Animated values for zoom and pan
+    // Animated values for zoom and pan (current image only)
     const scale = useSharedValue(1);
     const savedScale = useSharedValue(1);
     const translationX = useSharedValue(0);
@@ -45,24 +46,19 @@ export function PhotoViewer({
     const savedTranslationX = useSharedValue(0);
     const savedTranslationY = useSharedValue(0);
 
-    // Carousel slide position
-    const slideX = useSharedValue(0);
-    const savedSlideX = useSharedValue(0);
+    // Carousel offset - moves all images together
+    const carouselOffset = useSharedValue(0);
 
-    // Derived value to track if zoomed (for watermark visibility)
-    const isZoomed = useDerivedValue(() => {
-        return scale.value > 1.1;
-    });
+    // Derived value to track if zoomed
+    const isZoomed = useDerivedValue(() => scale.value > 1.1);
 
-    const resetImageTransform = useCallback(() => {
-        scale.value = withTiming(1);
+    const resetZoom = useCallback(() => {
+        scale.value = withTiming(1, { duration: 200 });
         savedScale.value = 1;
-        translationX.value = withTiming(0);
-        translationY.value = withTiming(0);
+        translationX.value = withTiming(0, { duration: 200 });
+        translationY.value = withTiming(0, { duration: 200 });
         savedTranslationX.value = 0;
         savedTranslationY.value = 0;
-        slideX.value = 0;
-        savedSlideX.value = 0;
     }, []);
 
     const loadImageDimensions = useCallback((imageUri: string) => {
@@ -70,8 +66,8 @@ export function PhotoViewer({
             imageUri,
             (width, height) => {
                 const aspectRatio = width / height;
-                const maxWidth = SCREEN_WIDTH - 40;
-                const maxHeight = SCREEN_HEIGHT - 200;
+                const maxWidth = SCREEN_WIDTH - 32;
+                const maxHeight = SCREEN_HEIGHT - 220;
 
                 let optimalWidth = maxWidth;
                 let optimalHeight = maxWidth / aspectRatio;
@@ -83,9 +79,8 @@ export function PhotoViewer({
 
                 setImageDimensions({ width: optimalWidth, height: optimalHeight });
             },
-            (error) => {
-                console.error('Error getting image dimensions:', error);
-                setImageDimensions({ width: SCREEN_WIDTH - 40, height: SCREEN_HEIGHT - 200 });
+            () => {
+                setImageDimensions({ width: SCREEN_WIDTH - 32, height: SCREEN_HEIGHT - 220 });
             }
         );
     }, []);
@@ -93,7 +88,8 @@ export function PhotoViewer({
     React.useEffect(() => {
         if (visible && images[currentIndex]) {
             loadImageDimensions(images[currentIndex]);
-            resetImageTransform();
+            carouselOffset.value = 0;
+            resetZoom();
         }
     }, [visible, currentIndex, images]);
 
@@ -103,68 +99,62 @@ export function PhotoViewer({
         }
     }, [visible, initialIndex]);
 
-    const goToNextImage = useCallback(() => {
+    // Navigation handlers
+    const navigateToIndex = useCallback((newIndex: number) => {
+        if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
+            setCurrentIndex(newIndex);
+            carouselOffset.value = 0;
+            resetZoom();
+        }
+    }, [currentIndex, images.length, resetZoom]);
+
+    const goToNext = useCallback(() => {
         if (currentIndex < images.length - 1) {
-            setCurrentIndex(currentIndex + 1);
-            resetImageTransform();
+            navigateToIndex(currentIndex + 1);
         }
-    }, [currentIndex, images.length, resetImageTransform]);
+    }, [currentIndex, images.length, navigateToIndex]);
 
-    const goToPreviousImage = useCallback(() => {
+    const goToPrevious = useCallback(() => {
         if (currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-            resetImageTransform();
+            navigateToIndex(currentIndex - 1);
         }
-    }, [currentIndex, resetImageTransform]);
+    }, [currentIndex, navigateToIndex]);
 
-    // Handler for swipe navigation - called from JS thread
-    const handleSwipeEnd = useCallback((direction: 'left' | 'right' | 'none', translationAmount: number, velocityAmount: number) => {
-        const threshold = SCREEN_WIDTH * 0.25;
-
-        if (direction === 'right' && (translationAmount > threshold || velocityAmount > 500)) {
-            // Swipe right - go to previous
-            if (currentIndex > 0) {
-                slideX.value = withTiming(SCREEN_WIDTH, { duration: 250 }, () => {
+    // Handle swipe end on JS thread
+    const handleSwipeComplete = useCallback((direction: 'next' | 'prev' | 'none') => {
+        if (direction === 'next' && currentIndex < images.length - 1) {
+            // Animate out to left, then update index
+            carouselOffset.value = withTiming(
+                -SCREEN_WIDTH,
+                { duration: 250, easing: Easing.out(Easing.cubic) },
+                () => {
                     'worklet';
-                    slideX.value = 0;
-                    savedSlideX.value = 0;
-                });
-                // Delay the state update slightly for smooth animation
-                setTimeout(() => {
-                    setCurrentIndex(prev => Math.max(0, prev - 1));
-                    resetImageTransform();
-                }, 200);
-            } else {
-                slideX.value = withSpring(0);
-            }
-        } else if (direction === 'left' && (Math.abs(translationAmount) > threshold || Math.abs(velocityAmount) > 500)) {
-            // Swipe left - go to next
-            if (currentIndex < images.length - 1) {
-                slideX.value = withTiming(-SCREEN_WIDTH, { duration: 250 }, () => {
+                    carouselOffset.value = 0;
+                }
+            );
+            setTimeout(() => navigateToIndex(currentIndex + 1), 220);
+        } else if (direction === 'prev' && currentIndex > 0) {
+            // Animate out to right, then update index
+            carouselOffset.value = withTiming(
+                SCREEN_WIDTH,
+                { duration: 250, easing: Easing.out(Easing.cubic) },
+                () => {
                     'worklet';
-                    slideX.value = 0;
-                    savedSlideX.value = 0;
-                });
-                // Delay the state update slightly for smooth animation
-                setTimeout(() => {
-                    setCurrentIndex(prev => Math.min(images.length - 1, prev + 1));
-                    resetImageTransform();
-                }, 200);
-            } else {
-                slideX.value = withSpring(0);
-            }
+                    carouselOffset.value = 0;
+                }
+            );
+            setTimeout(() => navigateToIndex(currentIndex - 1), 220);
         } else {
-            // Spring back if threshold not met
-            slideX.value = withSpring(0);
+            // Snap back
+            carouselOffset.value = withSpring(0, { damping: 20, stiffness: 200 });
         }
-        savedSlideX.value = 0;
-    }, [currentIndex, images.length, resetImageTransform]);
+    }, [currentIndex, images.length, navigateToIndex]);
 
     // Pinch gesture for zoom
     const pinchGesture = Gesture.Pinch()
-        .onUpdate((event) => {
+        .onUpdate((e) => {
             'worklet';
-            scale.value = Math.max(MIN_SCALE, Math.min(savedScale.value * event.scale, MAX_SCALE));
+            scale.value = Math.max(MIN_SCALE, Math.min(savedScale.value * e.scale, MAX_SCALE));
         })
         .onEnd(() => {
             'worklet';
@@ -179,39 +169,45 @@ export function PhotoViewer({
             }
         });
 
-    // Pan gesture for dragging when zoomed OR swiping when not zoomed
+    // Pan gesture - handles both zoom panning and carousel swiping
     const panGesture = Gesture.Pan()
-        .onUpdate((event) => {
+        .onUpdate((e) => {
             'worklet';
             if (savedScale.value > 1) {
-                // When zoomed, allow panning the image
-                translationX.value = savedTranslationX.value + event.translationX;
-                translationY.value = savedTranslationY.value + event.translationY;
+                // Zoomed: pan the image
+                translationX.value = savedTranslationX.value + e.translationX;
+                translationY.value = savedTranslationY.value + e.translationY;
             } else {
-                // When not zoomed, allow horizontal swiping for navigation
-                slideX.value = savedSlideX.value + event.translationX;
+                // Not zoomed: swipe carousel
+                carouselOffset.value = e.translationX;
             }
         })
-        .onEnd((event) => {
+        .onEnd((e) => {
             'worklet';
             if (savedScale.value > 1) {
-                // Save pan position when zoomed
                 savedTranslationX.value = translationX.value;
                 savedTranslationY.value = translationY.value;
             } else {
-                // Delegate swipe handling to JS thread
-                const direction = event.translationX > 0 ? 'right' : event.translationX < 0 ? 'left' : 'none';
-                runOnJS(handleSwipeEnd)(direction, event.translationX, event.velocityX);
+                // Determine swipe direction
+                const swipedLeft = e.translationX < -SWIPE_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
+                const swipedRight = e.translationX > SWIPE_THRESHOLD || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
+
+                if (swipedLeft) {
+                    runOnJS(handleSwipeComplete)('next');
+                } else if (swipedRight) {
+                    runOnJS(handleSwipeComplete)('prev');
+                } else {
+                    runOnJS(handleSwipeComplete)('none');
+                }
             }
         });
 
     // Double tap to zoom
     const doubleTapGesture = Gesture.Tap()
         .numberOfTaps(2)
-        .onEnd((event) => {
+        .onEnd((e) => {
             'worklet';
             if (scale.value > 1) {
-                // Zoom out
                 scale.value = withTiming(1);
                 savedScale.value = 1;
                 translationX.value = withTiming(0);
@@ -219,63 +215,60 @@ export function PhotoViewer({
                 savedTranslationX.value = 0;
                 savedTranslationY.value = 0;
             } else {
-                // Zoom in to 2x at tap position
-                const focalX = event.x - SCREEN_WIDTH / 2;
-                const focalY = event.y - SCREEN_HEIGHT / 2;
-
-                scale.value = withTiming(2);
-                savedScale.value = 2;
-                translationX.value = withTiming(-focalX);
-                translationY.value = withTiming(-focalY);
-                savedTranslationX.value = -focalX;
-                savedTranslationY.value = -focalY;
+                const focalX = e.x - SCREEN_WIDTH / 2;
+                const focalY = e.y - SCREEN_HEIGHT / 2;
+                scale.value = withTiming(2.5);
+                savedScale.value = 2.5;
+                translationX.value = withTiming(-focalX * 1.5);
+                translationY.value = withTiming(-focalY * 1.5);
+                savedTranslationX.value = -focalX * 1.5;
+                savedTranslationY.value = -focalY * 1.5;
             }
         });
 
-    // Compose gestures
+    // Combine gestures
     const composedGesture = Gesture.Race(
         doubleTapGesture,
         Gesture.Simultaneous(pinchGesture, panGesture)
     );
 
-    const animatedStyle = useAnimatedStyle(() => ({
+    // Animated styles for current image (zoom + pan + carousel offset)
+    const currentImageStyle = useAnimatedStyle(() => ({
         transform: [
-            { translateX: slideX.value + translationX.value },
+            { translateX: carouselOffset.value + translationX.value },
             { translateY: translationY.value },
             { scale: scale.value },
         ],
     }));
 
-    // Watermark opacity style - hide when zoomed
-    const watermarkAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: withTiming(isZoomed.value ? 0 : 1, { duration: 200 }),
+    // Animated style for previous image (left side)
+    const prevImageStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: carouselOffset.value - SCREEN_WIDTH },
+        ],
+        opacity: 1,
     }));
 
-    // Previous/Next image preview opacity
-    const prevImageOpacity = useAnimatedStyle(() => ({
-        opacity: interpolate(
-            slideX.value,
-            [0, SCREEN_WIDTH / 2],
-            [0, 0.3],
-            Extrapolate.CLAMP
-        ),
+    // Animated style for next image (right side)
+    const nextImageStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: carouselOffset.value + SCREEN_WIDTH },
+        ],
+        opacity: 1,
     }));
 
-    const nextImageOpacity = useAnimatedStyle(() => ({
-        opacity: interpolate(
-            slideX.value,
-            [-SCREEN_WIDTH / 2, 0],
-            [0.3, 0],
-            Extrapolate.CLAMP
-        ),
+    // Watermark opacity
+    const watermarkStyle = useAnimatedStyle(() => ({
+        opacity: withTiming(isZoomed.value ? 0 : 1, { duration: 150 }),
     }));
 
-    const handleClose = () => {
-        resetImageTransform();
+    const handleClose = useCallback(() => {
+        resetZoom();
+        carouselOffset.value = 0;
         onClose();
-    };
+    }, [onClose, resetZoom]);
 
-    const canGoPrevious = currentIndex > 0;
+    const canGoPrev = currentIndex > 0;
     const canGoNext = currentIndex < images.length - 1;
 
     if (!visible) return null;
@@ -288,52 +281,54 @@ export function PhotoViewer({
             onRequestClose={handleClose}
             statusBarTranslucent
         >
-            <GestureHandlerRootView style={{ flex: 1 }}>
+            <GestureHandlerRootView style={styles.root}>
                 <View style={styles.container}>
-                    {/* Header with close button and counter */}
+                    {/* Header */}
                     <View style={styles.header}>
-                        <View style={styles.counterContainer}>
-                            <Text className="text-white text-base font-semibold">
+                        <View style={styles.counter}>
+                            <Text className="text-white text-base font-bold">
                                 {currentIndex + 1}
                             </Text>
-                            <Text className="text-white/50 text-base"> / </Text>
-                            <Text className="text-white/70 text-base">
+                            <Text className="text-white/40 text-base mx-1">/</Text>
+                            <Text className="text-white/60 text-base">
                                 {images.length}
                             </Text>
                         </View>
-                        <Pressable onPress={handleClose} style={styles.closeButton}>
-                            <View style={styles.closeButtonInner}>
-                                <Icon as={X} size={24} className="text-white" strokeWidth={2.5} />
+                        <Pressable onPress={handleClose} style={styles.closeBtn}>
+                            <View style={styles.closeBtnInner}>
+                                <Icon as={X} size={22} className="text-white" strokeWidth={2.5} />
                             </View>
                         </Pressable>
                     </View>
 
-                    {/* Main image viewer with carousel */}
-                    <View style={styles.imageContainer}>
+                    {/* Carousel */}
+                    <View style={styles.carouselWrapper}>
                         <GestureDetector gesture={composedGesture}>
-                            <Animated.View style={[styles.carouselContainer]}>
-                                {/* Previous image preview */}
-                                {canGoPrevious && (
-                                    <Animated.View style={[styles.previewImageLeft, prevImageOpacity]}>
-                                        <Image
-                                            source={{ uri: images[currentIndex - 1] }}
-                                            style={styles.previewImage}
-                                            resizeMode="cover"
-                                        />
+                            <Animated.View style={styles.carousel}>
+                                {/* Previous Image */}
+                                {canGoPrev && (
+                                    <Animated.View style={[styles.slideContainer, prevImageStyle]}>
+                                        <View style={styles.slideImageWrapper}>
+                                            <Image
+                                                source={{ uri: images[currentIndex - 1] }}
+                                                style={styles.slideImage}
+                                                resizeMode="contain"
+                                            />
+                                        </View>
                                     </Animated.View>
                                 )}
 
-                                {/* Current image */}
-                                <Animated.View style={[animatedStyle, styles.imageWrapper]}>
+                                {/* Current Image */}
+                                <Animated.View style={[styles.slideContainer, styles.currentSlide, currentImageStyle]}>
                                     {imageDimensions && (
-                                        <View style={[styles.imageContent, { width: imageDimensions.width, height: imageDimensions.height }]}>
+                                        <View style={[styles.imageFrame, { width: imageDimensions.width, height: imageDimensions.height }]}>
                                             <Image
                                                 source={{ uri: images[currentIndex] }}
                                                 style={styles.mainImage}
                                                 resizeMode="contain"
                                             />
                                             {renderWatermark && (
-                                                <Animated.View style={[styles.watermarkContainer, watermarkAnimatedStyle]}>
+                                                <Animated.View style={[styles.watermark, watermarkStyle]}>
                                                     {renderWatermark(imageDimensions.width, imageDimensions.height)}
                                                 </Animated.View>
                                             )}
@@ -341,61 +336,63 @@ export function PhotoViewer({
                                     )}
                                 </Animated.View>
 
-                                {/* Next image preview */}
+                                {/* Next Image */}
                                 {canGoNext && (
-                                    <Animated.View style={[styles.previewImageRight, nextImageOpacity]}>
-                                        <Image
-                                            source={{ uri: images[currentIndex + 1] }}
-                                            style={styles.previewImage}
-                                            resizeMode="cover"
-                                        />
+                                    <Animated.View style={[styles.slideContainer, nextImageStyle]}>
+                                        <View style={styles.slideImageWrapper}>
+                                            <Image
+                                                source={{ uri: images[currentIndex + 1] }}
+                                                style={styles.slideImage}
+                                                resizeMode="contain"
+                                            />
+                                        </View>
                                     </Animated.View>
                                 )}
                             </Animated.View>
                         </GestureDetector>
                     </View>
 
-                    {/* Navigation arrows - only show when not zoomed */}
+                    {/* Navigation Buttons */}
                     {images.length > 1 && (
-                        <View style={styles.navigationContainer}>
+                        <View style={styles.navRow}>
                             <Pressable
-                                onPress={goToPreviousImage}
-                                disabled={!canGoPrevious}
-                                style={[styles.navButton, !canGoPrevious && styles.navButtonDisabled]}
+                                onPress={goToPrevious}
+                                disabled={!canGoPrev}
+                                style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
                             >
-                                <Icon as={ChevronLeft} size={28} className="text-white" strokeWidth={2.5} />
+                                <Icon as={ChevronLeft} size={26} className="text-white" strokeWidth={2.5} />
                             </Pressable>
                             <Pressable
-                                onPress={goToNextImage}
+                                onPress={goToNext}
                                 disabled={!canGoNext}
-                                style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}
+                                style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
                             >
-                                <Icon as={ChevronRight} size={28} className="text-white" strokeWidth={2.5} />
+                                <Icon as={ChevronRight} size={26} className="text-white" strokeWidth={2.5} />
                             </Pressable>
                         </View>
                     )}
 
-                    {/* Instruction text */}
-                    <View style={styles.instructionContainer}>
-                        <Text className="text-white/60 text-xs text-center">
-                            {images.length > 1 ? 'Swipe to navigate • ' : ''}Pinch or double tap to zoom
-                        </Text>
-                    </View>
-
-                    {/* Page indicators */}
-                    {images.length > 1 && images.length <= 10 && (
-                        <View style={styles.indicatorContainer}>
-                            {images.map((_, index) => (
+                    {/* Page Dots */}
+                    {images.length > 1 && images.length <= 12 && (
+                        <View style={styles.dots}>
+                            {images.map((_, i) => (
                                 <View
-                                    key={index}
+                                    key={i}
                                     style={[
-                                        styles.indicator,
-                                        index === currentIndex && styles.indicatorActive,
+                                        styles.dot,
+                                        i === currentIndex && styles.dotActive,
                                     ]}
                                 />
                             ))}
                         </View>
                     )}
+
+                    {/* Hint */}
+                    <View style={styles.hint}>
+                        <Text className="text-white/50 text-xs">
+                            {images.length > 1 ? 'Swipe to browse • ' : ''}Double tap or pinch to zoom
+                        </Text>
+                    </View>
                 </View>
             </GestureHandlerRootView>
         </Modal>
@@ -403,131 +400,125 @@ export function PhotoViewer({
 }
 
 const styles = StyleSheet.create({
+    root: {
+        flex: 1,
+    },
     container: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.98)',
+        backgroundColor: '#000',
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 60,
-        paddingBottom: 20,
-        zIndex: 10,
+        paddingTop: 56,
+        paddingBottom: 16,
+        zIndex: 20,
     },
-    counterContainer: {
+    counter: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    closeButton: {
+    closeBtn: {
         padding: 4,
     },
-    closeButtonInner: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    closeBtnInner: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: 'rgba(255,255,255,0.12)',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    imageContainer: {
+    carouselWrapper: {
+        flex: 1,
+        overflow: 'hidden',
+    },
+    carousel: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    carouselContainer: {
+    slideContainer: {
+        position: 'absolute',
         width: SCREEN_WIDTH,
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    imageWrapper: {
+    currentSlide: {
+        zIndex: 10,
+    },
+    slideImageWrapper: {
+        width: SCREEN_WIDTH - 32,
+        height: SCREEN_HEIGHT - 220,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    imageContent: {
+    slideImage: {
+        width: '100%',
+        height: '100%',
+    },
+    imageFrame: {
         position: 'relative',
     },
     mainImage: {
         width: '100%',
         height: '100%',
     },
-    watermarkContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
+    watermark: {
+        ...StyleSheet.absoluteFillObject,
     },
-    previewImageLeft: {
+    navRow: {
         position: 'absolute',
-        left: -SCREEN_WIDTH * 0.8,
-        width: SCREEN_WIDTH * 0.6,
-        height: SCREEN_HEIGHT * 0.4,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    previewImageRight: {
-        position: 'absolute',
-        right: -SCREEN_WIDTH * 0.8,
-        width: SCREEN_WIDTH * 0.6,
-        height: SCREEN_HEIGHT * 0.4,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    previewImage: {
-        width: '100%',
-        height: '100%',
-    },
-    navigationContainer: {
-        position: 'absolute',
-        bottom: 120,
+        bottom: 110,
         left: 0,
         right: 0,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 24,
-        zIndex: 10,
+        paddingHorizontal: 20,
+        zIndex: 20,
     },
-    navButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    navBtn: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: 'rgba(255,255,255,0.12)',
         justifyContent: 'center',
         alignItems: 'center',
-        backdropFilter: 'blur(10px)',
     },
-    navButtonDisabled: {
-        opacity: 0.3,
+    navBtnDisabled: {
+        opacity: 0.25,
     },
-    instructionContainer: {
+    dots: {
         position: 'absolute',
-        bottom: 60,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    indicatorContainer: {
-        position: 'absolute',
-        bottom: 30,
+        bottom: 70,
         left: 0,
         right: 0,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
+        zIndex: 20,
     },
-    indicator: {
+    dot: {
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        backgroundColor: 'rgba(255,255,255,0.3)',
     },
-    indicatorActive: {
-        width: 24,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    dotActive: {
+        width: 20,
+        borderRadius: 3,
+        backgroundColor: '#fff',
+    },
+    hint: {
+        position: 'absolute',
+        bottom: 36,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 20,
     },
 });
