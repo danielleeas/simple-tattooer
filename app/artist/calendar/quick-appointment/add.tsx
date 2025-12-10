@@ -6,6 +6,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { router } from "expo-router";
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
+import CustomModal from '@/components/lib/custom-modal';
 import Header from "@/components/lib/Header";
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -16,16 +17,17 @@ import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
 import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb, truncateFileName } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
+import { checkArtistExists } from "@/lib/services/auth-service";
+import { createClientWithAuth, checkClientExists, checkClientExistsByPhone } from '@/lib/services/clients-service';
+import { createQuickAppointment, checkEventOverlap } from '@/lib/services/calendar-service';
+import { createManualBooking } from "@/lib/services/booking-service";
+import { WaiverSign } from "@/components/lib/waiver-sign";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
 import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
-import { createClientWithAuth } from '@/lib/services/clients-service';
-import { createQuickAppointment, checkEventOverlap } from '@/lib/services/calendar-service';
-import { createManualBooking } from "@/lib/services/booking-service";
-import { WaiverSign } from "@/components/lib/waiver-sign";
 
 type QuickAppointmentData = {
     fullName: string;
@@ -73,6 +75,26 @@ export default function QuickAppointmentAddPage() {
     const { date } = useLocalSearchParams<{ date?: string }>();
 
     const [waiverSignVisible, setWaiverSignVisible] = useState(false);
+    const [emailError, setEmailError] = useState<string>('');
+    const [showExistingClientModal, setShowExistingClientModal] = useState(false);
+    const [existingClientData, setExistingClientData] = useState<any>(null);
+
+    // Email validation function
+    const validateEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    // Check if form is valid
+    const isFormValid = () => {
+        return (
+            formData.fullName.trim() !== '' &&
+            formData.email.trim() !== '' &&
+            validateEmail(formData.email) &&
+            formData.startTime.trim() !== '' &&
+            formData.sessionLength.trim() !== ''
+        );
+    };
 
     const getFileNameFromUrl = (inputUrl: string): string => {
         if (!inputUrl) return '';
@@ -104,6 +126,35 @@ export default function QuickAppointmentAddPage() {
         router.back();
     };
 
+    const handleEmailChange = (text: string) => {
+        setFormData({ ...formData, email: text });
+
+        // Validate email format
+        if (text.trim() && !validateEmail(text)) {
+            setEmailError('Please enter a valid email address');
+        } else {
+            setEmailError('');
+        }
+    };
+
+    const handleContinueWithExistingClient = () => {
+        if (existingClientData) {
+            setShowExistingClientModal(false);
+            // Continue with the existing client data
+            setFormData({
+                ...formData,
+                fullName: existingClientData.full_name,
+                email: existingClientData.email,
+                phoneNumber: existingClientData.phone_number,
+            });
+        }
+    };
+
+    const handleCancelExistingClient = () => {
+        setShowExistingClientModal(false);
+        setExistingClientData(null);
+    };
+
     const handleSave = async () => {
         // Basic validations (mirror off-days add flow)
         if (!artist?.id) {
@@ -118,6 +169,10 @@ export default function QuickAppointmentAddPage() {
             toast({ variant: 'error', title: 'Email is required', duration: 2500 });
             return;
         }
+        if (!validateEmail(formData.email)) {
+            toast({ variant: 'error', title: 'Invalid email', description: 'Please enter a valid email address.', duration: 2500 });
+            return;
+        }
         if (!formData.startTime?.trim()) {
             toast({ variant: 'error', title: 'Start time is required', duration: 2500 });
             return;
@@ -125,6 +180,65 @@ export default function QuickAppointmentAddPage() {
         if (!formData.sessionLength?.trim()) {
             toast({ variant: 'error', title: 'Session length is required', duration: 2500 });
             return;
+        }
+
+        // Check if an artist exists with the same email
+        const artistCheck = await checkArtistExists(formData.email.trim().toLowerCase());
+        if (artistCheck.error) {
+            toast({
+                variant: 'error',
+                title: 'Error',
+                description: 'Failed to verify email. Please try again.',
+                duration: 2500
+            });
+            return;
+        }
+        if (artistCheck.exists) {
+            toast({
+                variant: 'error',
+                title: 'Email already exists',
+                description: 'An artist with this email already exists.',
+                duration: 2500
+            });
+            return;
+        }
+
+        // Check if a client exists with the same email
+        const clientCheck = await checkClientExists(formData.email.trim());
+        if (clientCheck.error) {
+            toast({
+                variant: 'error',
+                title: 'Error',
+                description: 'Failed to verify email. Please try again.',
+                duration: 2500
+            });
+            return;
+        }
+        if (clientCheck.exists && clientCheck.client) {
+            // Show modal to confirm using existing client
+            setExistingClientData(clientCheck.client);
+            setShowExistingClientModal(true);
+            return;
+        }
+
+        // Check if a client exists with the same phone number (if phone provided)
+        if (formData.phoneNumber?.trim()) {
+            const clientPhoneCheck = await checkClientExistsByPhone(formData.phoneNumber.trim());
+            if (clientPhoneCheck.error) {
+                toast({
+                    variant: 'error',
+                    title: 'Error',
+                    description: 'Failed to verify phone number. Please try again.',
+                    duration: 2500
+                });
+                return;
+            }
+            if (clientPhoneCheck.exists && clientPhoneCheck.client) {
+                // Show modal to confirm using existing client
+                setExistingClientData(clientPhoneCheck.client);
+                setShowExistingClientModal(true);
+                return;
+            }
         }
 
         const dateStr = (() => {
@@ -349,10 +463,13 @@ export default function QuickAppointmentAddPage() {
                                                 autoCapitalize="none"
                                                 autoCorrect={false}
                                                 value={formData.email}
-                                                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                                                onChangeText={handleEmailChange}
+                                                helperText={emailError}
+                                                error={!!emailError}
                                                 className="w-full"
+                                                keyboardType="email-address"
                                             />
-                                            <Text className="text-text-secondary text-sm">Aftercare link will be automatically emailed</Text>
+                                            {!emailError && <Text className="text-text-secondary text-sm">Aftercare link will be automatically emailed</Text>}
                                         </View>
                                     </View>
 
@@ -442,17 +559,57 @@ export default function QuickAppointmentAddPage() {
                                     </Pressable>
                                 </View>
 
-                                <Button onPress={handleSave} variant="outline" disabled={loading}>
+                                <Button onPress={handleSave} variant="outline" disabled={!isFormValid() || loading}>
                                     <Text variant='h5'>{loading ? 'Saving...' : 'Add To Calendar'}</Text>
                                 </Button>
                             </View>
                         </KeyboardAwareScrollView>
                     </View>
                 </StableGestureWrapper >
-                <WaiverSign 
-                    visible={waiverSignVisible} 
-                    onClose={() => setWaiverSignVisible(false)} 
-                    waiverUrl={formData.waiverUrl? formData.waiverUrl: waiverUrl} 
+
+                {/* Existing Client Confirmation Modal */}
+                <CustomModal
+                    visible={showExistingClientModal}
+                    onClose={handleCancelExistingClient}
+                    variant="center"
+                    showCloseButton={false}
+                    closeOnBackdrop={false}
+                >
+                    <View className="px-6 py-6 bg-background-secondary rounded-lg">
+                        <View className="items-center gap-4 mb-6">
+                            <Text variant="h4" className="text-center">Client Already Exists</Text>
+                            <Text className="text-center text-text-secondary">
+                                A client with this {existingClientData?.email === formData.email ? 'email' : 'phone number'} already exists.
+                            </Text>
+                            <View className="mt-2 w-full bg-background rounded-lg p-4">
+                                <Text variant="h6" className="mb-2">Existing Client:</Text>
+                                <Text className="text-text-secondary">Name: {existingClientData?.full_name}</Text>
+                                <Text className="text-text-secondary">Email: {existingClientData?.email}</Text>
+                                <Text className="text-text-secondary">Phone: {existingClientData?.phone_number}</Text>
+                            </View>
+                            <Text className="text-center text-text-secondary mt-2">
+                                You will continue with this existing client.
+                            </Text>
+                        </View>
+                        <View className="flex-row gap-3">
+                            <View className="flex-1">
+                                <Button variant="outline" onPress={handleCancelExistingClient}>
+                                    <Text variant="h5">Cancel</Text>
+                                </Button>
+                            </View>
+                            <View className="flex-1">
+                                <Button variant="outline" onPress={handleContinueWithExistingClient}>
+                                    <Text variant="h5">Continue</Text>
+                                </Button>
+                            </View>
+                        </View>
+                    </View>
+                </CustomModal>
+
+                <WaiverSign
+                    visible={waiverSignVisible}
+                    onClose={() => setWaiverSignVisible(false)}
+                    waiverUrl={formData.waiverUrl? formData.waiverUrl: waiverUrl}
                     onSign={handleSignWaiver}
                     artistId={artist?.id}
                 />
