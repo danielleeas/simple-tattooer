@@ -6,6 +6,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
+import { PhotoViewer } from '@/components/lib/photo-viewer';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -68,12 +69,12 @@ export default function ClientAppointments() {
     const [expandedProjects, setExpandedProjects] = useState<{ [key: string]: boolean }>({});
     const [expandedSessions, setExpandedSessions] = useState<{ [key: string]: boolean }>({});
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-    const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
+    const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
     const [projectNotes, setProjectNotes] = useState<{ [projectId: string]: string }>({});
     const [saving, setSaving] = useState<{ [projectId: string]: boolean }>({});
     const [visibleWaiverModal, setVisibleWaiverModal] = useState(false);
     const saveBarAnim = useRef(new Animated.Value(0)).current;
-    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+    const { height: screenHeight } = Dimensions.get('window');
 
     type UiSession = {
         id: string;
@@ -306,14 +307,14 @@ export default function ClientAppointments() {
         } catch { }
     };
 
-    const handleImagePress = (source: any) => {
-        setSelectedImageSource(source);
+    const handleImagePress = (imageUrl: string) => {
+        setSelectedImageUrl(imageUrl);
         setIsImageViewerVisible(true);
     };
 
     const handleCloseImageViewer = () => {
         setIsImageViewerVisible(false);
-        setSelectedImageSource(null);
+        setSelectedImageUrl('');
     };
 
     const handleSignWaiver = async () => {
@@ -517,7 +518,7 @@ export default function ClientAppointments() {
                                                             {project.drawingImageUrl && (
                                                                 <View className="flex-row items-center justify-between gap-2">
                                                                     <View className="flex-row items-end justify-start gap-2">
-                                                                        <Pressable onPress={() => handleImagePress({ uri: project.drawingImageUrl })}>
+                                                                        <Pressable onPress={() => handleImagePress(project.drawingImageUrl!)}>
                                                                             <Image
                                                                                 source={{ uri: project.drawingImageUrl }}
                                                                                 style={{ width: 120, height: 120, borderRadius: 8 }}
@@ -681,7 +682,7 @@ export default function ClientAppointments() {
                             </View>
                             <View className="gap-3 flex-1">
                                 {isImageUri(waiverUrl) ? (
-                                    <Pressable className="w-full h-full" onPress={() => handleImagePress({ uri: waiverUrl })}>
+                                    <Pressable className="w-full h-full" onPress={() => handleImagePress(waiverUrl)}>
                                         <Image
                                             source={{ uri: waiverUrl }}
                                             style={{ width: '100%', height: '100%', borderRadius: 12 }}
@@ -706,43 +707,12 @@ export default function ClientAppointments() {
                     </View>
                 </Modal>
 
-                <Modal
+                <PhotoViewer
                     visible={isImageViewerVisible}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={handleCloseImageViewer}
-                >
-                    <View className="flex-1 bg-black/90 justify-center items-center">
-                        <Pressable
-                            className="absolute top-4 right-4 z-10"
-                            onPress={handleCloseImageViewer}
-                        >
-                            <View className="bg-white/20 rounded-full p-2">
-                                <Image
-                                    source={require('@/assets/images/icons/x_circle.png')}
-                                    style={{ width: 32, height: 32 }}
-                                    resizeMode="contain"
-                                />
-                            </View>
-                        </Pressable>
-
-                        <Pressable
-                            className="flex-1 w-full justify-center items-center"
-                            onPress={handleCloseImageViewer}
-                        >
-                            <Image
-                                source={selectedImageSource}
-                                style={{
-                                    width: screenWidth - 40,
-                                    height: screenHeight - 100,
-                                    maxWidth: screenWidth,
-                                    maxHeight: screenHeight
-                                }}
-                                resizeMode="contain"
-                            />
-                        </Pressable>
-                    </View>
-                </Modal>
+                    images={selectedImageUrl ? [selectedImageUrl] : []}
+                    initialIndex={0}
+                    onClose={handleCloseImageViewer}
+                />
 
                 <Modal
                     visible={addSessionModalVisible}

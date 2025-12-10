@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, Image, Pressable, Modal, Dimensions } from "react-native";
+import { View, Image, Pressable, Modal } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as ExpoImagePicker from 'expo-image-picker';
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
+import { PhotoViewer } from '@/components/lib/photo-viewer';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,6 @@ interface UploadedImage {
     drawingId?: string;
     storageUrl?: string;
 }
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 export default function UploadDrawings() {
     const params = useLocalSearchParams();
     const projectId = Array.isArray(params?.id) ? params.id[0] : (params?.id as string | undefined);
@@ -38,7 +38,7 @@ export default function UploadDrawings() {
     const [initializing, setInitializing] = useState(false);
     const [optionOpen, setOptionOpen] = useState(false);
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-    const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
+    const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
 
     const { toast } = useToast();
@@ -296,18 +296,14 @@ export default function UploadDrawings() {
         }
     }
 
-    const handleImagePress = (imageSource: any) => {
-        console.log('Opening image viewer for:', imageSource);
-        // Convert URI string to proper format for Image component
-        const imageToShow = typeof imageSource === 'string' ? { uri: imageSource } : imageSource;
-        setSelectedImageSource(imageToShow);
+    const handleImagePress = (imageUrl: string) => {
+        setSelectedImageUrl(imageUrl);
         setIsImageViewerVisible(true);
     };
 
-    // Handle closing the image viewer
     const handleCloseImageViewer = () => {
         setIsImageViewerVisible(false);
-        setSelectedImageSource(null);
+        setSelectedImageUrl('');
     };
 
     return (
@@ -445,44 +441,12 @@ export default function UploadDrawings() {
                 </View>
             </Modal>
 
-            {/* Full-screen Image Viewer Modal */}
-            <Modal
+            <PhotoViewer
                 visible={isImageViewerVisible}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={handleCloseImageViewer}
-            >
-                <View className="flex-1 bg-black/90 justify-center items-center">
-                    <Pressable
-                        className="absolute top-4 right-4 z-10"
-                        onPress={handleCloseImageViewer}
-                    >
-                        <View className="bg-white/20 rounded-full p-2">
-                            <Image
-                                source={require('@/assets/images/icons/x_circle.png')}
-                                style={{ width: 32, height: 32 }}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    </Pressable>
-
-                    <Pressable
-                        className="flex-1 w-full justify-center items-center"
-                        onPress={handleCloseImageViewer}
-                    >
-                        <Image
-                            source={selectedImageSource}
-                            style={{
-                                width: screenWidth - 40,
-                                height: screenHeight - 100,
-                                maxWidth: screenWidth,
-                                maxHeight: screenHeight
-                            }}
-                            resizeMode="contain"
-                        />
-                    </Pressable>
-                </View>
-            </Modal>
+                images={selectedImageUrl ? [selectedImageUrl] : []}
+                initialIndex={0}
+                onClose={handleCloseImageViewer}
+            />
         </>
     );
 }

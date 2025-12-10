@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { View, Image, type ImageStyle, Pressable, ScrollView, Modal, Dimensions, Animated } from "react-native";
+import { View, Image, type ImageStyle, Pressable, ScrollView, Modal, Animated } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { StableGestureWrapper } from '@/components/lib/stable-gesture-wrapper';
+import { PhotoViewer } from '@/components/lib/photo-viewer';
 import Header from "@/components/lib/Header";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -34,11 +35,10 @@ export default function ClientDetailSession() {
     const [drawing, setDrawing] = useState<DrawingRow | null>(null);
     const [clientName, setClientName] = useState<string>('');
     const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-    const [selectedImageSource, setSelectedImageSource] = useState<any>(null);
+    const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
     const [sessionNotes, setSessionNotes] = useState<string>('');
     const [saving, setSaving] = useState<boolean>(false);
     const saveBarAnim = useRef(new Animated.Value(0)).current;
-    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
     const loadSessionData = useCallback(async () => {
         if (!artist?.id || !session_id) {
@@ -235,14 +235,14 @@ export default function ClientDetailSession() {
         });
     };
 
-    const handleImagePress = (source: any) => {
-        setSelectedImageSource(source);
+    const handleImagePress = (imageUrl: string) => {
+        setSelectedImageUrl(imageUrl);
         setIsImageViewerVisible(true);
     };
 
     const handleCloseImageViewer = () => {
         setIsImageViewerVisible(false);
-        setSelectedImageSource(null);
+        setSelectedImageUrl('');
     };
 
     if (loading) {
@@ -321,7 +321,7 @@ export default function ClientDetailSession() {
                                         <View className="gap-3 flex-row items-start">
                                             <View className="flex-1 max-w-[120px]">
                                                 {drawing?.image_url && (
-                                                    <Pressable onPress={() => handleImagePress({ uri: drawing?.image_url })} className="w-[120px] h-[120px] rounded-lg overflow-hidden">
+                                                    <Pressable onPress={() => handleImagePress(drawing.image_url)} className="w-[120px] h-[120px] rounded-lg overflow-hidden">
                                                         <Image
                                                             source={drawing?.image_url ? { uri: drawing.image_url } : require('@/assets/images/tattoos/tattooer_1.png')}
                                                             style={{ width: 100, height: 100 }}
@@ -469,43 +469,12 @@ export default function ClientDetailSession() {
                 </View>
             </Modal>
 
-            <Modal
+            <PhotoViewer
                 visible={isImageViewerVisible}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={handleCloseImageViewer}
-            >
-                <View className="flex-1 bg-black/90 justify-center items-center">
-                    <Pressable
-                        className="absolute top-4 right-4 z-10"
-                        onPress={handleCloseImageViewer}
-                    >
-                        <View className="bg-white/20 rounded-full p-2">
-                            <Image
-                                source={require('@/assets/images/icons/x_circle.png')}
-                                style={{ width: 32, height: 32 }}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    </Pressable>
-
-                    <Pressable
-                        className="flex-1 w-full justify-center items-center"
-                        onPress={handleCloseImageViewer}
-                    >
-                        <Image
-                            source={selectedImageSource}
-                            style={{
-                                width: screenWidth - 40,
-                                height: screenHeight - 100,
-                                maxWidth: screenWidth,
-                                maxHeight: screenHeight
-                            }}
-                            resizeMode="contain"
-                        />
-                    </Pressable>
-                </View>
-            </Modal>
+                images={selectedImageUrl ? [selectedImageUrl] : []}
+                initialIndex={0}
+                onClose={handleCloseImageViewer}
+            />
         </>
     );
 }
