@@ -1,4 +1,4 @@
-import { View, Modal, Dimensions, ActivityIndicator, Platform, ScrollView, TextInput, TouchableOpacity } from "react-native";
+import { View, Modal, Dimensions, ActivityIndicator, Platform, ScrollView, TextInput, TouchableOpacity, Image } from "react-native";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -17,16 +17,44 @@ import Pdf from "react-native-pdf";
 interface WaiverSignProps {
     visible: boolean;
     onClose: () => void;
-    waiverUrl: string; // PDF file URL
+    waiverUrl: string; // PDF or image file URL
 }
+
+type FileType = 'pdf' | 'image' | 'unknown';
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
 const ANIMATION_DURATION = 100;
 
+// Helper function to detect file type from URL
+const getFileType = (url: string): FileType => {
+    if (!url) return 'unknown';
+
+    const urlLower = url.toLowerCase();
+
+    // Check for image extensions
+    if (urlLower.match(/\.(jpg|jpeg|png|gif|bmp|webp)(\?|$)/i)) {
+        return 'image';
+    }
+
+    // Check for PDF extension
+    if (urlLower.match(/\.pdf(\?|$)/i)) {
+        return 'pdf';
+    }
+
+    // Check URL path patterns (e.g., Supabase storage)
+    if (urlLower.includes('.pdf')) return 'pdf';
+    if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('.png')) return 'image';
+
+    return 'unknown';
+};
+
 export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => {
     const [isRendered, setIsRendered] = useState(visible);
+    const [fileType, setFileType] = useState<FileType>('unknown');
     const [pdfLoading, setPdfLoading] = useState(true);
+    const [imageLoading, setImageLoading] = useState(true);
     const [pdfError, setPdfError] = useState<string | null>(null);
+    const [imageError, setImageError] = useState<string | null>(null);
     const [totalPages, setTotalPages] = useState<number | null>(null);
     const [pdfDimensions, setPdfDimensions] = useState<{ width: number; height: number } | null>(null);
     const [pdfUri, setPdfUri] = useState<string | null>(null);
@@ -54,11 +82,21 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
     useEffect(() => {
         if (visible) {
             setIsRendered(true);
-            // Reset PDF state when modal opens
-            setPdfLoading(true);
-            setPdfError(null);
-            setTotalPages(null);
-            setPdfUri(null);
+
+            // Detect file type from URL
+            const detectedFileType = getFileType(waiverUrl);
+            setFileType(detectedFileType);
+
+            // Reset state based on file type
+            if (detectedFileType === 'pdf') {
+                setPdfLoading(true);
+                setPdfError(null);
+                setTotalPages(null);
+                setPdfUri(null);
+            } else if (detectedFileType === 'image') {
+                setImageLoading(true);
+                setImageError(null);
+            }
 
             // Animate backdrop fade in
             backdropOpacity.value = withTiming(1, {
@@ -120,89 +158,136 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
                             </Button>
                         </View>
 
-                        {/* PDF Viewer */}
+                        {/* File Viewer (PDF or Image) */}
                         <View className="flex-1" style={{ width: '100%' }}>
-                            {pdfLoading && (
+                            {/* Loading State */}
+                            {((fileType === 'pdf' && pdfLoading) || (fileType === 'image' && imageLoading)) && (
                                 <View className="absolute inset-0 items-center justify-center z-10 bg-background">
                                     <ActivityIndicator size="large" />
-                                    <Text className="mt-4 text-text-secondary">Loading PDF...</Text>
+                                    <Text className="mt-4 text-text-secondary">
+                                        Loading {fileType === 'pdf' ? 'PDF' : 'Image'}...
+                                    </Text>
                                 </View>
                             )}
-                            {pdfError && (
+
+                            {/* Error State */}
+                            {(pdfError || imageError) && (
                                 <View className="flex-1 items-center justify-center p-4">
-                                    <Text className="text-destructive text-center mb-4">{pdfError}</Text>
+                                    <Text className="text-destructive text-center mb-4">
+                                        {pdfError || imageError}
+                                    </Text>
                                     <Button variant="outline" onPress={() => {
                                         setPdfError(null);
-                                        setPdfLoading(true);
+                                        setImageError(null);
+                                        if (fileType === 'pdf') {
+                                            setPdfLoading(true);
+                                        } else if (fileType === 'image') {
+                                            setImageLoading(true);
+                                        }
                                     }}>
                                         <Text>Retry</Text>
                                     </Button>
                                 </View>
                             )}
-                            {waiverUrl && (
-                                <View className="absolute flex-1 top-0 left-0 right-0 bottom-0 opacity-0">
-                                    <Pdf
-                                        source={{
-                                            uri: waiverUrl,
-                                            cache: true,
-                                        }}
-                                        horizontal={true}
-                                        trustAllCerts={false}
-                                        fitPolicy={2} // 0 = fit width, 1 = fit height, 2 = fit both
-                                        onLoadComplete={(numberOfPages, path, size) => {
-                                            setPdfError(null);
-                                            setTotalPages(numberOfPages);
-                                            setPdfUri(path);
-                                            setPdfDimensions({ width: screenWidth, height: (screenWidth / size.width) * size.height });
-                                            console.log('PDF loaded with', numberOfPages, 'pages', path, size);
-                                        }}
-                                        onPageChanged={(page, numberOfPages) => {
-                                            console.log(`Current page: ${page}`);
-                                        }}
-                                        onPageSingleTap={(page, x, y) => {
-                                            console.log(`Single tap on page: ${page}, x: ${x}, y: ${y}`);
-                                        }}
-                                        onError={(error) => {
-                                            setPdfError('Failed to load PDF. Please try again.');
-                                            console.error('PDF Error:', error);
-                                        }}
-                                        style={{
-                                            flex: 1,
-                                            width: 200,
-                                            backgroundColor: '#05080F',
-                                        }}
-                                        enablePaging={true}
-                                        spacing={10}
-                                    />
-                                </View>
+
+                            {/* PDF Viewer */}
+                            {fileType === 'pdf' && waiverUrl && (
+                                <>
+                                    <View className="absolute flex-1 top-0 left-0 right-0 bottom-0 opacity-0">
+                                        <Pdf
+                                            source={{
+                                                uri: waiverUrl,
+                                                cache: true,
+                                            }}
+                                            horizontal={true}
+                                            trustAllCerts={false}
+                                            fitPolicy={2} // 0 = fit width, 1 = fit height, 2 = fit both
+                                            onLoadComplete={(numberOfPages, path, size) => {
+                                                setPdfError(null);
+                                                setTotalPages(numberOfPages);
+                                                setPdfUri(path);
+                                                setPdfDimensions({ width: screenWidth, height: (screenWidth / size.width) * size.height });
+                                                console.log('PDF loaded with', numberOfPages, 'pages', path, size);
+                                            }}
+                                            onPageChanged={(page, numberOfPages) => {
+                                                console.log(`Current page: ${page}`);
+                                            }}
+                                            onPageSingleTap={(page, x, y) => {
+                                                console.log(`Single tap on page: ${page}, x: ${x}, y: ${y}`);
+                                            }}
+                                            onError={(error) => {
+                                                setPdfError('Failed to load PDF. Please try again.');
+                                                console.error('PDF Error:', error);
+                                            }}
+                                            style={{
+                                                flex: 1,
+                                                width: 200,
+                                                backgroundColor: '#05080F',
+                                            }}
+                                            enablePaging={true}
+                                            spacing={10}
+                                        />
+                                    </View>
+
+                                    {pdfUri && !pdfError && pdfDimensions && (
+                                        <View className="w-full relative" style={{ height: pdfDimensions.height }}>
+                                            <Pdf
+                                                source={{
+                                                    uri: waiverUrl,
+                                                    cache: true,
+                                                }}
+                                                horizontal={true}
+                                                trustAllCerts={false}
+                                                onLoadComplete={(numberOfPages, path, size) => {
+                                                    setPdfLoading(false);
+                                                }}
+                                                onError={(error) => {
+                                                    setPdfLoading(false);
+                                                }}
+                                                style={{
+                                                    width: screenWidth,
+                                                    height: pdfDimensions.height,
+                                                    backgroundColor: '#05080F',
+                                                }}
+                                                enableDoubleTapZoom={true}
+                                                scrollEnabled={true}
+                                                enablePaging={true}
+                                                spacing={0}
+                                            />
+                                        </View>
+                                    )}
+                                </>
                             )}
 
-                            {pdfUri && !pdfError && pdfDimensions && (
-                                <View className="w-full relative" style={{ height: pdfDimensions.height }}>
-                                    <Pdf
-                                        source={{
-                                            uri: waiverUrl,
-                                            cache: true,
-                                        }}
-                                        horizontal={true}
-                                        trustAllCerts={false}
-                                        onLoadComplete={(numberOfPages, path, size) => {
-                                            setPdfLoading(false);
-                                        }}
-                                        onError={(error) => {
-                                            setPdfLoading(false);
-                                        }}
+                            {/* Image Viewer */}
+                            {fileType === 'image' && waiverUrl && !imageError && (
+                                <ScrollView
+                                    contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+                                    maximumZoomScale={3}
+                                    minimumZoomScale={1}
+                                    showsVerticalScrollIndicator={false}
+                                    showsHorizontalScrollIndicator={false}
+                                >
+                                    <Image
+                                        source={{ uri: waiverUrl }}
                                         style={{
                                             width: screenWidth,
-                                            height: pdfDimensions.height,
-                                            backgroundColor: '#05080F',
+                                            height: screenHeight - top - bottom - 80,
                                         }}
-                                        enableDoubleTapZoom={true}
-                                        scrollEnabled={true}
-                                        enablePaging={true}
-                                        spacing={0}
+                                        resizeMode="contain"
+                                        onLoadStart={() => {
+                                            setImageLoading(true);
+                                            setImageError(null);
+                                        }}
+                                        onLoad={() => {
+                                            setImageLoading(false);
+                                        }}
+                                        onError={() => {
+                                            setImageLoading(false);
+                                            setImageError('Failed to load image. Please try again.');
+                                        }}
                                     />
-                                </View>
+                                </ScrollView>
                             )}
                         </View>
                     </View>
