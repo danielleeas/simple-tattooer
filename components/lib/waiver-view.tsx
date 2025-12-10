@@ -1,4 +1,4 @@
-import { View, Modal, Dimensions, ActivityIndicator, Platform, ScrollView, TextInput, TouchableOpacity, Image } from "react-native";
+import { View, Modal, Dimensions, ActivityIndicator, Platform, ScrollView, TextInput, TouchableOpacity, Image, Pressable } from "react-native";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -10,7 +10,7 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Text } from "@/components/ui/text";
 import { Icon } from "@/components/ui/icon";
-import { X } from "lucide-react-native";
+import { X, ZoomIn, ZoomOut, Maximize2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
@@ -208,6 +208,58 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
         };
     });
 
+    // Test controls for emulator (can be removed after testing)
+    const handleZoomIn = () => {
+        const newScale = Math.min(scale.value + 0.5, 3);
+        scale.value = withSpring(newScale);
+        savedScale.value = newScale;
+    };
+
+    const handleZoomOut = () => {
+        const newScale = Math.max(scale.value - 0.5, 1);
+        scale.value = withSpring(newScale);
+        savedScale.value = newScale;
+
+        // Reset position if zoomed out to 1x
+        if (newScale === 1) {
+            translateX.value = withSpring(0);
+            translateY2.value = withSpring(0);
+            savedTranslateX.value = 0;
+            savedTranslateY.value = 0;
+        }
+    };
+
+    const handleResetZoom = () => {
+        scale.value = withSpring(1);
+        savedScale.value = 1;
+        translateX.value = withSpring(0);
+        translateY2.value = withSpring(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+    };
+
+    const handlePan = (direction: 'up' | 'down' | 'left' | 'right') => {
+        const panAmount = 50;
+        switch (direction) {
+            case 'up':
+                translateY2.value = withSpring(translateY2.value + panAmount);
+                savedTranslateY.value = translateY2.value;
+                break;
+            case 'down':
+                translateY2.value = withSpring(translateY2.value - panAmount);
+                savedTranslateY.value = translateY2.value;
+                break;
+            case 'left':
+                translateX.value = withSpring(translateX.value + panAmount);
+                savedTranslateX.value = translateX.value;
+                break;
+            case 'right':
+                translateX.value = withSpring(translateX.value - panAmount);
+                savedTranslateX.value = translateX.value;
+                break;
+        }
+    };
+
     if (!isRendered) return null;
 
     return (
@@ -337,32 +389,93 @@ export const WaiverView = ({ visible, onClose, waiverUrl }: WaiverSignProps) => 
 
                             {/* Image Viewer with Pinch-to-Zoom */}
                             {fileType === 'image' && waiverUrl && !imageError && (
-                                <GestureDetector gesture={composedGesture}>
-                                    <View className="flex-1 items-center justify-center" style={{ width: screenWidth }}>
-                                        <Animated.Image
-                                            source={{ uri: waiverUrl }}
-                                            style={[
-                                                {
-                                                    width: screenWidth,
-                                                    height: screenHeight - top - bottom - 80,
-                                                },
-                                                imageAnimatedStyle,
-                                            ]}
-                                            resizeMode="contain"
-                                            onLoadStart={() => {
-                                                setImageLoading(true);
-                                                setImageError(null);
-                                            }}
-                                            onLoad={() => {
-                                                setImageLoading(false);
-                                            }}
-                                            onError={() => {
-                                                setImageLoading(false);
-                                                setImageError('Failed to load image. Please try again.');
-                                            }}
-                                        />
+                                <>
+                                    <GestureDetector gesture={composedGesture}>
+                                        <View className="flex-1 items-center justify-center" style={{ width: screenWidth }}>
+                                            <Animated.Image
+                                                source={{ uri: waiverUrl }}
+                                                style={[
+                                                    {
+                                                        width: screenWidth,
+                                                        height: screenHeight - top - bottom - 200,
+                                                    },
+                                                    imageAnimatedStyle,
+                                                ]}
+                                                resizeMode="contain"
+                                                onLoadStart={() => {
+                                                    setImageLoading(true);
+                                                    setImageError(null);
+                                                }}
+                                                onLoad={() => {
+                                                    setImageLoading(false);
+                                                }}
+                                                onError={() => {
+                                                    setImageLoading(false);
+                                                    setImageError('Failed to load image. Please try again.');
+                                                }}
+                                            />
+                                        </View>
+                                    </GestureDetector>
+
+                                    {/* Test Controls for Emulator - Remove after testing */}
+                                    <View className="absolute bottom-0 left-0 right-0 bg-background-secondary p-4 border-t border-border">
+                                        <Text className="text-xs text-text-secondary text-center mb-3">Emulator Test Controls</Text>
+
+                                        {/* Zoom Controls */}
+                                        <View className="flex-row justify-center items-center gap-3 mb-3">
+                                            <Pressable
+                                                onPress={handleZoomOut}
+                                                className="bg-background border border-border rounded-lg p-3 active:opacity-70"
+                                            >
+                                                <Icon as={ZoomOut} size={20} />
+                                            </Pressable>
+
+                                            <Pressable
+                                                onPress={handleResetZoom}
+                                                className="bg-background border border-border rounded-lg p-3 active:opacity-70"
+                                            >
+                                                <Icon as={Maximize2} size={20} />
+                                            </Pressable>
+
+                                            <Pressable
+                                                onPress={handleZoomIn}
+                                                className="bg-background border border-border rounded-lg p-3 active:opacity-70"
+                                            >
+                                                <Icon as={ZoomIn} size={20} />
+                                            </Pressable>
+                                        </View>
+
+                                        {/* Pan Controls */}
+                                        <View className="items-center">
+                                            <Pressable
+                                                onPress={() => handlePan('up')}
+                                                className="bg-background border border-border rounded-lg p-2 active:opacity-70 mb-2"
+                                            >
+                                                <Icon as={ArrowUp} size={16} />
+                                            </Pressable>
+                                            <View className="flex-row gap-2">
+                                                <Pressable
+                                                    onPress={() => handlePan('left')}
+                                                    className="bg-background border border-border rounded-lg p-2 active:opacity-70"
+                                                >
+                                                    <Icon as={ArrowLeft} size={16} />
+                                                </Pressable>
+                                                <Pressable
+                                                    onPress={() => handlePan('right')}
+                                                    className="bg-background border border-border rounded-lg p-2 active:opacity-70"
+                                                >
+                                                    <Icon as={ArrowRight} size={16} />
+                                                </Pressable>
+                                            </View>
+                                            <Pressable
+                                                onPress={() => handlePan('down')}
+                                                className="bg-background border border-border rounded-lg p-2 active:opacity-70 mt-2"
+                                            >
+                                                <Icon as={ArrowDown} size={16} />
+                                            </Pressable>
+                                        </View>
                                     </View>
-                                </GestureDetector>
+                                </>
                             )}
                         </View>
                     </View>
