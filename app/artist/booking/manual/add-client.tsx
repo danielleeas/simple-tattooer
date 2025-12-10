@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { useToast } from "@/lib/contexts/toast-context";
-import { checkArtistExists, checkArtistExistsByPhone } from "@/lib/services/auth-service";
+import { checkArtistExists } from "@/lib/services/auth-service";
 import { checkClientExists, checkClientExistsByPhone } from "@/lib/services/clients-service";
 
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
@@ -129,25 +129,6 @@ export default function AddClient() {
 				// Show modal to confirm using existing client
 				setExistingClientData(clientCheck.client);
 				setShowExistingClientModal(true);
-				return;
-			}
-
-			// Check if an artist exists with the same phone number
-			const artistPhoneCheck = await checkArtistExistsByPhone(formData.phone_number.trim());
-			if (artistPhoneCheck.error) {
-				toast({
-					variant: 'error',
-					title: 'Error',
-					description: 'Failed to verify phone number. Please try again.',
-				});
-				return;
-			}
-			if (artistPhoneCheck.exists) {
-				toast({
-					variant: 'error',
-					title: 'Phone number already exists',
-					description: 'An artist with this phone number already exists.',
-				});
 				return;
 			}
 

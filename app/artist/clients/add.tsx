@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { useToast } from "@/lib/contexts/toast-context";
-import { checkArtistExists, checkArtistExistsByPhone } from "@/lib/services/auth-service";
+import { checkArtistExists } from "@/lib/services/auth-service";
 import { createClientWithAuth, checkClientExists, checkClientExistsByPhone } from "@/lib/services/clients-service";
 
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
@@ -130,25 +130,6 @@ export default function AddClient() {
                 // Show modal to confirm using existing client
                 setExistingClientData(clientCheck.client);
                 setShowExistingClientModal(true);
-                return;
-            }
-
-            // Check if an artist exists with the same phone number
-            const artistPhoneCheck = await checkArtistExistsByPhone(formData.phone_number.trim());
-            if (artistPhoneCheck.error) {
-                toast({
-                    variant: 'error',
-                    title: 'Error',
-                    description: 'Failed to verify phone number. Please try again.',
-                });
-                return;
-            }
-            if (artistPhoneCheck.exists) {
-                toast({
-                    variant: 'error',
-                    title: 'Phone number already exists',
-                    description: 'An artist with this phone number already exists.',
-                });
                 return;
             }
 
@@ -340,9 +321,6 @@ export default function AddClient() {
                             <Text className="text-text-secondary">Email: {existingClientData?.email}</Text>
                             <Text className="text-text-secondary">Phone: {existingClientData?.phone_number}</Text>
                         </View>
-                        <Text className="text-center text-text-secondary mt-2">
-                            You will continue with this existing client.
-                        </Text>
                     </View>
                     <View className="flex-row gap-3">
                         <View className="flex-1">
