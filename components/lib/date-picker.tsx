@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Pressable, ScrollView, Image, Modal, PanResponder } from 'react-native';
+import { View, Pressable, ScrollView, Image, Modal } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { cn } from '@/lib/utils';
 import { cva } from 'class-variance-authority';
 import { THEME } from '@/lib/theme';
@@ -433,57 +435,23 @@ const NativeCalendarPicker = ({
         return years;
     };
 
-    // Swipe gesture to navigate months (left = next, right = previous)
+    // Swipe gesture to navigate months using react-native-gesture-handler
     const swipeThreshold = 50;
-    const panResponder = React.useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => {
-                // Don't capture on start - let taps go through to day Pressables
-                return false;
-            },
-            onStartShouldSetPanResponderCapture: () => {
-                // Don't capture on start
-                return false;
-            },
-            onMoveShouldSetPanResponder: (_evt, gestureState) => {
-                if (disabled) return false;
-                const dx = Math.abs(gestureState.dx);
-                const dy = Math.abs(gestureState.dy);
-                // Capture horizontal swipes - lower threshold to compete with ScrollView
-                return dx > 10 && dx > dy * 1.5;
-            },
-            onMoveShouldSetPanResponderCapture: (_evt, gestureState) => {
-                if (disabled) return false;
-                const dx = Math.abs(gestureState.dx);
-                const dy = Math.abs(gestureState.dy);
-                // Aggressively capture horizontal swipes before ScrollView can
-                return dx > 10 && dx > dy * 1.5;
-            },
-            onPanResponderGrant: () => {
-                // Gesture captured
-            },
-            onPanResponderRelease: (_evt, gestureState) => {
-                if (disabled) return;
-                const dx = gestureState.dx;
-                if (dx <= -swipeThreshold) {
-                    goToNextMonth();
-                } else if (dx >= swipeThreshold) {
-                    goToPreviousMonth();
+
+    const panGesture = Gesture.Pan()
+        .enabled(!disabled)
+        .activeOffsetX([-15, 15])
+        .failOffsetY([-10, 10])
+        .onEnd((event) => {
+            if (disabled) return;
+            if (Math.abs(event.translationX) > swipeThreshold) {
+                if (event.translationX > 0) {
+                    runOnJS(goToPreviousMonth)();
+                } else {
+                    runOnJS(goToNextMonth)();
                 }
-            },
-            onPanResponderTerminate: () => {
-                // Gesture was taken by another responder
-            },
-            onPanResponderTerminationRequest: () => {
-                // Don't release the gesture once we have it
-                return false;
-            },
-            onShouldBlockNativeResponder: () => {
-                // Block native scroll when we're handling horizontal swipe
-                return true;
-            },
-        })
-    ).current;
+            }
+        });
 
     // Get day style based on state
     const getDayStyle = (day: CalendarDay) => {
@@ -875,65 +843,67 @@ const NativeCalendarPicker = ({
             </View>
 
             {/* Calendar grid */}
-            <View style={{ gap: config.gap }} {...panResponder.panHandlers}>
-                {Array.from({ length: 6 }, (_, weekIndex) => (
-                    <View key={weekIndex} className="flex-row">
-                        {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
-                            <View
-                                key={`${weekIndex}-${dayIndex}`}
-                                className='flex-1 items-center justify-center'
-                                style={{ position: 'relative', height: config.daySize }}
-                            >
-                                {selectionMode === 'range' && day.isInRange && (
-                                    <View
-                                        style={{
-                                            position: 'absolute',
-                                            left: 0,
-                                            right: 0,
-                                            height: config.daySize,
-                                            justifyContent: 'center',
-                                        }}
-                                        pointerEvents="none"
-                                    >
+            <GestureDetector gesture={panGesture}>
+                <View style={{ gap: config.gap }}>
+                    {Array.from({ length: 6 }, (_, weekIndex) => (
+                        <View key={weekIndex} className="flex-row">
+                            {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
+                                <View
+                                    key={`${weekIndex}-${dayIndex}`}
+                                    className='flex-1 items-center justify-center'
+                                    style={{ position: 'relative', height: config.daySize }}
+                                >
+                                    {selectionMode === 'range' && day.isInRange && (
                                         <View
                                             style={{
+                                                position: 'absolute',
+                                                left: 0,
+                                                right: 0,
                                                 height: config.daySize,
-                                                width: '100%',
-                                                backgroundColor: THEME.dark.borderSecondary,
-                                                borderTopLeftRadius: day.isRangeStart ? config.daySize / 2 : 0,
-                                                borderBottomLeftRadius: day.isRangeStart ? config.daySize / 2 : 0,
-                                                borderTopRightRadius: day.isRangeEnd ? config.daySize / 2 : 0,
-                                                borderBottomRightRadius: day.isRangeEnd ? config.daySize / 2 : 0,
+                                                justifyContent: 'center',
                                             }}
-                                        />
-                                    </View>
-                                )}
-                                <Pressable
-                                    onPress={() => handleDatePress(day)}
-                                    className="rounded-full relative items-center justify-center"
-                                    style={{
-                                        ...getDayStyle(day),
-                                        width: config.daySize,
-                                        height: config.daySize,
-                                    }}
-                                    disabled={disabled || day.isDisabled}
-                                >
-                                    <Text
-                                        variant="small"
-                                        className="text-text-secondary"
-                                        style={{ 
-                                            color: getDayTextColor(day),
-                                            fontSize: config.dayFontSize
+                                            pointerEvents="none"
+                                        >
+                                            <View
+                                                style={{
+                                                    height: config.daySize,
+                                                    width: '100%',
+                                                    backgroundColor: THEME.dark.borderSecondary,
+                                                    borderTopLeftRadius: day.isRangeStart ? config.daySize / 2 : 0,
+                                                    borderBottomLeftRadius: day.isRangeStart ? config.daySize / 2 : 0,
+                                                    borderTopRightRadius: day.isRangeEnd ? config.daySize / 2 : 0,
+                                                    borderBottomRightRadius: day.isRangeEnd ? config.daySize / 2 : 0,
+                                                }}
+                                            />
+                                        </View>
+                                    )}
+                                    <Pressable
+                                        onPress={() => handleDatePress(day)}
+                                        className="rounded-full relative items-center justify-center"
+                                        style={{
+                                            ...getDayStyle(day),
+                                            width: config.daySize,
+                                            height: config.daySize,
                                         }}
+                                        disabled={disabled || day.isDisabled}
                                     >
-                                        {day.date.getDate()}
-                                    </Text>
-                                </Pressable>
-                            </View>
-                        ))}
-                    </View>
-                ))}
-            </View>
+                                        <Text
+                                            variant="small"
+                                            className="text-text-secondary"
+                                            style={{
+                                                color: getDayTextColor(day),
+                                                fontSize: config.dayFontSize
+                                            }}
+                                        >
+                                            {day.date.getDate()}
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            ))}
+                        </View>
+                    ))}
+                </View>
+            </GestureDetector>
         </View>
     );
 };
