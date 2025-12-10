@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Modal, View, Image, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -7,6 +7,8 @@ import Animated, {
     withTiming,
     withSpring,
     useDerivedValue,
+    interpolate,
+    Extrapolate,
 } from 'react-native-reanimated';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -42,6 +44,10 @@ export function PhotoViewer({
     const savedTranslationX = useSharedValue(0);
     const savedTranslationY = useSharedValue(0);
 
+    // Carousel slide position
+    const slideX = useSharedValue(0);
+    const savedSlideX = useSharedValue(0);
+
     // Derived value to track if zoomed (for watermark visibility)
     const isZoomed = useDerivedValue(() => {
         return scale.value > 1.1;
@@ -54,6 +60,8 @@ export function PhotoViewer({
         translationY.value = withTiming(0);
         savedTranslationX.value = 0;
         savedTranslationY.value = 0;
+        slideX.value = 0;
+        savedSlideX.value = 0;
     }, []);
 
     const loadImageDimensions = useCallback((imageUri: string) => {
@@ -62,7 +70,7 @@ export function PhotoViewer({
             (width, height) => {
                 const aspectRatio = width / height;
                 const maxWidth = SCREEN_WIDTH - 40;
-                const maxHeight = SCREEN_HEIGHT - 100;
+                const maxHeight = SCREEN_HEIGHT - 200;
 
                 let optimalWidth = maxWidth;
                 let optimalHeight = maxWidth / aspectRatio;
@@ -76,7 +84,7 @@ export function PhotoViewer({
             },
             (error) => {
                 console.error('Error getting image dimensions:', error);
-                setImageDimensions({ width: SCREEN_WIDTH - 40, height: SCREEN_HEIGHT - 100 });
+                setImageDimensions({ width: SCREEN_WIDTH - 40, height: SCREEN_HEIGHT - 200 });
             }
         );
     }, []);
@@ -127,22 +135,67 @@ export function PhotoViewer({
             }
         });
 
-    // Pan gesture for dragging when zoomed
+    // Pan gesture for dragging when zoomed OR swiping when not zoomed
     const panGesture = Gesture.Pan()
         .onUpdate((event) => {
             'worklet';
             if (savedScale.value > 1) {
-                // When zoomed, allow panning
+                // When zoomed, allow panning the image
                 translationX.value = savedTranslationX.value + event.translationX;
                 translationY.value = savedTranslationY.value + event.translationY;
+            } else {
+                // When not zoomed, allow horizontal swiping for navigation
+                slideX.value = savedSlideX.value + event.translationX;
             }
         })
-        .onEnd(() => {
+        .onEnd((event) => {
             'worklet';
-            savedTranslationX.value = translationX.value;
-            savedTranslationY.value = translationY.value;
-        });
+            if (savedScale.value > 1) {
+                // Save pan position when zoomed
+                savedTranslationX.value = translationX.value;
+                savedTranslationY.value = translationY.value;
+            } else {
+                // Handle swipe navigation when not zoomed
+                const threshold = SCREEN_WIDTH * 0.25;
+                const velocity = event.velocityX;
 
+                if (event.translationX > threshold || velocity > 500) {
+                    // Swipe right - go to previous
+                    if (currentIndex > 0) {
+                        slideX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
+                            'worklet';
+                            slideX.value = 0;
+                            savedSlideX.value = 0;
+                        });
+                        // Use a delayed callback to change index
+                        setTimeout(() => {
+                            goToPreviousImage();
+                        }, 50);
+                    } else {
+                        slideX.value = withSpring(0);
+                    }
+                } else if (event.translationX < -threshold || velocity < -500) {
+                    // Swipe left - go to next
+                    if (currentIndex < images.length - 1) {
+                        slideX.value = withTiming(-SCREEN_WIDTH, { duration: 300 }, () => {
+                            'worklet';
+                            slideX.value = 0;
+                            savedSlideX.value = 0;
+                        });
+                        // Use a delayed callback to change index
+                        setTimeout(() => {
+                            goToNextImage();
+                        }, 50);
+                    } else {
+                        slideX.value = withSpring(0);
+                    }
+                } else {
+                    // Spring back if threshold not met
+                    slideX.value = withSpring(0);
+                }
+                savedSlideX.value = slideX.value;
+            }
+        });
 
     // Double tap to zoom
     const doubleTapGesture = Gesture.Tap()
@@ -179,7 +232,7 @@ export function PhotoViewer({
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [
-            { translateX: translationX.value },
+            { translateX: slideX.value + translationX.value },
             { translateY: translationY.value },
             { scale: scale.value },
         ],
@@ -187,13 +240,35 @@ export function PhotoViewer({
 
     // Watermark opacity style - hide when zoomed
     const watermarkAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: isZoomed.value ? 0 : 1,
+        opacity: withTiming(isZoomed.value ? 0 : 1, { duration: 200 }),
+    }));
+
+    // Previous/Next image preview opacity
+    const prevImageOpacity = useAnimatedStyle(() => ({
+        opacity: interpolate(
+            slideX.value,
+            [0, SCREEN_WIDTH / 2],
+            [0, 0.3],
+            Extrapolate.CLAMP
+        ),
+    }));
+
+    const nextImageOpacity = useAnimatedStyle(() => ({
+        opacity: interpolate(
+            slideX.value,
+            [-SCREEN_WIDTH / 2, 0],
+            [0.3, 0],
+            Extrapolate.CLAMP
+        ),
     }));
 
     const handleClose = () => {
         resetImageTransform();
         onClose();
     };
+
+    const canGoPrevious = currentIndex > 0;
+    const canGoNext = currentIndex < images.length - 1;
 
     if (!visible) return null;
 
@@ -203,67 +278,116 @@ export function PhotoViewer({
             transparent
             animationType="fade"
             onRequestClose={handleClose}
+            statusBarTranslucent
         >
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <View style={styles.container}>
                     {/* Header with close button and counter */}
                     <View style={styles.header}>
-                        <Text className="text-white text-lg font-semibold">
-                            {currentIndex + 1} / {images.length}
-                        </Text>
+                        <View style={styles.counterContainer}>
+                            <Text className="text-white text-base font-semibold">
+                                {currentIndex + 1}
+                            </Text>
+                            <Text className="text-white/50 text-base"> / </Text>
+                            <Text className="text-white/70 text-base">
+                                {images.length}
+                            </Text>
+                        </View>
                         <Pressable onPress={handleClose} style={styles.closeButton}>
-                            <Icon as={X} size={28} className="text-white" strokeWidth={2} />
+                            <View style={styles.closeButtonInner}>
+                                <Icon as={X} size={24} className="text-white" strokeWidth={2.5} />
+                            </View>
                         </Pressable>
                     </View>
 
-                    {/* Main image viewer */}
+                    {/* Main image viewer with carousel */}
                     <View style={styles.imageContainer}>
                         <GestureDetector gesture={composedGesture}>
-                            <Animated.View style={[animatedStyle, styles.imageWrapper]}>
-                                {imageDimensions && (
-                                    <View style={{ width: imageDimensions.width, height: imageDimensions.height, position: 'relative' }}>
+                            <Animated.View style={[styles.carouselContainer]}>
+                                {/* Previous image preview */}
+                                {canGoPrevious && (
+                                    <Animated.View style={[styles.previewImageLeft, prevImageOpacity]}>
                                         <Image
-                                            source={{ uri: images[currentIndex] }}
-                                            style={{ width: '100%', height: '100%' }}
-                                            resizeMode="contain"
+                                            source={{ uri: images[currentIndex - 1] }}
+                                            style={styles.previewImage}
+                                            resizeMode="cover"
                                         />
-                                        {renderWatermark && (
-                                            <Animated.View style={[styles.watermarkContainer, watermarkAnimatedStyle]}>
-                                                {renderWatermark(imageDimensions.width, imageDimensions.height)}
-                                            </Animated.View>
-                                        )}
-                                    </View>
+                                    </Animated.View>
+                                )}
+
+                                {/* Current image */}
+                                <Animated.View style={[animatedStyle, styles.imageWrapper]}>
+                                    {imageDimensions && (
+                                        <View style={[styles.imageContent, { width: imageDimensions.width, height: imageDimensions.height }]}>
+                                            <Image
+                                                source={{ uri: images[currentIndex] }}
+                                                style={styles.mainImage}
+                                                resizeMode="contain"
+                                            />
+                                            {renderWatermark && (
+                                                <Animated.View style={[styles.watermarkContainer, watermarkAnimatedStyle]}>
+                                                    {renderWatermark(imageDimensions.width, imageDimensions.height)}
+                                                </Animated.View>
+                                            )}
+                                        </View>
+                                    )}
+                                </Animated.View>
+
+                                {/* Next image preview */}
+                                {canGoNext && (
+                                    <Animated.View style={[styles.previewImageRight, nextImageOpacity]}>
+                                        <Image
+                                            source={{ uri: images[currentIndex + 1] }}
+                                            style={styles.previewImage}
+                                            resizeMode="cover"
+                                        />
+                                    </Animated.View>
                                 )}
                             </Animated.View>
                         </GestureDetector>
                     </View>
 
-                    {/* Navigation arrows */}
+                    {/* Navigation arrows - only show when not zoomed */}
                     {images.length > 1 && (
                         <View style={styles.navigationContainer}>
                             <Pressable
                                 onPress={goToPreviousImage}
-                                disabled={currentIndex === 0}
-                                style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
+                                disabled={!canGoPrevious}
+                                style={[styles.navButton, !canGoPrevious && styles.navButtonDisabled]}
                             >
-                                <Icon as={ChevronLeft} size={32} className="text-white" strokeWidth={2} />
+                                <Icon as={ChevronLeft} size={28} className="text-white" strokeWidth={2.5} />
                             </Pressable>
                             <Pressable
                                 onPress={goToNextImage}
-                                disabled={currentIndex === images.length - 1}
-                                style={[styles.navButton, currentIndex === images.length - 1 && styles.navButtonDisabled]}
+                                disabled={!canGoNext}
+                                style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}
                             >
-                                <Icon as={ChevronRight} size={32} className="text-white" strokeWidth={2} />
+                                <Icon as={ChevronRight} size={28} className="text-white" strokeWidth={2.5} />
                             </Pressable>
                         </View>
                     )}
 
                     {/* Instruction text */}
                     <View style={styles.instructionContainer}>
-                        <Text className="text-white/70 text-sm text-center">
-                            Pinch to zoom • Double tap to zoom • Use arrows to navigate
+                        <Text className="text-white/60 text-xs text-center">
+                            {images.length > 1 ? 'Swipe to navigate • ' : ''}Pinch or double tap to zoom
                         </Text>
                     </View>
+
+                    {/* Page indicators */}
+                    {images.length > 1 && images.length <= 10 && (
+                        <View style={styles.indicatorContainer}>
+                            {images.map((_, index) => (
+                                <View
+                                    key={index}
+                                    style={[
+                                        styles.indicator,
+                                        index === currentIndex && styles.indicatorActive,
+                                    ]}
+                                />
+                            ))}
+                        </View>
+                    )}
                 </View>
             </GestureHandlerRootView>
         </Modal>
@@ -273,7 +397,7 @@ export function PhotoViewer({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        backgroundColor: 'rgba(0, 0, 0, 0.98)',
     },
     header: {
         flexDirection: 'row',
@@ -284,17 +408,42 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
         zIndex: 10,
     },
+    counterContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     closeButton: {
-        padding: 8,
+        padding: 4,
+    },
+    closeButtonInner: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     imageContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
+    carouselContainer: {
+        width: SCREEN_WIDTH,
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     imageWrapper: {
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    imageContent: {
+        position: 'relative',
+    },
+    mainImage: {
+        width: '100%',
+        height: '100%',
     },
     watermarkContainer: {
         position: 'absolute',
@@ -303,30 +452,74 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
+    previewImageLeft: {
+        position: 'absolute',
+        left: -SCREEN_WIDTH * 0.8,
+        width: SCREEN_WIDTH * 0.6,
+        height: SCREEN_HEIGHT * 0.4,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    previewImageRight: {
+        position: 'absolute',
+        right: -SCREEN_WIDTH * 0.8,
+        width: SCREEN_WIDTH * 0.6,
+        height: SCREEN_HEIGHT * 0.4,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    previewImage: {
+        width: '100%',
+        height: '100%',
+    },
     navigationContainer: {
         position: 'absolute',
-        bottom: 100,
+        bottom: 120,
         left: 0,
         right: 0,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
         zIndex: 10,
     },
     navButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 30,
-        padding: 12,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backdropFilter: 'blur(10px)',
     },
     navButtonDisabled: {
         opacity: 0.3,
     },
     instructionContainer: {
         position: 'absolute',
-        bottom: 40,
+        bottom: 60,
         left: 0,
         right: 0,
         alignItems: 'center',
         paddingHorizontal: 20,
+    },
+    indicatorContainer: {
+        position: 'absolute',
+        bottom: 30,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 6,
+    },
+    indicator: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    indicatorActive: {
+        width: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
     },
 });
