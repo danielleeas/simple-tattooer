@@ -1,11 +1,11 @@
 import { supabase } from '@/lib/supabase';
 
 // Check if client already exists by email
-export const checkClientExists = async (email: string): Promise<{ exists: boolean; error?: any }> => {
+export const checkClientExists = async (email: string): Promise<{ exists: boolean; client?: any; error?: any }> => {
 	try {
 		const { data, error } = await supabase
 			.from('clients')
-			.select('id, email')
+			.select('id, full_name, email, phone_number, project_notes, location')
 			.eq('email', email)
 			.maybeSingle();
 
@@ -14,9 +14,30 @@ export const checkClientExists = async (email: string): Promise<{ exists: boolea
 			return { exists: false, error };
 		}
 
-		return { exists: !!data, error: null };
+		return { exists: !!data, client: data || undefined, error: null };
 	} catch (error) {
 		console.error('Error checking client existence:', error);
+		return { exists: false, error };
+	}
+};
+
+// Check if client already exists by phone number
+export const checkClientExistsByPhone = async (phoneNumber: string): Promise<{ exists: boolean; client?: any; error?: any }> => {
+	try {
+		const { data, error } = await supabase
+			.from('clients')
+			.select('id, full_name, email, phone_number, project_notes, location')
+			.eq('phone_number', phoneNumber)
+			.maybeSingle();
+
+		if (error) {
+			console.error('Error checking client existence by phone:', error);
+			return { exists: false, error };
+		}
+
+		return { exists: !!data, client: data || undefined, error: null };
+	} catch (error) {
+		console.error('Error checking client existence by phone:', error);
 		return { exists: false, error };
 	}
 };
