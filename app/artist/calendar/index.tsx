@@ -197,9 +197,10 @@ export default function CalendarPage() {
                     onRightButtonPress={() => router.push('/artist/menu')}
                 />
                 <StableGestureWrapper
-                    onSwipeRight={() => router.back()}
+                    onSwipeRight={goPrev}
+                    onSwipeLeft={goNext}
                     threshold={80}
-                    enabled={true}
+                    enabled={viewMode === 'month'}
                 >
                     <View className="flex-1 bg-background px-4 pb-4 gap-6 items-center justify-center">
                         <View className="flex-row items-center bg-background w-full max-w-[400px]">

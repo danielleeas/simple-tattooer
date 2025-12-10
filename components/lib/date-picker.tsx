@@ -437,21 +437,27 @@ const NativeCalendarPicker = ({
     const swipeThreshold = 50;
     const panResponder = React.useRef(
         PanResponder.create({
-            onStartShouldSetPanResponder: (_evt, _gestureState) => {
-                // Start capturing early to compete with Pressables and ScrollView
-                if (disabled) return false;
-                return true;
+            onStartShouldSetPanResponder: () => {
+                // Don't capture on start - let taps go through to day Pressables
+                return false;
             },
             onMoveShouldSetPanResponder: (_evt, gestureState) => {
                 if (disabled) return false;
-                const dx = gestureState.dx;
-                const dy = gestureState.dy;
-                // Only capture if it's clearly a horizontal gesture
-                // This prevents interfering with vertical scrolling
-                return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5;
+                const dx = Math.abs(gestureState.dx);
+                const dy = Math.abs(gestureState.dy);
+                // Only capture if it's clearly a horizontal swipe gesture
+                // This allows taps and vertical scrolls to pass through
+                return dx > 15 && dx > dy * 2;
+            },
+            onMoveShouldSetPanResponderCapture: (_evt, gestureState) => {
+                if (disabled) return false;
+                const dx = Math.abs(gestureState.dx);
+                const dy = Math.abs(gestureState.dy);
+                // Capture horizontal swipes
+                return dx > 15 && dx > dy * 2;
             },
             onPanResponderGrant: () => {
-                // When we capture the gesture, prevent default behavior
+                // Gesture captured
             },
             onPanResponderRelease: (_evt, gestureState) => {
                 if (disabled) return;
@@ -463,11 +469,10 @@ const NativeCalendarPicker = ({
                 }
             },
             onPanResponderTerminationRequest: (_evt, gestureState) => {
-                // Allow termination if it's a vertical gesture (let scroll view handle it)
+                // Allow termination if it's a vertical gesture
                 if (disabled) return true;
                 const dx = Math.abs(gestureState.dx);
                 const dy = Math.abs(gestureState.dy);
-                // Release if it's more vertical than horizontal
                 return dy > dx * 1.5;
             },
         })
