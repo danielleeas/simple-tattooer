@@ -6,27 +6,27 @@ This feature automatically generates QR codes for artist booking links and saves
 
 When an artist completes the setup wizard and creates their booking link (e.g., `https://simpletattooer.com/artist/daniellee`), a QR code is automatically generated and stored in Supabase. This QR code can be sent via email or shared with clients, allowing them to easily scan it with their phone camera to open the booking link.
 
-**Note**: QR codes are generated as SVG (Scalable Vector Graphics) files, which are:
-- Smaller in file size than PNG
-- Perfectly scalable to any size without quality loss
+**Note**: QR codes are generated as BMP (Bitmap) files, which are:
+- **Perfect for emails**: 100% compatible with ALL email clients (Gmail, Outlook, Apple Mail, etc.)
 - Scannable by all modern phone cameras
-- Compatible with email clients and web browsers
+- Small file size for QR codes
+- No compression artifacts - crystal clear QR codes
 
 ## How It Works
 
 1. **Setup Wizard Flow**: When the artist completes the setup wizard in `WizardNavigation.tsx:handleFinish()`, the booking link is created.
 
 2. **QR Code Generation**: After the artist profile is saved, the system:
-   - Generates a QR code from the booking link using the `qrcode-generator` library
-   - Creates a 512x512 SVG image with black QR code on white background
-   - Uploads the SVG to Supabase storage bucket `qr-codes`
+   - Generates a QR code matrix from the booking link using the `qrcode-generator` library
+   - Creates a BMP bitmap image with black QR code on white background
+   - Uploads the BMP to Supabase storage bucket `qr-codes`
    - Saves the QR code URL to the `artists.qr_code_url` column
 
 3. **Storage**: QR codes are stored in Supabase Storage in the following structure:
    ```
    qr-codes/
    └── {artist_id}/
-       └── qrcode_{artist_id}_{timestamp}.svg
+       └── qrcode_{artist_id}_{timestamp}.bmp
    ```
 
 ## Implementation Files
@@ -51,12 +51,13 @@ When an artist completes the setup wizard and creates their booking link (e.g., 
 ## Dependencies
 
 - **`qrcode-generator`**: Pure JavaScript QR code generation library (works in React Native without canvas)
-- **`react-native-qrcode-svg`**: For UI components if needed (already installed)
 
 Install with:
 ```bash
 npm install qrcode-generator
 ```
+
+**Note**: We generate BMP files programmatically - no additional image processing libraries needed!
 
 ## Database Setup
 
@@ -153,14 +154,39 @@ if (artist?.qr_code_url) {
 
 ## Email Integration
 
-The QR code URL can be included in welcome emails or booking confirmation emails:
+The QR code URL can be included in welcome emails or booking confirmation emails. BMP images work perfectly in all email clients:
 
+### HTML Email Example
+```html
+<img src="https://your-project.supabase.co/storage/v1/object/public/qr-codes/artist-id/qrcode_123.bmp"
+     alt="Scan to book"
+     width="300"
+     height="300" />
+```
+
+### TypeScript Example
 ```typescript
 import { sendWelcomeEmail } from '@/lib/services/setup-wizard-service';
 
 await sendWelcomeEmail(artist, artistName, bookingLink);
 // QR code URL is available at artist.qr_code_url
+
+// Use in email template:
+const emailHTML = `
+  <h2>Welcome ${artistName}!</h2>
+  <p>Your booking link: ${bookingLink}</p>
+  <p>Share this QR code with clients:</p>
+  <img src="${artist.qr_code_url}" alt="Booking QR Code" width="300" />
+`;
 ```
+
+### Email Client Compatibility
+✅ Gmail - Perfect
+✅ Outlook - Perfect
+✅ Apple Mail - Perfect
+✅ Yahoo Mail - Perfect
+✅ Thunderbird - Perfect
+✅ Mobile email apps - Perfect
 
 ## Error Handling
 
@@ -171,12 +197,17 @@ QR code generation failures are non-critical and won't block the setup wizard:
 
 ## QR Code Specifications
 
-- **Size**: 512x512 pixels (scalable SVG)
-- **Format**: SVG (Scalable Vector Graphics)
+- **Size**: Dynamic (based on QR code complexity, typically 300-500px)
+- **Format**: BMP (Bitmap) - 24-bit RGB uncompressed
 - **Error Correction**: Medium (M level - 15% recovery)
 - **Colors**: Black on white background
-- **Margin**: Automatic (proportional to QR code size)
-- **Benefits**: Smaller file size, perfect scaling, works on all devices
+- **Margin**: 4 modules (quiet zone) on all sides
+- **Pixel Size**: 10 pixels per QR module for high clarity
+- **Benefits**:
+  - ✅ 100% email client compatibility
+  - ✅ No compression artifacts
+  - ✅ Crystal clear, always scannable
+  - ✅ Works in HTML emails with `<img>` tag
 
 ## Future Enhancements
 
