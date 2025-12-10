@@ -1,5 +1,26 @@
 import { supabase } from '@/lib/supabase';
 
+// Check if client already exists by email
+export const checkClientExists = async (email: string): Promise<{ exists: boolean; error?: any }> => {
+	try {
+		const { data, error } = await supabase
+			.from('clients')
+			.select('id, email')
+			.eq('email', email)
+			.maybeSingle();
+
+		if (error) {
+			console.error('Error checking client existence:', error);
+			return { exists: false, error };
+		}
+
+		return { exists: !!data, error: null };
+	} catch (error) {
+		console.error('Error checking client existence:', error);
+		return { exists: false, error };
+	}
+};
+
 export interface CreateClientInput {
 	full_name: string;
 	email: string;

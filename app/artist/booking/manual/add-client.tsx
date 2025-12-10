@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { useToast } from "@/lib/contexts/toast-context";
+import { checkArtistExists } from "@/lib/services/auth-service";
+import { checkClientExists } from "@/lib/services/clients-service";
 
 import BACK_IMAGE from "@/assets/images/icons/arrow_left.png";
 import PLUS_THIN_IMAGE from "@/assets/images/icons/plus_thin.png";
@@ -85,6 +87,44 @@ export default function AddClient() {
 				variant: 'error',
 				title: 'Not ready',
 				description: 'Artist session not loaded. Please try again.',
+			});
+			return;
+		}
+
+		// Check if an artist exists with the same email
+		const artistCheck = await checkArtistExists(formData.email.trim());
+		if (artistCheck.error) {
+			toast({
+				variant: 'error',
+				title: 'Error',
+				description: 'Failed to verify email. Please try again.',
+			});
+			return;
+		}
+		if (artistCheck.exists) {
+			toast({
+				variant: 'error',
+				title: 'Email already exists',
+				description: 'An artist with this email already exists.',
+			});
+			return;
+		}
+
+		// Check if a client exists with the same email
+		const clientCheck = await checkClientExists(formData.email.trim());
+		if (clientCheck.error) {
+			toast({
+				variant: 'error',
+				title: 'Error',
+				description: 'Failed to verify email. Please try again.',
+			});
+			return;
+		}
+		if (clientCheck.exists) {
+			toast({
+				variant: 'error',
+				title: 'Email already exists',
+				description: 'A client with this email already exists.',
 			});
 			return;
 		}
