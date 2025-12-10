@@ -194,21 +194,22 @@ export function PhotoViewer({
         .onEnd((e) => {
             'worklet';
             if (scale.value > 1) {
-                scale.value = withTiming(1);
+                // Zoom out
+                scale.value = withTiming(1, { duration: 250 });
                 savedScale.value = 1;
-                panX.value = withTiming(0);
-                panY.value = withTiming(0);
+                panX.value = withTiming(0, { duration: 250 });
+                panY.value = withTiming(0, { duration: 250 });
                 savedPanX.value = 0;
                 savedPanY.value = 0;
             } else {
-                const focalX = e.x - SCREEN_WIDTH / 2;
-                const focalY = e.y - SCREEN_HEIGHT / 2;
-                scale.value = withTiming(2.5);
+                // Zoom in to 2.5x - center of the image
+                scale.value = withTiming(2.5, { duration: 250 });
                 savedScale.value = 2.5;
-                panX.value = withTiming(-focalX * 1.5);
-                panY.value = withTiming(-focalY * 1.5);
-                savedPanX.value = -focalX * 1.5;
-                savedPanY.value = -focalY * 1.5;
+                // Keep centered (no pan offset on double tap)
+                panX.value = 0;
+                panY.value = 0;
+                savedPanX.value = 0;
+                savedPanY.value = 0;
             }
         });
 
