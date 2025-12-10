@@ -6,6 +6,7 @@ import Animated, {
     useAnimatedStyle,
     withTiming,
     withSpring,
+    useDerivedValue,
 } from 'react-native-reanimated';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -32,7 +33,6 @@ export function PhotoViewer({
 }: PhotoViewerProps) {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
-    const [isZoomed, setIsZoomed] = useState(false);
 
     // Animated values for zoom and pan
     const scale = useSharedValue(1);
@@ -42,6 +42,11 @@ export function PhotoViewer({
     const savedTranslationX = useSharedValue(0);
     const savedTranslationY = useSharedValue(0);
 
+    // Derived value to track if zoomed (for watermark visibility)
+    const isZoomed = useDerivedValue(() => {
+        return scale.value > 1.1;
+    });
+
     const resetImageTransform = useCallback(() => {
         scale.value = withTiming(1);
         savedScale.value = 1;
@@ -49,7 +54,6 @@ export function PhotoViewer({
         translationY.value = withTiming(0);
         savedTranslationX.value = 0;
         savedTranslationY.value = 0;
-        setIsZoomed(false);
     }, []);
 
     const loadImageDimensions = useCallback((imageUri: string) => {
@@ -107,9 +111,11 @@ export function PhotoViewer({
     // Pinch gesture for zoom
     const pinchGesture = Gesture.Pinch()
         .onUpdate((event) => {
+            'worklet';
             scale.value = Math.max(MIN_SCALE, Math.min(savedScale.value * event.scale, MAX_SCALE));
         })
         .onEnd(() => {
+            'worklet';
             savedScale.value = scale.value;
             if (scale.value < 1.1) {
                 scale.value = withSpring(1);
@@ -118,15 +124,13 @@ export function PhotoViewer({
                 translationY.value = withSpring(0);
                 savedTranslationX.value = 0;
                 savedTranslationY.value = 0;
-                setIsZoomed(false);
-            } else {
-                setIsZoomed(true);
             }
         });
 
     // Pan gesture for dragging when zoomed
     const panGesture = Gesture.Pan()
         .onUpdate((event) => {
+            'worklet';
             if (savedScale.value > 1) {
                 // When zoomed, allow panning
                 translationX.value = savedTranslationX.value + event.translationX;
@@ -134,6 +138,7 @@ export function PhotoViewer({
             }
         })
         .onEnd(() => {
+            'worklet';
             savedTranslationX.value = translationX.value;
             savedTranslationY.value = translationY.value;
         });
@@ -143,6 +148,7 @@ export function PhotoViewer({
     const doubleTapGesture = Gesture.Tap()
         .numberOfTaps(2)
         .onEnd((event) => {
+            'worklet';
             if (scale.value > 1) {
                 // Zoom out
                 scale.value = withTiming(1);
@@ -151,7 +157,6 @@ export function PhotoViewer({
                 translationY.value = withTiming(0);
                 savedTranslationX.value = 0;
                 savedTranslationY.value = 0;
-                setIsZoomed(false);
             } else {
                 // Zoom in to 2x at tap position
                 const focalX = event.x - SCREEN_WIDTH / 2;
@@ -163,7 +168,6 @@ export function PhotoViewer({
                 translationY.value = withTiming(-focalY);
                 savedTranslationX.value = -focalX;
                 savedTranslationY.value = -focalY;
-                setIsZoomed(true);
             }
         });
 
@@ -179,6 +183,11 @@ export function PhotoViewer({
             { translateY: translationY.value },
             { scale: scale.value },
         ],
+    }));
+
+    // Watermark opacity style - hide when zoomed
+    const watermarkAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: isZoomed.value ? 0 : 1,
     }));
 
     const handleClose = () => {
@@ -218,10 +227,10 @@ export function PhotoViewer({
                                             style={{ width: '100%', height: '100%' }}
                                             resizeMode="contain"
                                         />
-                                        {renderWatermark && !isZoomed && (
-                                            <View style={styles.watermarkContainer}>
+                                        {renderWatermark && (
+                                            <Animated.View style={[styles.watermarkContainer, watermarkAnimatedStyle]}>
                                                 {renderWatermark(imageDimensions.width, imageDimensions.height)}
-                                            </View>
+                                            </Animated.View>
                                         )}
                                     </View>
                                 )}
