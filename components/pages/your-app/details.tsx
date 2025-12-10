@@ -41,7 +41,8 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
     const copyBookingLink = async (bookingLink: string) => {
-        const fullBookingLink = buildFullBookingLink(BASE_URL, bookingLink);
+        const suffix = bookingLink.split('/').slice(-1)[0] || '';
+        const fullBookingLink = buildFullBookingLink(BASE_URL, suffix);
         await Clipboard.setStringAsync(fullBookingLink);
     }
 
@@ -432,7 +433,7 @@ export const Details = ({ brandingData, updateBrandingData, artist }: DetailsPro
                         value={bookingLinkSuffix(brandingData.bookingLink)}
                         onChangeText={(text) => {
                             setHasError(false);
-                            updateBrandingData({ bookingLink: `${BASE_URL}/${text}` })
+                            updateBrandingData({ bookingLink: buildFullBookingLink(BASE_URL, text) })
                             debouncedCheckBookingLink(text);
                         }}
                         onEndEditing={() => {

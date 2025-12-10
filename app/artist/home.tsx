@@ -19,7 +19,6 @@ import { router } from 'expo-router';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { formatYmd } from '@/lib/utils';
-import { generateAndUploadQRCode } from '@/lib/services/qrcode-service';
 import { useToast } from '@/lib/contexts/toast-context';
 
 const ICON_STYLE: ImageStyle = {
@@ -88,84 +87,6 @@ export default function ProductionHome() {
         router.push('/artist/settings');
     };
 
-    const handleTestQRCode = async () => {
-        if (!artist?.booking_link || !artist?.id) {
-            Alert.alert(
-                'No Booking Link',
-                'You need to complete the setup wizard to generate a booking link first.',
-                [{ text: 'OK' }]
-            );
-            return;
-        }
-
-        setIsGeneratingQR(true);
-
-        try {
-            // Generate QR code
-            const result = await generateAndUploadQRCode(artist.booking_link, artist.id);
-
-            if (result.success && result.url) {
-                Alert.alert(
-                    'QR Code Generated! ✓',
-                    `Your QR code has been successfully generated and uploaded to Supabase storage.\n\nURL: ${result.url}\n\nWould you like to open it?`,
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                            text: 'Open QR Code',
-                            onPress: () => {
-                                Linking.openURL(result.url!).catch((err) => {
-                                    console.error('Failed to open URL:', err);
-                                    toast({
-                                        title: 'Error',
-                                        description: 'Failed to open QR code URL',
-                                        variant: 'error',
-                                        duration: 2000,
-                                    });
-                                });
-                            },
-                        },
-                    ]
-                );
-
-                toast({
-                    title: 'Success!',
-                    description: 'QR code generated successfully',
-                    variant: 'success',
-                    duration: 3000,
-                });
-            } else {
-                Alert.alert(
-                    'Generation Failed',
-                    `Failed to generate QR code.\n\nError: ${result.error || 'Unknown error'}`,
-                    [{ text: 'OK' }]
-                );
-
-                toast({
-                    title: 'Error',
-                    description: result.error || 'Failed to generate QR code',
-                    variant: 'error',
-                    duration: 3000,
-                });
-            }
-        } catch (error) {
-            console.error('Error testing QR code:', error);
-            Alert.alert(
-                'Error',
-                `An unexpected error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                [{ text: 'OK' }]
-            );
-
-            toast({
-                title: 'Error',
-                description: 'An unexpected error occurred',
-                variant: 'error',
-                duration: 3000,
-            });
-        } finally {
-            setIsGeneratingQR(false);
-        }
-    };
-
     return (
         <StableGestureWrapper
             onSwipeLeft={handleMenu}
@@ -232,28 +153,6 @@ export default function ProductionHome() {
                             </Pressable>
                         </View>
                     </View>
-                </View>
-
-                {/* Floating QR Code Test Button */}
-                <View className='absolute bottom-6 right-6 z-50'>
-                    <Pressable
-                        onPress={handleTestQRCode}
-                        disabled={isGeneratingQR}
-                        className='bg-primary rounded-full w-16 h-16 items-center justify-center shadow-lg'
-                        style={{
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 4.65,
-                            elevation: 8,
-                        }}
-                    >
-                        {isGeneratingQR ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                            <Text className='text-3xl text-background'>QR</Text>
-                        )}
-                    </Pressable>
                 </View>
             </View>
         </StableGestureWrapper>

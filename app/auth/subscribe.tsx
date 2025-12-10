@@ -97,15 +97,14 @@ export default function Subscribe() {
 
                 // router.dismissAll();
 
-                // // Navigate based on type
-                if (isExtending) {
-                    // For extensions, go back to main app
-                    router.push('/');
-                } else {
-                    console.log('first-time purchases')
-                    // For first-time purchases, go to signup
-                    router.push('/artist/wizard');
-                }
+                setTimeout(() => {
+                    if (isExtending) {
+                        router.push('/');
+                    } else {
+                        router.push('/artist/wizard');
+                    }
+                }, 100);
+
 
             } else {
                 // Purchase failed
@@ -124,6 +123,8 @@ export default function Subscribe() {
             const errorMessage = error instanceof Error ? error.message : 'An error occurred during purchase';
             dispatch(setSubscribeError(errorMessage));
             Alert.alert('Error', errorMessage);
+        } finally {
+            dispatch(setSubscribeLoading(false));
         }
     };
 

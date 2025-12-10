@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS artists (
   photo TEXT,
   avatar TEXT,
   booking_link TEXT UNIQUE NOT NULL,
+  old_links TEXT[],
   qr_code_url TEXT,
   studio_name TEXT,
   social_handler TEXT,

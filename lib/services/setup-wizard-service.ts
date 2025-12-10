@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadFileToStorage, FileUpload } from '@/lib/services/storage-service';
 import { generateAndUploadQRCode } from '@/lib/services/qrcode-service';
 import { BASE_URL } from '@/lib/constants';
-import { buildBookingLink } from '@/lib/utils';
+import { buildFullBookingLink } from '@/lib/utils';
 import { Artist } from '@/lib/redux/types';
 
 type OnProgress = (progress: number, label?: string) => void;
@@ -109,7 +109,7 @@ export async function saveSetupWizard(
     updateArtist.avatar = avatarUrl;
   }
   if (bookingLinkSuffix && bookingLinkSuffix.trim().length > 0) {
-    updateArtist.booking_link = buildBookingLink(BASE_URL, bookingLinkSuffix);
+    updateArtist.booking_link = buildFullBookingLink(BASE_URL, bookingLinkSuffix);
   }
 
   const { error: artistError } = await supabase
@@ -370,10 +370,12 @@ export async function saveSetupWizard(
   progress(0.98, 'Wrapping up');
 }
 
-export async function sendWelcomeEmail(artist: Artist, artistName: string, artistBookingLink: string): Promise<void> {
+export async function sendWelcomeEmail(artist: Artist): Promise<void> {
   if (!artist?.email) {
     throw new Error('Artist email not found');
   }
+
+  console.log(artist)
 
   try {
     void fetch(`${BASE_URL}/api/welcome-email`, {
@@ -383,8 +385,9 @@ export async function sendWelcomeEmail(artist: Artist, artistName: string, artis
       },
       body: JSON.stringify({
         to: artist.email,
-        artistName,
-        artistBookingLink,
+        artistName: artist.full_name,
+        artistBookingLink: artist.booking_link,
+        qrCodeUrl: artist.qr_code_url,
       }),
     }).catch((err) => console.warn('Failed to send welcome email:', err));
   } catch (err) {

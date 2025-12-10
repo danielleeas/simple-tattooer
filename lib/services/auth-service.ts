@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { SignupData, Artist, Subscriptions, Client } from '@/lib/redux/types';
-import { withRetryAndTimeout, safeAsync, buildBookingLink } from '@/lib/utils';
+import { withRetryAndTimeout, safeAsync, buildFullBookingLink } from '@/lib/utils';
 import { BASE_URL } from '@/lib/constants';
 
 // Check if artist already exists by email
@@ -68,7 +68,7 @@ export const generateBookingLink = async (fullName: string) => {
     const { data, error } = await supabase
       .from('artists')
       .select('booking_link')
-      .eq('booking_link', buildBookingLink(BASE_URL, bookingLink))
+      .eq('booking_link', buildFullBookingLink(BASE_URL, bookingLink))
       .single();
 
     if (error && error.code === 'PGRST116') {
@@ -91,7 +91,7 @@ export const generateBookingLink = async (fullName: string) => {
 export const createArtistProfile = async (userId: string, artistData: { full_name: string; email: string }): Promise<Artist | null> => {
   try {
     const bookingLinkString = await generateBookingLink(artistData.full_name);
-    const booking_link = buildBookingLink(BASE_URL, bookingLinkString);
+    const booking_link = buildFullBookingLink(BASE_URL, bookingLinkString);
 
     const artistProfileData = {
       id: userId,
@@ -192,6 +192,7 @@ export const getArtistProfile = async (artistId: string): Promise<Artist | null>
     photo: artist.photo,
     avatar: artist.avatar,
     booking_link: artist.booking_link,
+    qr_code_url: artist.qr_code_url,
     studio_name: artist.studio_name,
     social_handler: artist.social_handler,
     subscription_active: artist.subscription_active,
@@ -381,7 +382,7 @@ export const checkBookingLinkAvailability = async (
   }
 
   try {
-    const fullBookingLink = buildBookingLink(BASE_URL, bookingLinkSuffix);
+    const fullBookingLink = buildFullBookingLink(BASE_URL, bookingLinkSuffix);
 
     // Build query to exclude current artist if provided
     let query = supabase

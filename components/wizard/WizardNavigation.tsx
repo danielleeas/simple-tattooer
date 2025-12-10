@@ -10,6 +10,7 @@ import { useAppDispatch } from '@/lib/redux/hooks';
 import { saveSetupWizard, sendWelcomeEmail } from '@/lib/services/setup-wizard-service';
 import { LoadingOverlay } from '@/components/lib/loading-overlay';
 import { fetchUpdatedArtistProfile } from '@/lib/redux/slices/auth-slice';
+import { Artist } from '@/lib/redux/types';
 import { BASE_URL } from '@/lib/constants';
 import { buildFullBookingLink } from '@/lib/utils';
 
@@ -92,10 +93,14 @@ export function WizardNavigation({ currentStep, totalSteps }: WizardNavigationPr
 
       setSaveProgress(0.99);
       setSaveMessage("Fetching Updated Data");
-      await dispatch(fetchUpdatedArtistProfile(artist.id));
+      const resultAction = await dispatch(fetchUpdatedArtistProfile(artist.id));
 
-      const fullBookingLink = buildFullBookingLink(BASE_URL, details.bookingLinkSuffix);
-      await sendWelcomeEmail(artist, details.name, fullBookingLink);
+      // Prefer the freshly fetched artist profile (which includes the new qr_code_url)
+      let artistForEmail: Artist = artist;
+      if (fetchUpdatedArtistProfile.fulfilled.match(resultAction)) {
+        artistForEmail = resultAction.payload as Artist;
+      }
+      await sendWelcomeEmail(artistForEmail);
 
       toast({
         title: 'Welcome aboard!',

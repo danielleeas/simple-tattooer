@@ -9,12 +9,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const buildBookingLink = (base: string, suffix: string): string => {
-  const normalizedBase = base.replace(/\/+$/, '');
-  const normalizedSuffix = suffix.replace(/^\/+/, '');
-  return `${normalizedBase}/${normalizedSuffix}`;
-}
-
 export const buildFullBookingLink = (base: string, suffix: string): string => {
   const baseString = base.replace(/\/+$/, '');
   const suffixString = suffix.replace(/^\/+/, '');
