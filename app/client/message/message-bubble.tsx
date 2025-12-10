@@ -8,7 +8,7 @@ interface MessageBubbleProps {
     message: Message;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export default function MessageBubble({ message }: MessageBubbleProps) {
     const isUser = message.sender === 'user';
     
     return (

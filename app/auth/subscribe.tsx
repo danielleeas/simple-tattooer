@@ -11,7 +11,8 @@ import { useToast } from '@/lib/contexts/toast-context';
 
 import { setMode } from '@/lib/redux/slices/auth-slice';
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hooks';
-import { updateSubscriptionData, getCurrentArtist, getArtistAppMode } from '@/lib/services/auth-service';
+import { getCurrentArtist, getArtistAppMode } from '@/lib/services/auth-service';
+import { updateSubscriptionData } from '@/lib/services/subscribe-service';
 import { setSubscribeLoading, setSubscribeCompleted, setSubscribeError } from '@/lib/redux/slices/subscribe-slice';
 
 export default function Subscribe() {
@@ -20,7 +21,7 @@ export default function Subscribe() {
     const { isLoading } = useAppSelector((state) => state.subscribe);
 
     const { type } = useLocalSearchParams<{ type?: 'extend' | 'first' }>();
-    
+
     const isExtending = type === 'extend';
     const pageTitle = isExtending ? 'Extend Subscription' : 'Subscribe';
     const pageSubtitle = isExtending ? 'Renew your Simple Tattooer subscription' : 'Unlock full access to Simple Tattooer';
@@ -32,15 +33,15 @@ export default function Subscribe() {
     const handlePurchase = async (subscriptionType: 'monthly' | 'yearly') => {
         try {
             dispatch(setSubscribeLoading(true));
-            
+
             // Import purchase function (you'll need to install expo-in-app-purchases)
             // const { purchaseItemAsync, IAPResponseCode } = require('expo-in-app-purchases');
-            
+
             // For now, let's simulate a successful purchase response
             // Replace this with actual purchase logic when you implement IAP
             // Add a small delay to simulate real purchase processing
             await new Promise(resolve => setTimeout(resolve, 2000));
-            
+
             const mockPurchaseResponse = {
                 responseCode: 0, // Success
                 results: [{
@@ -61,62 +62,51 @@ export default function Subscribe() {
                 };
 
                 // Handle Supabase operations based on purchase type
-                if (isExtending) {
-                    // For extensions, artist must be authenticated
-                    const { user } = await getCurrentArtist();
-                    
-                    if (!user) {
-                        throw new Error('Artist not authenticated. Please sign in and try again.');
-                    }
-                    
-                    const supabaseResult = await updateSubscriptionData(user.id, subscribeData);
-                    
-                    if (!supabaseResult.success) {
-                        throw new Error(supabaseResult.error || 'Failed to update subscription data');
-                    }
+                const { user } = await getCurrentArtist();
 
-                    // Reload app mode from Supabase after successful extension
-                    try {
-                        const newAppMode = await getArtistAppMode(user.id);
-                        dispatch(setMode(newAppMode));
-                    } catch (modeError) {
-                        console.warn('Failed to reload app mode after subscription extension:', modeError);
-                        // Don't throw error here as subscription was successful
-                    }
-                } else {
-                    // For first-time purchases, just store in Redux for now
-                    // Supabase operations will happen after artist signs up
+                if (!user) {
+                    throw new Error('Artist not authenticated. Please sign in and try again.');
                 }
 
-                // Store in Redux for local state management
-                dispatch(setSubscribeCompleted(subscribeData));
-                
-                
+                const supabaseResult = await updateSubscriptionData(user.id, subscribeData);
+
+                if (!supabaseResult.success) {
+                    throw new Error(supabaseResult.error || 'Failed to update subscription data');
+                }
+
+                try {
+                    const newAppMode = await getArtistAppMode(user.id);
+                    dispatch(setMode(newAppMode));
+                } catch (modeError) {
+                    console.warn('Failed to reload app mode after subscription extension:', modeError);
+                    // Don't throw error here as subscription was successful
+                }
+
                 // Show success message based on type
                 const successTitle = isExtending ? 'Subscription Extended!' : 'Purchase Successful!';
-                const successDescription = isExtending 
+                const successDescription = isExtending
                     ? 'Your subscription has been renewed. You now have full access to all features.'
                     : 'Your subscription has been activated. Please complete your account setup.';
-                
+
                 toast({
                     title: successTitle,
                     description: successDescription,
                     variant: 'success',
-                    duration: 2000
+                    duration: 3000
                 });
-                
-                router.dismissAll();
-                
-                // Navigate based on type
+
+                // router.dismissAll();
+
+                // // Navigate based on type
                 if (isExtending) {
                     // For extensions, go back to main app
                     router.push('/');
                 } else {
                     console.log('first-time purchases')
                     // For first-time purchases, go to signup
-                    router.push('/auth/signup');
+                    router.push('/artist/wizard');
                 }
-                
+
             } else {
                 // Purchase failed
                 const errorMessage = mockPurchaseResponse.debugMessage || 'Purchase failed';
@@ -128,7 +118,7 @@ export default function Subscribe() {
                     duration: 2000
                 });
             }
-            
+
         } catch (error) {
             console.error('Purchase error:', error);
             const errorMessage = error instanceof Error ? error.message : 'An error occurred during purchase';
@@ -136,15 +126,15 @@ export default function Subscribe() {
             Alert.alert('Error', errorMessage);
         }
     };
-    
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
             <SafeAreaView className='flex-1 bg-background'>
                 <View className='flex-1 relative p-5 gap-6'>
-                    <Pressable onPress={handleBack} className='absolute top-4 right-4'>
+                    {/* <Pressable onPress={handleBack} className='absolute top-4 right-4'>
                         <Icon as={X} size={24} />
-                    </Pressable>
+                    </Pressable> */}
                     <View className='flex-1 gap-4 justify-center'>
                         <View className='gap-1 mt-2'>
                             <Text variant="h1" className='text-foreground'>{pageTitle}</Text>
@@ -157,9 +147,9 @@ export default function Subscribe() {
                                 <Text variant='h2' className='leading-none'>$30</Text>
                                 <Text className='text-text-secondary -mt-1'>per month</Text>
                             </View>
-                            <Button 
-                                variant="outline" 
-                                className='mt-2 w-full' 
+                            <Button
+                                variant="outline"
+                                className='mt-2 w-full'
                                 onPress={() => handlePurchase('monthly')}
                                 disabled={isLoading}
                             >
@@ -173,9 +163,9 @@ export default function Subscribe() {
                                 <Text variant='h2' className='leading-none'>$300</Text>
                                 <Text className='text-text-secondary -mt-1'>per year</Text>
                             </View>
-                            <Button 
-                                variant="outline" 
-                                className='mt-2 w-full' 
+                            <Button
+                                variant="outline"
+                                className='mt-2 w-full'
                                 onPress={() => handlePurchase('yearly')}
                                 disabled={isLoading}
                             >

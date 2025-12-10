@@ -3,6 +3,27 @@ import { SignupData, Artist, Subscriptions, Client } from '@/lib/redux/types';
 import { withRetryAndTimeout, safeAsync, buildBookingLink } from '@/lib/utils';
 import { BASE_URL } from '@/lib/constants';
 
+// Check if artist already exists by email
+export const checkArtistExists = async (email: string): Promise<{ exists: boolean; error?: any }> => {
+  try {
+    const { data, error } = await supabase
+      .from('artists')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking artist existence:', error);
+      return { exists: false, error };
+    }
+
+    return { exists: !!data, error: null };
+  } catch (error) {
+    console.error('Error checking artist existence:', error);
+    return { exists: false, error };
+  }
+};
+
 // Sign up user with Supabase Auth
 export const signUpUser = async (signupData: SignupData): Promise<{ user: any; session: any; error: any }> => {
   try {
@@ -343,160 +364,6 @@ export const getArtistAppMode = async (artistId: string): Promise<'preview' | 'p
     'preview',
     (error) => console.error('Failed to get artist app mode:', error)
   );
-};
-
-// Save subscription data to Supabase
-export const saveSubscriptionData = async (
-  artistId: string,
-  subscriptionData: {
-    subscriptionType: 'monthly' | 'yearly';
-    productId: string;
-    transactionId: string;
-    transactionDate: number;
-    transactionReceipt: string;
-    purchaseToken?: string;
-    dataAndroid?: string;
-    signatureAndroid?: string;
-  }
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // Calculate expiry date based on subscription type
-    const purchaseDate = new Date(subscriptionData.transactionDate);
-    const expiryDate = new Date(purchaseDate);
-
-    if (subscriptionData.subscriptionType === 'monthly') {
-      expiryDate.setMonth(expiryDate.getMonth() + 1);
-    } else {
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-    }
-
-    // Insert subscription record
-    const { error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .insert({
-        artist_id: artistId,
-        subscription_type: subscriptionData.subscriptionType,
-        product_id: subscriptionData.productId,
-        transaction_id: subscriptionData.transactionId,
-        purchase_date: purchaseDate.toISOString(),
-        expiry_date: expiryDate.toISOString(),
-        receipt_data: subscriptionData.transactionReceipt,
-        purchase_token: subscriptionData.purchaseToken,
-        data_android: subscriptionData.dataAndroid,
-        signature_android: subscriptionData.signatureAndroid,
-        is_active: true,
-      });
-
-    if (subscriptionError) {
-      throw new Error(`Failed to save subscription: ${subscriptionError.message}`);
-    }
-
-    // Update artist's subscription status
-    await updateSubscriptionStatus(artistId, subscriptionData.subscriptionType, true);
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error saving subscription data:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-};
-
-// Update existing subscription (for extensions)
-export const updateSubscriptionData = async (
-  artistId: string,
-  subscriptionData: {
-    subscriptionType: 'monthly' | 'yearly';
-    productId: string;
-    transactionId: string;
-    transactionDate: number;
-    transactionReceipt: string;
-    purchaseToken?: string;
-    dataAndroid?: string;
-    signatureAndroid?: string;
-  }
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // Calculate expiry date based on subscription type
-    const purchaseDate = new Date(subscriptionData.transactionDate);
-    const expiryDate = new Date(purchaseDate);
-
-    if (subscriptionData.subscriptionType === 'monthly') {
-      expiryDate.setMonth(expiryDate.getMonth() + 1);
-    } else {
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-    }
-
-    // First, check if artist has an existing subscription
-    const { data: existingSubscription, error: fetchError } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('artist_id', artistId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      throw new Error(`Failed to fetch existing subscription: ${fetchError.message}`);
-    }
-
-    if (existingSubscription) {
-      // Update existing subscription record
-      const { error: updateError } = await supabase
-        .from('subscriptions')
-        .update({
-          subscription_type: subscriptionData.subscriptionType,
-          product_id: subscriptionData.productId,
-          transaction_id: subscriptionData.transactionId,
-          expiry_date: expiryDate.toISOString(),
-          receipt_data: subscriptionData.transactionReceipt,
-          purchase_token: subscriptionData.purchaseToken,
-          data_android: subscriptionData.dataAndroid,
-          signature_android: subscriptionData.signatureAndroid,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingSubscription.id);
-
-      if (updateError) {
-        throw new Error(`Failed to update subscription: ${updateError.message}`);
-      }
-    } else {
-      // Insert new subscription record (for first-time subscriptions)
-      const { error: insertError } = await supabase
-        .from('subscriptions')
-        .insert({
-          artist_id: artistId,
-          subscription_type: subscriptionData.subscriptionType,
-          product_id: subscriptionData.productId,
-          transaction_id: subscriptionData.transactionId,
-          purchase_date: purchaseDate.toISOString(),
-          expiry_date: expiryDate.toISOString(),
-          receipt_data: subscriptionData.transactionReceipt,
-          purchase_token: subscriptionData.purchaseToken,
-          data_android: subscriptionData.dataAndroid,
-          signature_android: subscriptionData.signatureAndroid,
-          is_active: true,
-        });
-
-      if (insertError) {
-        throw new Error(`Failed to create subscription: ${insertError.message}`);
-      }
-    }
-
-    // Update artist's subscription status
-    await updateSubscriptionStatus(artistId, subscriptionData.subscriptionType, true);
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating subscription data:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
 };
 
 // Listen to auth state changes

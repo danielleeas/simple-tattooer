@@ -11,13 +11,14 @@ import { LoadingOverlay } from '@/components/lib/loading-overlay';
 import { router, Stack } from 'expo-router';
 import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
 import { clearSubscribeData } from '@/lib/redux/slices/subscribe-slice';
-import { signupWithSubscription, setMode } from '@/lib/redux/slices/auth-slice';
+import { signupArtist, setMode } from '@/lib/redux/slices/auth-slice';
 import { useToast } from '@/lib/contexts';
+import { Icon } from '@/components/ui/icon';
+import { X } from 'lucide-react-native';
 
 export default function SignupPage() {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
-  const { subscribeData, isSubscribeCompleted } = useAppSelector((state) => state.subscribe);
   const { signupLoading } = useAppSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
@@ -73,19 +74,6 @@ export default function SignupPage() {
     return error === '';
   };
 
-  // Check if artist came from purchase flow
-  useEffect(() => {
-    if (!isSubscribeCompleted && !subscribeData) {
-      // Artist didn't come from purchase flow, redirect back
-      toast({
-        title: 'Access Denied',
-        description: 'Please complete your subscription purchase first.',
-        variant: 'error',
-        duration: 5000,
-      });
-    }
-  }, [isSubscribeCompleted, subscribeData, toast]);
-
   const handleSignup = async () => {
     const isNameValid = validateField('name', formData.name);
     const isEmailValid = validateField('email', formData.email);
@@ -96,20 +84,16 @@ export default function SignupPage() {
       try {
 
         // Use Redux async thunk for signup
-        const resultAction = await dispatch(signupWithSubscription({
+        const resultAction = await dispatch(signupArtist({
           signupData: {
             email: formData.email,
             password: formData.password,
             name: formData.name,
-          },
-          subscribeData,
+          }
         }));
 
-
         // Check if signup was successful
-        if (signupWithSubscription.fulfilled.match(resultAction)) {
-          const { artist, session } = resultAction.payload;
-
+        if (signupArtist.fulfilled.match(resultAction)) {
           // Show success message
           toast({
             title: 'Account Created!',
@@ -118,22 +102,14 @@ export default function SignupPage() {
             duration: 3000,
           });
 
-          // Determine app mode based on subscription status
-          const appMode = artist?.subscription_active ? 'production' : 'preview';
-
           // Set the app mode in Redux state
-          dispatch(setMode(appMode));
+          dispatch(setMode('preview'));
 
           // Small delay to ensure Redux state is updated before navigation
           setTimeout(() => {
-            router.replace('/artist/wizard');
-
-            // Clear subscribe data after navigation to avoid race conditions
-            setTimeout(() => {
-              dispatch(clearSubscribeData());
-            }, 500);
+            router.replace('/auth/subscribe?type=first');
           }, 100);
-        } else if (signupWithSubscription.rejected.match(resultAction)) {
+        } else if (signupArtist.rejected.match(resultAction)) {
           // Handle signup error
           const errorMessage = resultAction.payload as string || 'Failed to create account';
           toast({
@@ -157,150 +133,159 @@ export default function SignupPage() {
   };
 
   const handleSignin = () => {
-    // router.dismissAll();
     router.replace('/auth/signin');
+  };
+
+  const handleBack = () => {
+    console.log("Hello world")
+    router.dismissAll();
   };
 
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       <SafeAreaView className='flex-1 bg-background'>
-        <KeyboardAwareScrollView
-          bottomOffset={50}
-          
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="flex-1 px-6 py-8 gap-6">
-            <View>
-              <Text variant="h2">
-                Create Account
-              </Text>
-              <Text className="mt-2 text-text-secondary">
-                Do this once and you don’t need to login again
-              </Text>
+        <View className='relative flex-1'>
+          <Pressable onPress={handleBack} className='absolute top-4 right-4 z-10'>
+            <Icon as={X} size={24} />
+          </Pressable>
+          <KeyboardAwareScrollView
+            bottomOffset={50}
+
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="flex-1 px-6 py-8 gap-6">
+              <View>
+                <Text variant="h2">
+                  Create Account
+                </Text>
+                <Text className="mt-2 text-text-secondary">
+                  Welcome to Simple Tattooer!
+                </Text>
+              </View>
+
+              <View className="gap-5">
+                <View>
+                  <Text variant="large" className="mb-2">
+                    Name
+                  </Text>
+                  <Input
+                    placeholder="Enter your name"
+                    value={formData.name}
+                    onChangeText={(text: string) => {
+                      setFormData({ ...formData, name: text });
+                      if (errors.name) validateField('name', text);
+                    }}
+                    onBlur={() => validateField('name', formData.name)}
+                    autoCapitalize="words"
+                    error={!!errors.name}
+                    errorText={errors.name}
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="name"
+                    textContentType="name"
+                  />
+                </View>
+
+                <View>
+                  <Text variant="large" className="mb-2">
+                    Email
+                  </Text>
+                  <Input
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChangeText={(text: string) => {
+                      setFormData({ ...formData, email: text });
+                      if (errors.email) validateField('email', text);
+                    }}
+                    onBlur={() => validateField('email', formData.email)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    error={!!errors.email}
+                    errorText={errors.email}
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                  />
+                </View>
+
+                <View>
+                  <Text variant="large" className="mb-2">
+                    Password
+                  </Text>
+                  <Input
+                    placeholder="Create a password"
+                    value={formData.password}
+                    onChangeText={(text: string) => {
+                      setFormData({ ...formData, password: text });
+                      if (errors.password) validateField('password', text);
+                      // Also validate confirm password if it has a value
+                      if (formData.confirmPassword) validateField('confirmPassword', formData.confirmPassword);
+                    }}
+                    onBlur={() => validateField('password', formData.password)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    rightIcon={showPassword ? EyeOff : Eye}
+                    onRightIconPress={() => setShowPassword(!showPassword)}
+                    rightIconLabel="Toggle password visibility"
+                    error={!!errors.password}
+                    errorText={errors.password}
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="password-new"
+                    textContentType="newPassword"
+                  />
+                </View>
+
+                <View>
+                  <Text variant="large" className="mb-2">
+                    Confirm Password
+                  </Text>
+                  <Input
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChangeText={(text: string) => {
+                      setFormData({ ...formData, confirmPassword: text });
+                      if (errors.confirmPassword) validateField('confirmPassword', text);
+                    }}
+                    onBlur={() => validateField('confirmPassword', formData.confirmPassword)}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    rightIcon={showConfirmPassword ? EyeOff : Eye}
+                    onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    rightIconLabel="Toggle password visibility"
+                    error={!!errors.confirmPassword}
+                    errorText={errors.confirmPassword}
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="password-new"
+                    textContentType="newPassword"
+                  />
+                </View>
+              </View>
+
+              <View className="mt-4 gap-4">
+                <Button
+                  variant="outline"
+                  onPress={handleSignup}
+                  size="lg"
+                  className="w-full"
+                  disabled={signupLoading}
+                >
+                  <Text>{signupLoading ? 'Creating Account...' : 'Submit'}</Text>
+                </Button>
+                <View className="flex-row items-center justify-center">
+                  <Text>Already have an account? </Text>
+                  <Pressable onPress={handleSignin}>
+                    <Text className="text-primary underline">Sign in</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
-
-            <View className="gap-5">
-              <View>
-                <Text variant="large" className="mb-2">
-                  Name
-                </Text>
-                <Input
-                  placeholder="Enter your name"
-                  value={formData.name}
-                  onChangeText={(text: string) => {
-                    setFormData({ ...formData, name: text });
-                    if (errors.name) validateField('name', text);
-                  }}
-                  onBlur={() => validateField('name', formData.name)}
-                  autoCapitalize="words"
-                  error={!!errors.name}
-                  errorText={errors.name}
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoComplete="off"
-                  textContentType="none"
-                />
-              </View>
-
-              <View>
-                <Text variant="large" className="mb-2">
-                  Email
-                </Text>
-                <Input
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChangeText={(text: string) => {
-                    setFormData({ ...formData, email: text });
-                    if (errors.email) validateField('email', text);
-                  }}
-                  onBlur={() => validateField('email', formData.email)}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  error={!!errors.email}
-                  errorText={errors.email}
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoComplete="off"
-                  textContentType="none"
-                />
-              </View>
-
-              <View>
-                <Text variant="large" className="mb-2">
-                  Password
-                </Text>
-                <Input
-                  placeholder="Create a password"
-                  value={formData.password}
-                  onChangeText={(text: string) => {
-                    setFormData({ ...formData, password: text });
-                    if (errors.password) validateField('password', text);
-                    // Also validate confirm password if it has a value
-                    if (formData.confirmPassword) validateField('confirmPassword', formData.confirmPassword);
-                  }}
-                  onBlur={() => validateField('password', formData.password)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  rightIcon={showPassword ? EyeOff : Eye}
-                  onRightIconPress={() => setShowPassword(!showPassword)}
-                  rightIconLabel="Toggle password visibility"
-                  error={!!errors.password}
-                  errorText={errors.password}
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoComplete="off"
-                  textContentType="none"
-                />
-              </View>
-
-              <View>
-                <Text variant="large" className="mb-2">
-                  Confirm Password
-                </Text>
-                <Input
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChangeText={(text: string) => {
-                    setFormData({ ...formData, confirmPassword: text });
-                    if (errors.confirmPassword) validateField('confirmPassword', text);
-                  }}
-                  onBlur={() => validateField('confirmPassword', formData.confirmPassword)}
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                  rightIcon={showConfirmPassword ? EyeOff : Eye}
-                  onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  rightIconLabel="Toggle password visibility"
-                  error={!!errors.confirmPassword}
-                  errorText={errors.confirmPassword}
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoComplete="off"
-                  textContentType="none"
-                />
-              </View>
-            </View>
-
-            <View className="mt-4 gap-4">
-              <Button
-                variant="outline"
-                onPress={handleSignup}
-                size="lg"
-                className="w-full"
-                disabled={signupLoading}
-              >
-                <Text>{signupLoading ? 'Creating Account...' : 'Submit'}</Text>
-              </Button>
-              <View className="flex-row items-center justify-center">
-                <Text>Already have an account? </Text>
-                <Pressable onPress={handleSignin}>
-                  <Text className="text-primary underline">Sign in</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </KeyboardAwareScrollView>
+          </KeyboardAwareScrollView>
+        </View>
 
         {/* Loading Overlay */}
         <LoadingOverlay

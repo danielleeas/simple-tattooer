@@ -85,7 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // First try to initialize auth from stored session
           const { user, session, error } = await initializeAuth();
 
-          console.log("user", user)
+          console.log("user", user);
 
           if (user && session && !error) {
             // Artist has valid session, get profile and set state
@@ -93,16 +93,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             if (artistProfile) {
               // Profile exists, set artist and session
-              dispatch(setArtist(artistProfile));
-              dispatch(setSession(session));
-
-              // Determine app mode based on subscription status (non-blocking)
-              determineAppMode(artistProfile).then(appMode => {
-                dispatch(setMode(appMode));
-              }).catch(error => {
-                console.warn('Failed to determine app mode:', error);
+              if (artistProfile.subscription_active) {
+                dispatch(setArtist(artistProfile));
+                dispatch(setSession(session));
+                dispatch(setMode('production'));
+              } else {
+                dispatch(clearArtist());
+                await clearStoredAuthData();
                 dispatch(setMode('preview'));
-              });
+              }
             } else {
 
               const clientProfile: Client | null = await getClientProfile(user.id);

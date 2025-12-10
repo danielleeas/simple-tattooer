@@ -11,6 +11,7 @@ import { setShowPurchase } from "@/lib/redux/slices/ui-slice";
 import CustomModal from "@/components/lib/custom-modal";
 
 import Info from '@/assets/images/icons/warning_circle.png';
+import { Artist } from "@/lib/redux/types";
 
 const ICON_STYLE: ImageStyle = {
     height: 80,
@@ -21,18 +22,14 @@ export default function SubscribeModal() {
     const dispatch = useAppDispatch();
     const showPurchase = useAppSelector((state) => state.ui.showPurchase);
 
-    const handlePurchaseButton = () => {
-        dispatch(setShowPurchase(true));
-    }
-
-    const handleSubscribePage = () => {
-        router.push('/preview/subscribe?type=first');
-        dispatch(setShowPurchase(false))
+    const handleCreateAccountPage = () => {
+        router.push('/auth/signup');
+        // dispatch(setShowPurchase(false))
     }
 
     const handleSigninPage = () => {
         router.push('/auth/signin');
-        dispatch(setShowPurchase(false))
+        // dispatch(setShowPurchase(false))
     }
 
     return (
@@ -57,12 +54,14 @@ export default function SubscribeModal() {
                         />
                     </View>
                     <View>
-                        <Text variant="h6" className="text-center">You are currently viewing Simple Tattooer in Preview Mode - tap outside this box to look around. Create an Account or Sign In to unlock full access</Text>
+                        <Text className="text-center">You are currently viewing Simple Tattooer in</Text>
+                        <Text className="text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Preview Mode - tap outside this box to look around.</Text>
                     </View>
+                    <Text className="text-center text-text-secondary" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Create an Account or Sign In to unlock full access.</Text>
                     <View className="flex-row items-center justify-center gap-2">
                         <View className="flex-1">
-                            <Button variant="outline" className="mt-4" onPress={handleSubscribePage}>
-                                <Text className="uppercase">Subscribe</Text>
+                            <Button variant="outline" className="mt-4" onPress={handleCreateAccountPage}>
+                                <Text className="uppercase" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>create account</Text>
                             </Button>
                         </View>
                         <View className="flex-1">

@@ -16,17 +16,14 @@ import DRAWING from '@/assets/images/icons/drawing.png';
 import ALERT from '@/assets/images/icons/alert.png';
 import GEAR from '@/assets/images/icons/gear.png';
 import CALENDAR from '@/assets/images/icons/calendar.png';
+import { Artist } from '@/lib/redux/types';
 
 const ICON_STYLE: ImageStyle = {
     height: 56,
     width: 56,
 };
 
-interface PreviewHomeProps {
-    mode: 'preview' | 'production' | 'client';
-}
-
-export default function PreviewHome({ mode }: PreviewHomeProps) {
+export default function PreviewHome() {
 
     const showSplash = useAppSelector((state: RootState) => state.ui.showSplash)
     const dispatch = useAppDispatch();
@@ -67,7 +64,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
                 enabled={true}
             >
                 <View className='flex-1 relative overflow-hidden'>
-                    {showSplash && <Splash isAuthenticated={false} welcome_enabled={false} mode={mode} />}
+                    {showSplash && <Splash isAuthenticated={false} welcome_enabled={false} mode={'preview'} />}
 
                     <View className="flex-1 items-center justify-center gap-11 p-4 pb-6 bg-background">
                         <View className="gap-4 flex-1 w-full min-h-32 max-h-44 items-center justify-center flex-row">
@@ -97,7 +94,7 @@ export default function PreviewHome({ mode }: PreviewHomeProps) {
                                 <Text variant="h5" >Chase Your Dreams</Text>
                                 <Button onPress={handleToday} size='sm' className='items-center justify-center py-2 h-8 px-3 gap-2 mt-3 border border-border rounded-lg bg-background-secondary'>
                                     <Image source={require('@/assets/images/icons/info_circle.png')} style={{ width: 16, height: 16 }} resizeMode="contain" />
-                                    <Text className='text-xs text-text-secondary'>Tap “Today” to subscribe</Text>
+                                    <Text className='text-xs text-text-secondary'>Tap “Today” to create an account</Text>
                                 </Button>
                             </Pressable>
                         </View>

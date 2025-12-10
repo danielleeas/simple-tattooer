@@ -15,7 +15,7 @@ import ClientHome from './client/home';
 
 export default function Screen() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, mode, isLoading, client } = useAuth();
+  const { isAuthenticated, mode, isLoading, client, artist } = useAuth();
   const [clientId, setClientId] = useState<string | null>(null);
   console.log("mode", mode);
 
@@ -56,7 +56,18 @@ export default function Screen() {
       <>
         <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
         <SafeAreaView className='flex-1'>
-          <PreviewHome mode={mode} />
+          <PreviewHome />
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (isAuthenticated && mode === 'preview' && artist) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <SafeAreaView className='flex-1'>
+          <PreviewHome />
         </SafeAreaView>
       </>
     );

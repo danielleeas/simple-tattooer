@@ -81,13 +81,18 @@ export default function SigninPage() {
           // Determine app mode based on subscription status
           const appMode = artist?.subscription_active ? 'production' : 'preview';
 
+          console.log("appMode", appMode);
+
           // Set the app mode in Redux state
           dispatch(setMode(appMode));
 
           // Small delay to ensure Redux state is updated before navigation
           setTimeout(() => {
-            // Navigate to appropriate screen based on mode
-            router.replace('/');
+            if (appMode === 'production') {
+              router.push('/');
+            } else {
+              router.push('/auth/subscribe');
+            }
           }, 100);
         } else if (signinWithAuth.rejected.match(resultAction)) {
           // Handle signin error
@@ -157,8 +162,8 @@ export default function SigninPage() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   spellCheck={false}
-                  autoComplete="off"
-                  textContentType="none"
+                  autoComplete="email"
+                  textContentType="emailAddress"
                   error={!!errors.email}
                   errorText={errors.email}
                 />
@@ -169,7 +174,7 @@ export default function SigninPage() {
                   Password
                 </Text>
                 <Input
-                  placeholder="Create a password"
+                  placeholder="Enter your password"
                   value={formData.password}
                   onChangeText={(text: string) => {
                     setFormData({ ...formData, password: text });
@@ -185,8 +190,8 @@ export default function SigninPage() {
                   errorText={errors.password}
                   autoCorrect={false}
                   spellCheck={false}
-                  autoComplete="off"
-                  textContentType="none"
+                  autoComplete="password"
+                  textContentType="password"
                 />
               </View>
 

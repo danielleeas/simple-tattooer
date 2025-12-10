@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile, getClientProfile } from '@/lib/services/auth-service';
-import { saveSubscriptionToSupabase } from '@/lib/services/subscribe-service';
+import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile, getClientProfile, checkArtistExists } from '@/lib/services/auth-service';
 import { saveSessionToStorage, saveArtistToStorage, clearStoredAuthData, saveClientToStorage } from '@/lib/services/session-service';
 import { Artist, Client } from '@/lib/redux/types';
 
@@ -30,13 +29,21 @@ const initialState: AuthState = {
 };
 
 // Async thunk for signup with subscription
-export const signupWithSubscription = createAsyncThunk(
-  'auth/signupWithSubscription',
+export const signupArtist = createAsyncThunk(
+  'auth/signupArtist',
   async (params: {
-    signupData: { email: string; password: string; name: string };
-    subscribeData: any;
+    signupData: { email: string; password: string; name: string }
   }, { rejectWithValue }) => {
     try {
+      // Step 0: Check if artist already exists
+      const { exists, error: checkError } = await checkArtistExists(params.signupData.email);
+      if (checkError) {
+        throw new Error('Failed to verify account availability');
+      }
+      if (exists) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
+      }
+
       // Step 1: Sign up user with Supabase Auth
       const { user, session, error: authError } = await signUpUser(params.signupData);
       if (authError) {
@@ -53,15 +60,15 @@ export const signupWithSubscription = createAsyncThunk(
       });
 
       // Step 3: Save subscription data to Supabase if subscribe data exists
-      if (params.subscribeData) {
-        await saveSubscriptionToSupabase(user.id, params.subscribeData);
+      // if (params.subscribeData) {
+      //   await saveSubscriptionToSupabase(user.id, params.subscribeData);
         
-        // Step 3.5: Fetch updated artist profile to get latest subscription status
-        const updatedArtistProfile = await getArtistProfile(user.id);
-        if (updatedArtistProfile) {
-          artistProfile = updatedArtistProfile;
-        }
-      }
+      //   // Step 3.5: Fetch updated artist profile to get latest subscription status
+      //   const updatedArtistProfile = await getArtistProfile(user.id);
+      //   if (updatedArtistProfile) {
+      //     artistProfile = updatedArtistProfile;
+      //   }
+      // }
 
       // Step 4: Save session and artist data to storage for persistence
       await saveSessionToStorage(session);
@@ -130,6 +137,7 @@ export const signinWithAuth = createAsyncThunk(
       // Step 2: Get artist profile from our custom artists table
       const artistProfile = await getArtistProfile(user.id);
       if (artistProfile) {
+        
         await saveSessionToStorage(session);
         await saveArtistToStorage(artistProfile as any);
         return { artist: artistProfile, client: null, session };
@@ -253,18 +261,18 @@ export const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Signup with subscription
-      .addCase(signupWithSubscription.pending, (state) => {
+      .addCase(signupArtist.pending, (state) => {
         state.signupLoading = true;
         state.error = null;
       })
-      .addCase(signupWithSubscription.fulfilled, (state, action) => {
+      .addCase(signupArtist.fulfilled, (state, action) => {
         state.signupLoading = false;
         state.artist = action.payload.artist;
         state.session = action.payload.session;
         state.isAuthenticated = true;
         state.error = null;
       })
-      .addCase(signupWithSubscription.rejected, (state, action) => {
+      .addCase(signupArtist.rejected, (state, action) => {
         state.signupLoading = false;
         state.error = action.payload as string;
       })
