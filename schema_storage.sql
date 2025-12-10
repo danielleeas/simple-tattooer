@@ -207,6 +207,23 @@ CREATE POLICY "Allow public updates to client-photos" ON storage.objects
 CREATE POLICY "Allow public deletes from client-photos" ON storage.objects
   FOR DELETE USING (bucket_id = 'client-photos'); 
 
+
+-- Allow anyone to upload qr-codes to qr-codes bucket
+CREATE POLICY "Allow public uploads to qr-codes" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'qr-codes');
+
+-- Allow anyone to view qr-codes in qr-codes bucket
+CREATE POLICY "Allow public access to qr-codes" ON storage.objects
+  FOR SELECT USING (bucket_id = 'qr-codes');
+
+-- Allow anyone to update qr-codes in qr-codes bucket
+CREATE POLICY "Allow public updates to qr-codes" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'qr-codes');
+
+-- Allow anyone to delete qr-codes in qr-codes bucket
+CREATE POLICY "Allow public deletes from qr-codes" ON storage.objects
+  FOR DELETE USING (bucket_id = 'qr-codes'); 
+
 -- Ensure the buckets exist and are public
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('artist-photos', 'artist-photos', true)
@@ -258,6 +275,12 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('client-photos', 'client-photos', true)
+ON CONFLICT (id) DO UPDATE SET 
+  name = EXCLUDED.name,
+  public = EXCLUDED.public;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('qr-codes', 'qr-codes', true)
 ON CONFLICT (id) DO UPDATE SET 
   name = EXCLUDED.name,
   public = EXCLUDED.public;
