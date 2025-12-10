@@ -117,6 +117,49 @@ export function PhotoViewer({
         }
     }, [currentIndex, resetImageTransform]);
 
+    // Handler for swipe navigation - called from JS thread
+    const handleSwipeEnd = useCallback((direction: 'left' | 'right' | 'none', translationAmount: number, velocityAmount: number) => {
+        const threshold = SCREEN_WIDTH * 0.25;
+
+        if (direction === 'right' && (translationAmount > threshold || velocityAmount > 500)) {
+            // Swipe right - go to previous
+            if (currentIndex > 0) {
+                slideX.value = withTiming(SCREEN_WIDTH, { duration: 250 }, () => {
+                    'worklet';
+                    slideX.value = 0;
+                    savedSlideX.value = 0;
+                });
+                // Delay the state update slightly for smooth animation
+                setTimeout(() => {
+                    setCurrentIndex(prev => Math.max(0, prev - 1));
+                    resetImageTransform();
+                }, 200);
+            } else {
+                slideX.value = withSpring(0);
+            }
+        } else if (direction === 'left' && (Math.abs(translationAmount) > threshold || Math.abs(velocityAmount) > 500)) {
+            // Swipe left - go to next
+            if (currentIndex < images.length - 1) {
+                slideX.value = withTiming(-SCREEN_WIDTH, { duration: 250 }, () => {
+                    'worklet';
+                    slideX.value = 0;
+                    savedSlideX.value = 0;
+                });
+                // Delay the state update slightly for smooth animation
+                setTimeout(() => {
+                    setCurrentIndex(prev => Math.min(images.length - 1, prev + 1));
+                    resetImageTransform();
+                }, 200);
+            } else {
+                slideX.value = withSpring(0);
+            }
+        } else {
+            // Spring back if threshold not met
+            slideX.value = withSpring(0);
+        }
+        savedSlideX.value = 0;
+    }, [currentIndex, images.length, resetImageTransform]);
+
     // Pinch gesture for zoom
     const pinchGesture = Gesture.Pinch()
         .onUpdate((event) => {
@@ -156,43 +199,9 @@ export function PhotoViewer({
                 savedTranslationX.value = translationX.value;
                 savedTranslationY.value = translationY.value;
             } else {
-                // Handle swipe navigation when not zoomed
-                const threshold = SCREEN_WIDTH * 0.25;
-                const velocity = event.velocityX;
-
-                if (event.translationX > threshold || velocity > 500) {
-                    // Swipe right - go to previous
-                    if (currentIndex > 0) {
-                        slideX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, (finished) => {
-                            'worklet';
-                            if (finished) {
-                                slideX.value = 0;
-                                savedSlideX.value = 0;
-                                runOnJS(goToPreviousImage)();
-                            }
-                        });
-                    } else {
-                        slideX.value = withSpring(0);
-                    }
-                } else if (event.translationX < -threshold || velocity < -500) {
-                    // Swipe left - go to next
-                    if (currentIndex < images.length - 1) {
-                        slideX.value = withTiming(-SCREEN_WIDTH, { duration: 300 }, (finished) => {
-                            'worklet';
-                            if (finished) {
-                                slideX.value = 0;
-                                savedSlideX.value = 0;
-                                runOnJS(goToNextImage)();
-                            }
-                        });
-                    } else {
-                        slideX.value = withSpring(0);
-                    }
-                } else {
-                    // Spring back if threshold not met
-                    slideX.value = withSpring(0);
-                }
-                savedSlideX.value = slideX.value;
+                // Delegate swipe handling to JS thread
+                const direction = event.translationX > 0 ? 'right' : event.translationX < 0 ? 'left' : 'none';
+                runOnJS(handleSwipeEnd)(direction, event.translationX, event.velocityX);
             }
         });
 
