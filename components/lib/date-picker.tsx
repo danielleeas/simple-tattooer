@@ -441,20 +441,23 @@ const NativeCalendarPicker = ({
                 // Don't capture on start - let taps go through to day Pressables
                 return false;
             },
+            onStartShouldSetPanResponderCapture: () => {
+                // Don't capture on start
+                return false;
+            },
             onMoveShouldSetPanResponder: (_evt, gestureState) => {
                 if (disabled) return false;
                 const dx = Math.abs(gestureState.dx);
                 const dy = Math.abs(gestureState.dy);
-                // Only capture if it's clearly a horizontal swipe gesture
-                // This allows taps and vertical scrolls to pass through
-                return dx > 15 && dx > dy * 2;
+                // Capture horizontal swipes - lower threshold to compete with ScrollView
+                return dx > 10 && dx > dy * 1.5;
             },
             onMoveShouldSetPanResponderCapture: (_evt, gestureState) => {
                 if (disabled) return false;
                 const dx = Math.abs(gestureState.dx);
                 const dy = Math.abs(gestureState.dy);
-                // Capture horizontal swipes
-                return dx > 15 && dx > dy * 2;
+                // Aggressively capture horizontal swipes before ScrollView can
+                return dx > 10 && dx > dy * 1.5;
             },
             onPanResponderGrant: () => {
                 // Gesture captured
@@ -468,12 +471,16 @@ const NativeCalendarPicker = ({
                     goToPreviousMonth();
                 }
             },
-            onPanResponderTerminationRequest: (_evt, gestureState) => {
-                // Allow termination if it's a vertical gesture
-                if (disabled) return true;
-                const dx = Math.abs(gestureState.dx);
-                const dy = Math.abs(gestureState.dy);
-                return dy > dx * 1.5;
+            onPanResponderTerminate: () => {
+                // Gesture was taken by another responder
+            },
+            onPanResponderTerminationRequest: () => {
+                // Don't release the gesture once we have it
+                return false;
+            },
+            onShouldBlockNativeResponder: () => {
+                // Block native scroll when we're handling horizontal swipe
+                return true;
             },
         })
     ).current;
