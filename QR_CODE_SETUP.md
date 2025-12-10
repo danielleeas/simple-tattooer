@@ -6,21 +6,27 @@ This feature automatically generates QR codes for artist booking links and saves
 
 When an artist completes the setup wizard and creates their booking link (e.g., `https://simpletattooer.com/artist/daniellee`), a QR code is automatically generated and stored in Supabase. This QR code can be sent via email or shared with clients, allowing them to easily scan it with their phone camera to open the booking link.
 
+**Note**: QR codes are generated as SVG (Scalable Vector Graphics) files, which are:
+- Smaller in file size than PNG
+- Perfectly scalable to any size without quality loss
+- Scannable by all modern phone cameras
+- Compatible with email clients and web browsers
+
 ## How It Works
 
 1. **Setup Wizard Flow**: When the artist completes the setup wizard in `WizardNavigation.tsx:handleFinish()`, the booking link is created.
 
 2. **QR Code Generation**: After the artist profile is saved, the system:
-   - Generates a QR code from the booking link using the `qrcode` library
-   - Creates a 512x512 PNG image with black QR code on white background
-   - Uploads the image to Supabase storage bucket `qr-codes`
+   - Generates a QR code from the booking link using the `qrcode-generator` library
+   - Creates a 512x512 SVG image with black QR code on white background
+   - Uploads the SVG to Supabase storage bucket `qr-codes`
    - Saves the QR code URL to the `artists.qr_code_url` column
 
 3. **Storage**: QR codes are stored in Supabase Storage in the following structure:
    ```
    qr-codes/
    └── {artist_id}/
-       └── qrcode_{artist_id}_{timestamp}.png
+       └── qrcode_{artist_id}_{timestamp}.svg
    ```
 
 ## Implementation Files
@@ -44,12 +50,12 @@ When an artist completes the setup wizard and creates their booking link (e.g., 
 
 ## Dependencies
 
-- **`qrcode`**: QR code generation library
-- **`@types/qrcode`**: TypeScript definitions
+- **`qrcode-generator`**: Pure JavaScript QR code generation library (works in React Native without canvas)
+- **`react-native-qrcode-svg`**: For UI components if needed (already installed)
 
 Install with:
 ```bash
-npm install qrcode @types/qrcode
+npm install qrcode-generator
 ```
 
 ## Database Setup
@@ -165,11 +171,12 @@ QR code generation failures are non-critical and won't block the setup wizard:
 
 ## QR Code Specifications
 
-- **Size**: 512x512 pixels
-- **Format**: PNG
-- **Error Correction**: Medium (M level)
+- **Size**: 512x512 pixels (scalable SVG)
+- **Format**: SVG (Scalable Vector Graphics)
+- **Error Correction**: Medium (M level - 15% recovery)
 - **Colors**: Black on white background
-- **Margin**: 2 modules (quiet zone)
+- **Margin**: Automatic (proportional to QR code size)
+- **Benefits**: Smaller file size, perfect scaling, works on all devices
 
 ## Future Enhancements
 

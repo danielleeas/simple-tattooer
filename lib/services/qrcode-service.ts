@@ -1,4 +1,4 @@
-import QRCode from 'qrcode';
+import qrcode from 'qrcode-generator';
 import { uploadFileToStorage, FileUpload } from './storage-service';
 
 export interface QRCodeGenerationResult {
@@ -7,6 +7,55 @@ export interface QRCodeGenerationResult {
   base64?: string;
   error?: string;
 }
+
+/**
+ * Convert SVG string to base64 data URI
+ * React Native can handle SVG data URIs for QR codes
+ */
+const svgToDataUrl = (svgString: string): string => {
+  // Convert SVG to base64
+  // We need to encode the SVG string properly for base64
+  const utf8Bytes = new TextEncoder().encode(svgString);
+  let binaryString = '';
+  for (let i = 0; i < utf8Bytes.length; i++) {
+    binaryString += String.fromCharCode(utf8Bytes[i]);
+  }
+  const base64Svg = btoa(binaryString);
+  return `data:image/svg+xml;base64,${base64Svg}`;
+};
+
+/**
+ * Generate QR code SVG string
+ */
+const generateQRCodeSVG = (text: string, size: number = 512): string => {
+  // Create QR code with error correction level M (15%)
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+
+  // Get the module count (size of the QR code matrix)
+  const moduleCount = qr.getModuleCount();
+  const cellSize = Math.floor(size / (moduleCount + 2)); // +2 for margin
+  const margin = cellSize;
+  const svgSize = cellSize * moduleCount + margin * 2;
+
+  // Generate SVG
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`;
+  svg += `<rect width="${svgSize}" height="${svgSize}" fill="#ffffff"/>`;
+
+  for (let row = 0; row < moduleCount; row++) {
+    for (let col = 0; col < moduleCount; col++) {
+      if (qr.isDark(row, col)) {
+        const x = col * cellSize + margin;
+        const y = row * cellSize + margin;
+        svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="#000000"/>`;
+      }
+    }
+  }
+
+  svg += '</svg>';
+  return svg;
+};
 
 /**
  * Generate a QR code from a URL/text and upload it to Supabase storage
@@ -19,20 +68,14 @@ export const generateAndUploadQRCode = async (
   artistId: string
 ): Promise<QRCodeGenerationResult> => {
   try {
-    // Generate QR code as base64 data URL
-    const qrCodeDataUrl = await QRCode.toDataURL(url, {
-      errorCorrectionLevel: 'M',
-      type: 'image/png',
-      width: 512,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF',
-      },
-    });
+    // Generate QR code SVG
+    const svgString = generateQRCodeSVG(url, 512);
+
+    // Convert to data URI
+    const dataUri = svgToDataUrl(svgString);
 
     // Extract base64 string from data URL
-    const base64Match = qrCodeDataUrl.match(/^data:image\/png;base64,(.+)$/);
+    const base64Match = dataUri.match(/^data:image\/svg\+xml;base64,(.+)$/);
     if (!base64Match) {
       return {
         success: false,
@@ -44,12 +87,12 @@ export const generateAndUploadQRCode = async (
 
     // Prepare file upload
     const timestamp = Date.now();
-    const fileName = `qrcode_${artistId}_${timestamp}.png`;
+    const fileName = `qrcode_${artistId}_${timestamp}.svg`;
 
     const fileUpload: FileUpload = {
-      uri: qrCodeDataUrl,
+      uri: dataUri,
       name: fileName,
-      type: 'image/png',
+      type: 'image/svg+xml',
       size: base64Data.length,
     };
 
@@ -88,19 +131,14 @@ export const generateAndUploadQRCode = async (
  */
 export const generateQRCodeBase64 = async (url: string): Promise<string | null> => {
   try {
-    const qrCodeDataUrl = await QRCode.toDataURL(url, {
-      errorCorrectionLevel: 'M',
-      type: 'image/png',
-      width: 512,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF',
-      },
-    });
+    // Generate QR code SVG
+    const svgString = generateQRCodeSVG(url, 512);
+
+    // Convert to data URI
+    const dataUri = svgToDataUrl(svgString);
 
     // Extract base64 string from data URL
-    const base64Match = qrCodeDataUrl.match(/^data:image\/png;base64,(.+)$/);
+    const base64Match = dataUri.match(/^data:image\/svg\+xml;base64,(.+)$/);
     if (!base64Match) {
       return null;
     }
