@@ -57,10 +57,8 @@ export default function SubscribeModal() {
                         />
                     </View>
                     <View>
-                        <Text variant="h6" className="text-center">You're exploring Simple Tattooer in</Text>
-                        <Text variant="h6" className="text-center leading-none">Preview Mode-tap anywhere to explore!</Text>
+                        <Text variant="h6" className="text-center">You are currently viewing Simple Tattooer in Preview Mode - tap outside this box to look around. Create an Account or Sign In to unlock full access</Text>
                     </View>
-                    <Text className="text-center text-text-secondary">Subscribe or Signin to unlock full access!</Text>
                     <View className="flex-row items-center justify-center gap-2">
                         <View className="flex-1">
                             <Button variant="outline" className="mt-4" onPress={handleSubscribePage}>
@@ -69,7 +67,7 @@ export default function SubscribeModal() {
                         </View>
                         <View className="flex-1">
                             <Button variant="outline" className="mt-4" onPress={handleSigninPage}>
-                                <Text className="uppercase">Signin</Text>
+                                <Text className="uppercase">Sign In</Text>
                             </Button>
                         </View>
                     </View>

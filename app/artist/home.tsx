@@ -69,7 +69,7 @@ export default function ProductionHome() {
     };
 
     const handleAlert = () => {
-        // router.push('/preview/alert');
+        router.push('/artist/alert');
     };
 
     const handleDrawings = () => {
