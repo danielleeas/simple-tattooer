@@ -289,7 +289,8 @@ export function PhotoViewer({
                                                 isCurrentImage && currentImageTransform,
                                             ]}
                                         >
-                                            <View style={[
+                                            <View
+                                            style={[
                                                 styles.imageFrame,
                                                 imageSize && { width: imageSize.width, height: imageSize.height }
                                             ]}>
@@ -300,7 +301,7 @@ export function PhotoViewer({
                                                 />
                                                 {/* Watermark only on current image */}
                                                 {isCurrentImage && renderWatermark && imageSize && (
-                                                    <View style={styles.watermark}>
+                                                    <View style={styles.watermark} className='overflow-hidden'>
                                                         {renderWatermark(imageSize.width, imageSize.height)}
                                                     </View>
                                                 )}
@@ -368,6 +369,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
     header: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
