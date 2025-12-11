@@ -541,6 +541,16 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 			console.error('Error fetching sessions for project when updating events:', sessionsErr);
 		} else if (Array.isArray(sessions) && sessions.length > 0) {
 			const sessionIds = sessions.map((s: any) => s.id);
+			// Get client name for event title
+			const { data: clientRow, error: fetchClientErr } = await supabase
+				.from('clients')
+				.select('full_name')
+				.eq('id', clientId)
+				.single();
+
+			if (fetchClientErr) {
+				console.warn('Unable to fetch client name for session events:', fetchClientErr);
+			}
 
 			if (isPaid) {
 				// Deposit paid: delete lock events and create session events
@@ -555,16 +565,7 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 					console.warn('Error deleting lock events on deposit paid:', deleteLockErr);
 				}
 
-				// Get client name for event title
-				const { data: clientRow, error: fetchClientErr } = await supabase
-					.from('clients')
-					.select('full_name')
-					.eq('id', clientId)
-					.single();
 
-				if (fetchClientErr) {
-					console.warn('Unable to fetch client name for session events:', fetchClientErr);
-				}
 
 				const eventTitle = clientRow?.full_name || 'Session';
 
@@ -637,6 +638,8 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 					console.warn('Error deleting session events on deposit unpaid:', deleteSessionErr);
 				}
 
+				const eventTitle = clientRow?.full_name || 'Paused';
+
 				// Create lock events for sessions that don't have them (skip quick_appointment)
 				const { data: existingLockEvents, error: existingLockErr } = await supabase
 					.from('events')
@@ -673,10 +676,10 @@ export async function updateProjectDepositPaid(projectId: string, isPaid: boolea
 						}
 						return {
 							artist_id: artistId,
-							title: 'Locked',
+							title: eventTitle,
 							start_date: startStr,
 							end_date: endStr,
-							color: 'gray',
+							color: 'purple',
 							type: 'item',
 							source: 'lock',
 							source_id: s.id,

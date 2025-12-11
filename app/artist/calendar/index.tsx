@@ -66,19 +66,17 @@ export default function CalendarPage() {
             // Map DB rows to Calendar's expected shape
             const map: Record<string, CalendarEvent[]> = {};
             for (const ev of events) {
-                if (ev.source !== 'lock') {
-                    const evStart = parseYmdFromDb(ev.start_date);
-                    const evEnd = parseYmdFromDb(ev.end_date);
+                const evStart = parseYmdFromDb(ev.start_date);
+                const evEnd = parseYmdFromDb(ev.end_date);
 
-                    const rangeStart = evStart < visibleStart ? visibleStart : evStart;
-                    const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
-                    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
-                    while (cursor <= rangeEnd) {
-                        const key = toYmd(cursor);
-                        if (!map[key]) map[key] = [];
-                        map[key].push(ev);
-                        cursor.setDate(cursor.getDate() + 1);
-                    }
+                const rangeStart = evStart < visibleStart ? visibleStart : evStart;
+                const rangeEnd = evEnd > visibleEnd ? visibleEnd : evEnd;
+                const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), 12);
+                while (cursor <= rangeEnd) {
+                    const key = toYmd(cursor);
+                    if (!map[key]) map[key] = [];
+                    map[key].push(ev);
+                    cursor.setDate(cursor.getDate() + 1);
                 }
             }
             setEvents(map);

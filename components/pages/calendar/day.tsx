@@ -141,7 +141,7 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
                 params: { id: source_id }
             });
         }
-        else if (source === 'session') {
+        else if (source === 'session' || source === 'lock') {
             router.push({
                 pathname: '/artist/booking/session/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
@@ -252,8 +252,11 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
                                     justifyContent: "center",
                                     alignItems: "center",
                                 }}
-                                className={`${getEventColorClass(e.color)}`}
+                                className={`flex-row items-center ${getEventColorClass(e.color)}`}
                             >
+                                {e.source === 'lock' && (
+                                    <Text className="text-md text-foreground" style={{ marginRight: 2 }} numberOfLines={1}>$</Text>
+                                )}
                                 <Text className="text-md text-foreground" numberOfLines={2}>
                                     {e.title || "Event"}
                                 </Text>

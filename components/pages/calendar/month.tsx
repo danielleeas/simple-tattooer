@@ -56,7 +56,7 @@ export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) 
                 params: { id: source_id }
             });
         }
-        else if (source === 'session') {
+        else if (source === 'session' || source === 'lock') {
             router.push({
                 pathname: '/artist/booking/session/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
@@ -199,7 +199,13 @@ export const MonthView = ({ currentDate, onDatePress, events }: MonthViewProps) 
                                             return (
                                                 <>
                                                     {visibleSingles.map((e, i) => (
-                                                        <Pressable key={`sd-${weekIndex}-${dayIndex}-${i}`} onPress={() => handleEventClick(e.source, e.source_id)} className={`w-full h-4 rounded px-1 justify-center ${getEventColorClass(e.color)}`}>
+                                                        <Pressable
+                                                            key={`sd-${weekIndex}-${dayIndex}-${i}`}
+                                                            onPress={() => handleEventClick(e.source, e.source_id)}
+                                                            className={`flex-row w-full h-4 rounded px-1 justify-start items-center overflow-hidden ${getEventColorClass(e.color)}`}>
+                                                            {e.source === 'lock' && (
+                                                                <Text className="text-[12px] text-foreground" style={{ marginRight: 2 }} numberOfLines={1}>$</Text>
+                                                            )}
                                                             <Text className="text-[9px] text-foreground" numberOfLines={1}>{e.title}</Text>
                                                         </Pressable>
                                                     ))}

@@ -803,7 +803,7 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
 
             for (const sessionRow of sessionRows) {
                 const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
-                
+
                 // Build start/end datetimes from date + start_time + duration
                 const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
                 const addDaysToYmd = (ymd: string, days: number) => {
@@ -820,18 +820,30 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
                     const dd = String(d0.getDate()).padStart(2, '0');
                     return `${yy}-${mm}-${dd}`;
                 };
-                
+
                 const hhmm = (sessionRow.start_time || '00:00').padStart(5, '0');
                 const startDateTime = toFixedDateTime(sessionRow.date, hhmm);
                 const endDateYmd = addDaysToYmd(sessionRow.date, endTime.ymdOffset);
                 const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
 
+                const { data: clientRow, error: fetchClientErr } = await supabase
+                    .from('clients')
+                    .select('full_name')
+                    .eq('id', input.clientId)
+                    .single();
+
+                if (fetchClientErr) {
+                    console.warn('Unable to fetch client name for session events:', fetchClientErr);
+                }
+
+                const eventTitle = clientRow?.full_name || 'Paused';
+
                 const lockEventToInsert = {
                     artist_id: input.artistId,
-                    title: 'Locked',
+                    title: eventTitle,
                     start_date: startDateTime,
                     end_date: endDateTime,
-                    color: 'gray',
+                    color: 'purple',
                     type: 'item',
                     source: 'lock',
                     source_id: sessionRow.id,
@@ -948,56 +960,6 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             return { success: false, error: sessionErr?.message || 'Failed to create session' };
         }
 
-        // Create lock event for this session (before deposit is paid, skip if source is quick_appointment)
-        if (!project?.deposit_paid && project?.artist_id && input.source !== "quick_appointment") {
-            const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
-            
-            // Build start/end datetimes from date + start_time + duration
-            const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
-            const addDaysToYmd = (ymd: string, days: number) => {
-                if (!days) return ymd;
-                const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
-                if (!m) return ymd;
-                const y = parseInt(m[1], 10);
-                const mo = parseInt(m[2], 10) - 1;
-                const da = parseInt(m[3], 10);
-                const d0 = new Date(y, mo, da);
-                d0.setDate(d0.getDate() + days);
-                const yy = d0.getFullYear();
-                const mm = String(d0.getMonth() + 1).padStart(2, '0');
-                const dd = String(d0.getDate()).padStart(2, '0');
-                return `${yy}-${mm}-${dd}`;
-            };
-            
-            const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
-            const startDateTime = toFixedDateTime(dateYmd, hhmm);
-            const endDateYmd = addDaysToYmd(dateYmd, endTime.ymdOffset);
-            const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
-
-            const { error: lockEventErr } = await supabase
-                .from('events')
-                .insert([{
-                    artist_id: project.artist_id,
-                    title: 'Locked',
-                    start_date: startDateTime,
-                    end_date: endDateTime,
-                    color: 'gray',
-                    type: 'item',
-                    source: 'lock',
-                    source_id: sessionRow.id,
-                    updated_at: new Date().toISOString(),
-                }]);
-
-            if (lockEventErr) {
-                console.error('Failed to create lock event for session, session kept:', lockEventErr);
-                // Do not rollback session; lock events can be created later if needed
-            }
-            // Note: Lock removal is handled automatically by the remove_expired_lock_events() function
-            // which should be scheduled via pg_cron (see cron.sql for setup instructions)
-        } else if (!project?.artist_id) {
-            console.warn('Project missing artist_id, skipping lock event creation for session:', input.projectId);
-        }
-
         // Create corresponding calendar event for this session
         // Only create event when deposit has been paid
         if (!project?.deposit_paid) {
@@ -1023,6 +985,56 @@ export async function createProjectSession(input: CreateProjectSessionInput): Pr
             return { success: true, sessionId: sessionRow.id as string };
         }
         const eventTitle = client?.full_name || 'Session';
+
+        // Create lock event for this session (before deposit is paid, skip if source is quick_appointment)
+        if (!project?.deposit_paid && project?.artist_id && input.source !== "quick_appointment") {
+            const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
+
+            // Build start/end datetimes from date + start_time + duration
+            const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
+            const addDaysToYmd = (ymd: string, days: number) => {
+                if (!days) return ymd;
+                const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+                if (!m) return ymd;
+                const y = parseInt(m[1], 10);
+                const mo = parseInt(m[2], 10) - 1;
+                const da = parseInt(m[3], 10);
+                const d0 = new Date(y, mo, da);
+                d0.setDate(d0.getDate() + days);
+                const yy = d0.getFullYear();
+                const mm = String(d0.getMonth() + 1).padStart(2, '0');
+                const dd = String(d0.getDate()).padStart(2, '0');
+                return `${yy}-${mm}-${dd}`;
+            };
+
+            const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
+            const startDateTime = toFixedDateTime(dateYmd, hhmm);
+            const endDateYmd = addDaysToYmd(dateYmd, endTime.ymdOffset);
+            const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
+
+            const { error: lockEventErr } = await supabase
+                .from('events')
+                .insert([{
+                    artist_id: project.artist_id,
+                    title: eventTitle,
+                    start_date: startDateTime,
+                    end_date: endDateTime,
+                    color: 'purple',
+                    type: 'item',
+                    source: 'lock',
+                    source_id: sessionRow.id,
+                    updated_at: new Date().toISOString(),
+                }]);
+
+            if (lockEventErr) {
+                console.error('Failed to create lock event for session, session kept:', lockEventErr);
+                // Do not rollback session; lock events can be created later if needed
+            }
+            // Note: Lock removal is handled automatically by the remove_expired_lock_events() function
+            // which should be scheduled via pg_cron (see cron.sql for setup instructions)
+        } else if (!project?.artist_id) {
+            console.warn('Project missing artist_id, skipping lock event creation for session:', input.projectId);
+        }
 
         // 3) Build start/end datetimes from date + start_time + duration
         // Format: "YYYY-MM-DD HH:mm" (space-separated, not ISO)
@@ -1199,6 +1211,30 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 return { success: true };
             }
 
+            // If project deposit is paid, update or create corresponding calendar event
+
+            if (!project?.artist_id) {
+                console.warn('Project missing artist_id; skipping session event update.');
+                return { success: true };
+            }
+
+            if (!project?.client_id) {
+                console.warn('Project missing client_id; skipping session event update.');
+                return { success: true };
+            }
+
+            // Fetch client's full name for event title
+            const { data: client, error: clientErr } = await supabase
+                .from('clients')
+                .select('full_name')
+                .eq('id', project.client_id)
+                .single();
+            if (clientErr) {
+                console.warn('Failed to fetch client for event update, skipping event:', clientErr);
+                return { success: true };
+            }
+            const eventTitle = client?.full_name || 'Session';
+
             // Update or create lock event for this session (before deposit is paid, skip if source is quick_appointment)
             if (!project?.deposit_paid && project?.artist_id && sessionSource !== "quick_appointment") {
                 const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
@@ -1219,7 +1255,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                     const dd = String(d0.getDate()).padStart(2, '0');
                     return `${yy}-${mm}-${dd}`;
                 };
-                
+
                 const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');
                 const startDateTime = toFixedDateTime(dateYmd, hhmm);
                 const endDateYmd = addDaysToYmd(dateYmd, endTime.ymdOffset);
@@ -1258,10 +1294,10 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                         .from('events')
                         .insert([{
                             artist_id: project.artist_id,
-                            title: 'Locked',
+                            title: eventTitle,
                             start_date: startDateTime,
                             end_date: endDateTime,
-                            color: 'gray',
+                            color: 'purple',
                             type: 'item',
                             source: 'lock',
                             source_id: input.sessionId,
@@ -1274,17 +1310,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 }
             }
 
-            // If project deposit is paid, update or create corresponding calendar event
 
-            if (!project?.artist_id) {
-                console.warn('Project missing artist_id; skipping session event update.');
-                return { success: true };
-            }
-
-            if (!project?.client_id) {
-                console.warn('Project missing client_id; skipping session event update.');
-                return { success: true };
-            }
 
             // Check links table to see if client has opened their portal (is_new = true means they haven't)
             const { data: link, error: linkErr } = await supabase
@@ -1349,18 +1375,6 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 // Deposit not paid; do not create/update calendar event
                 return { success: true };
             }
-
-            // Fetch client's full name for event title
-            const { data: client, error: clientErr } = await supabase
-                .from('clients')
-                .select('full_name')
-                .eq('id', project.client_id)
-                .single();
-            if (clientErr) {
-                console.warn('Failed to fetch client for event update, skipping event:', clientErr);
-                return { success: true };
-            }
-            const eventTitle = client?.full_name || 'Session';
 
             // Build fixed timestamp strings in "YYYY-MM-DD HH:mm" format (follow calendar-service style)
             const hhmm = (startTimeHhMm || '00:00').padStart(5, '0');

@@ -122,7 +122,7 @@ export const WeekView = ({ currentDate, events }: WeekViewProps) => {
                 params: { id: source_id }
             });
         }
-        else if (source === 'session') {
+        else if (source === 'session' || source === 'lock') {
             router.push({
                 pathname: '/artist/booking/session/detail-session',
                 params: { client_id: null, project_id: null, session_id: source_id }
@@ -244,9 +244,12 @@ export const WeekView = ({ currentDate, events }: WeekViewProps) => {
                                                         paddingHorizontal: 4,
                                                         justifyContent: "center",
                                                     }}
-                                                    className={`${getEventColorClass(e.color)}`}
+                                                    className={`items-center ${getEventColorClass(e.color)}`}
                                                     onPress={() => handleEventClick(e.source, e.source_id)}
                                                 >
+                                                    {e.source === 'lock' && (
+                                                        <Text className="text-md text-foreground" style={{ marginRight: 2 }} numberOfLines={1}>$</Text>
+                                                    )}
                                                     <Text className="text-[10px] text-foreground text-center" numberOfLines={2}>
                                                         {e.title || "Event"}
                                                     </Text>
