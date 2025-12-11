@@ -89,7 +89,7 @@ export default function SigninPage() {
 
         // Check if signin was successful
         if (signinWithAuth.fulfilled.match(resultAction)) {
-          const { artist, client, session } = resultAction.payload;
+          const { artist, client } = resultAction.payload;
 
           // Save credentials for future autofill
           await saveCredentials(formData.email, formData.password);

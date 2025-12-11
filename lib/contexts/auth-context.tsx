@@ -4,6 +4,8 @@ import { setArtist, setSession, clearArtist, setMode, setAuthLoading, setClient 
 import { onAuthStateChange, getArtistProfile, getArtistAppMode, getClientProfile } from '@/lib/services/auth-service';
 import { saveSessionToStorage, clearStoredAuthData, initializeAuth } from '@/lib/services/session-service';
 import { Artist, Client } from '@/lib/redux/types';
+import { getCredentials } from '@/lib/utils/credentials-manager';
+import { saveAccount, updateAccountLastUsed } from '@/lib/services/multi-account-storage';
 
 interface AuthContextType {
   artist: Artist | null;
@@ -93,14 +95,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             if (artistProfile) {
               // Profile exists, set artist and session
-              if (artistProfile.subscription_active) {
-                dispatch(setArtist(artistProfile));
-                dispatch(setSession(session));
-                dispatch(setMode('production'));
-              } else {
-                dispatch(clearArtist());
-                await clearStoredAuthData();
-                dispatch(setMode('preview'));
+              dispatch(setArtist(artistProfile));
+              dispatch(setSession(session));
+
+              // Set mode based on subscription status
+              const appMode = artistProfile.subscription_active ? 'production' : 'preview';
+              dispatch(setMode(appMode));
+
+              // Save to multi-account store if credentials exist (for both preview and production)
+              try {
+                const credentials = await getCredentials();
+                if (credentials && credentials.email === artistProfile.email) {
+                  await saveAccount(
+                    credentials.email,
+                    credentials.password,
+                    'artist',
+                    artistProfile.full_name,
+                    artistProfile.photo
+                  );
+                  await updateAccountLastUsed(credentials.email);
+                }
+              } catch (error) {
+                console.warn('Failed to save account on auto-login:', error);
               }
             } else {
 
@@ -110,6 +126,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 dispatch(setClient(clientProfile));
                 dispatch(setSession(session));
                 dispatch(setMode('client'));
+
+                // Save to multi-account store if credentials exist
+                try {
+                  const credentials = await getCredentials();
+                  if (credentials && credentials.email === clientProfile.email) {
+                    await saveAccount(
+                      credentials.email,
+                      credentials.password,
+                      'client',
+                      clientProfile.full_name,
+                      clientProfile.links?.[0]?.artist?.photo
+                    );
+                    await updateAccountLastUsed(credentials.email);
+                  }
+                } catch (error) {
+                  console.warn('Failed to save account on auto-login:', error);
+                }
               } else {
                 // Profile not found, clear auth state
                 dispatch(clearArtist());
