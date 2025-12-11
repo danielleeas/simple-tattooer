@@ -15,6 +15,7 @@ import { useToast } from '@/lib/contexts';
 import Header from '@/components/lib/Header';
 import X_IMAGE from "@/assets/images/icons/x.png";
 import { getCredentials, saveCredentials } from '@/lib/utils/credentials-manager';
+import { saveAccount, updateAccountLastUsed } from '@/lib/services/multi-account-storage';
 
 export default function SigninPage() {
   const dispatch = useAppDispatch();
@@ -88,10 +89,32 @@ export default function SigninPage() {
 
         // Check if signin was successful
         if (signinWithAuth.fulfilled.match(resultAction)) {
-          const { artist, session } = resultAction.payload;
+          const { artist, client, session } = resultAction.payload;
 
           // Save credentials for future autofill
           await saveCredentials(formData.email, formData.password);
+
+          // Save to multi-account store for account switching
+          if (artist) {
+            await saveAccount(
+              formData.email,
+              formData.password,
+              'artist',
+              artist.full_name,
+              artist.photo
+            );
+          } else if (client) {
+            await saveAccount(
+              formData.email,
+              formData.password,
+              'client',
+              client.full_name,
+              client.links?.[0]?.artist?.photo
+            );
+          }
+
+          // Update last used timestamp
+          await updateAccountLastUsed(formData.email);
 
           // Show success message
           toast({

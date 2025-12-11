@@ -160,6 +160,47 @@ export const signinWithAuth = createAsyncThunk(
   }
 );
 
+// Async thunk for switching accounts
+export const switchAccount = createAsyncThunk(
+  'auth/switchAccount',
+  async (signinData: { email: string; password: string }, { rejectWithValue }) => {
+    try {
+      // First sign out the current user
+      await signOutArtist();
+      await clearStoredAuthData();
+
+      // Then sign in with the new account credentials
+      const { user, session, error: authError } = await signInUser(signinData.email, signinData.password);
+      if (authError) {
+        throw new Error(authError.message || 'Failed to switch account');
+      }
+      if (!user) {
+        throw new Error('No user returned from signin');
+      }
+
+      // Get artist profile from our custom artists table
+      const artistProfile = await getArtistProfile(user.id);
+      if (artistProfile) {
+        await saveSessionToStorage(session);
+        await saveArtistToStorage(artistProfile as any);
+        return { artist: artistProfile, client: null, session };
+      }
+
+      // Get client profile from our custom clients table
+      const clientProfile = await getClientProfile(user.id);
+      if (clientProfile) {
+        await saveSessionToStorage(session);
+        await saveClientToStorage(clientProfile as any);
+        return { artist: null, client: clientProfile, session };
+      }
+
+      throw new Error('No artist or client profile found');
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to switch account');
+    }
+  }
+);
+
 // Async thunk for sign out
 export const signOut = createAsyncThunk(
   'auth/signOut',
@@ -291,6 +332,23 @@ export const authSlice = createSlice({
       })
       .addCase(signinWithAuth.rejected, (state, action) => {
         state.signinLoading = false;
+        state.error = action.payload as string;
+      })
+      // Switch account
+      .addCase(switchAccount.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(switchAccount.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.artist = action.payload.artist;
+        state.client = action.payload.client;
+        state.session = action.payload.session;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(switchAccount.rejected, (state, action) => {
+        state.isLoading = false;
         state.error = action.payload as string;
       })
       // Check current artist

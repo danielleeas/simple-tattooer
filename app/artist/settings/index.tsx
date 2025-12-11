@@ -4,11 +4,15 @@ import Header from "@/components/lib/Header";
 import { View, Image, Pressable, Linking } from "react-native";
 import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
 import { Text } from "@/components/ui/text";
+import { useState } from "react";
+import { AccountSwitcherModal } from "@/components/lib/account-switcher-modal";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
 
 export default function MakeItYours() {
+    const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+
     const handleBack = () => {
         router.back();
     };
@@ -31,6 +35,10 @@ export default function MakeItYours() {
 
     const handleYourApp = () => {
         router.push('/artist/settings/app');
+    }
+
+    const handleSwitchAccount = () => {
+        setShowAccountSwitcher(true);
     }
 
     const handlePrivacyPolicy = () => {
@@ -103,6 +111,13 @@ export default function MakeItYours() {
                             </View>
                         </View>
                         <View className="bg-background pt-2 pb-8 gap-4 justify-center items-center">
+                            <Pressable
+                                style={{ height: 46, width: 220 }}
+                                className="justify-center items-center rounded-full border-2 border-primary"
+                                onPress={handleSwitchAccount}
+                            >
+                                <Text variant="large" className="font-semibold text-primary">Switch Account</Text>
+                            </Pressable>
                             <Pressable style={{ height: 34, width: 160 }} className="justify-center items-center rounded-full border border-border-white">
                                 <Text variant="small">Need Help? DM us!</Text>
                             </Pressable>
@@ -119,6 +134,12 @@ export default function MakeItYours() {
                         </View>
                     </View>
                 </StableGestureWrapper>
+
+                {/* Account Switcher Modal */}
+                <AccountSwitcherModal
+                    visible={showAccountSwitcher}
+                    onClose={() => setShowAccountSwitcher(false)}
+                />
             </SafeAreaView>
         </>
     );

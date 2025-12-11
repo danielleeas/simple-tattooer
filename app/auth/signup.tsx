@@ -15,6 +15,7 @@ import { useToast } from '@/lib/contexts';
 import Header from '@/components/lib/Header';
 import X_IMAGE from "@/assets/images/icons/x.png";
 import { saveCredentials } from '@/lib/utils/credentials-manager';
+import { saveAccount } from '@/lib/services/multi-account-storage';
 
 export default function SignupPage() {
   const dispatch = useAppDispatch();
@@ -96,6 +97,15 @@ export default function SignupPage() {
         if (signupArtist.fulfilled.match(resultAction)) {
           // Save credentials for future autofill
           await saveCredentials(formData.email, formData.password);
+
+          // Save to multi-account store for account switching
+          await saveAccount(
+            formData.email,
+            formData.password,
+            'artist',
+            formData.name,
+            resultAction.payload.artist?.photo
+          );
 
           // Show success message
           toast({

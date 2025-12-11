@@ -13,6 +13,8 @@ import { useAuth } from '@/lib/contexts';
 import { Artist } from '@/lib/redux/types';
 import Splash from '@/components/lib/splash';
 import Welcome from '@/components/lib/welcome';
+import { AccountSwitcherModal } from '@/components/lib/account-switcher-modal';
+import { UserCircle } from 'lucide-react-native';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -31,6 +33,7 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
     const [linkedArtists, setLinkedArtists] = useState<Artist[]>([]);
     const [showArtistSelection, setShowArtistSelection] = useState(false);
     const [hasShownWelcome, setHasShownWelcome] = useState(false);
+    const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
 
     // Extract artists from client data stored in Redux
     useEffect(() => {
@@ -78,6 +81,10 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
         console.log('Menu');
     };
 
+    const handleAccountSwitcher = () => {
+        setShowAccountSwitcher(true);
+    };
+
     // Show loading while auth is loading
     if (authLoading || !client) {
         return (
@@ -105,6 +112,26 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
                         {/* Show welcome screen after artist selection */}
                         {!showSplash && selectedArtist && showWelcome && (
                             <Welcome artist={selectedArtist} />
+                        )}
+
+                        {/* Account Switcher Button */}
+                        {!showSplash && (
+                            <Pressable
+                                onPress={handleAccountSwitcher}
+                                className="absolute top-4 right-4 z-10"
+                                style={{ width: 44, height: 44 }}
+                            >
+                                {selectedArtist?.photo ? (
+                                    <Image
+                                        source={{ uri: selectedArtist.photo }}
+                                        className="w-11 h-11 rounded-full border-2 border-primary"
+                                    />
+                                ) : (
+                                    <View className="w-11 h-11 rounded-full bg-border border-2 border-primary items-center justify-center">
+                                        <UserCircle size={28} color="#888" />
+                                    </View>
+                                )}
+                            </Pressable>
                         )}
 
                         {/* Only show content after splash animation completes */}
@@ -271,6 +298,12 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
                         ) : null}
                             </>
                         )}
+
+                        {/* Account Switcher Modal */}
+                        <AccountSwitcherModal
+                            visible={showAccountSwitcher}
+                            onClose={() => setShowAccountSwitcher(false)}
+                        />
                     </View>
                 </StableGestureWrapper>
                 </>
