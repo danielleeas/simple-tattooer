@@ -5,7 +5,7 @@ import { dayNames, getEventColorClass } from "./utils";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { type CalendarEvent } from "@/lib/services/calendar-service";
 import { router } from "expo-router";
-import { toYmd } from "@/lib/utils";
+import { parseYmdFromDb, toYmd } from "@/lib/utils";
 
 type DayViewProps = {
     currentDate: Date;
@@ -15,18 +15,17 @@ type DayViewProps = {
 export const DayView = ({ currentDate, events }: DayViewProps) => {
     const { artist } = useAuth();
     const [eventsToday, setEventsToday] = useState<CalendarEvent[]>([]);
+    const [gridStart, setGridStart] = useState<Date>(new Date());
+    const [gridEnd, setGridEnd] = useState<Date>(new Date());
 
     useEffect(() => {
-        setEventsToday(events[toYmd(currentDate)] || []);
-    }, [events, currentDate]);
-
-    // Resolve the working window for the selected day based on artist.flow
-    const { gridStart, gridEnd } = useMemo(() => {
+        const todayEvents = events[toYmd(currentDate)] || [];
+        setEventsToday(todayEvents);
         const toDayKey = (dayIndex: number) => {
-            // 0=Sun..6=Sat -> 'sun'..'sat'
             const keys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
             return keys[dayIndex] || 'mon';
         };
+
         const parseHHMM = (s?: string) => {
             if (!s) return null;
             const match = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
@@ -53,30 +52,30 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
         if (end.getTime() <= start.getTime()) {
             end = new Date(start.getTime() + 30 * 60 * 1000);
         }
-        return { gridStart: start, gridEnd: end };
-    }, [artist?.flow?.start_times, artist?.flow?.end_times, currentDate]);
-
-    const timeSlots = useMemo(() => {
-        const slots: { hour: number; minute: number; timeString: string }[] = [];
-        const startTotalMin = gridStart.getHours() * 60 + gridStart.getMinutes();
-        const endTotalMin = gridEnd.getHours() * 60 + gridEnd.getMinutes();
-        const steps = Math.max(1, Math.ceil((endTotalMin - startTotalMin) / 30));
-
-        for (let i = 0; i < steps; i++) {
-            const total = startTotalMin + i * 30;
-            const hour24 = Math.floor(total / 60);
-            const minute = total % 60;
-
-            let displayHour = hour24 % 12;
-            if (displayHour === 0) displayHour = 12;
-            const suffix = hour24 < 12 ? "am" : "pm";
-            const minuteStr = minute.toString().padStart(2, "0");
-
-            const timeString = `${displayHour}:${minuteStr} ${suffix}`;
-            slots.push({ hour: hour24, minute, timeString });
+        const itemEvents = todayEvents.filter((ev) => ev.type === "item");
+        if (itemEvents.length > 0) {
+            const earliestEvent = itemEvents.reduce((min, ev) => {
+                return parseYmdFromDb(ev.start_date) < parseYmdFromDb(min.start_date) ? ev : min;
+            }, itemEvents[0]);
+            const latestEvent = itemEvents.reduce((max, ev) => {
+                return parseYmdFromDb(ev.end_date) > parseYmdFromDb(max.end_date) ? ev : max;
+            }, itemEvents[0]);
+            const parsedStart = parseHHMM(earliestEvent.start_date.split(' ')[1]) || { h: 9, m: 0 };
+            const parsedEnd = parseHHMM(latestEvent.end_date.split(' ')[1]) || { h: 17, m: 0 };
+            
+            let eventStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), parsedStart.h, parsedStart.m, 0, 0);
+            eventStart = new Date(eventStart.getTime() - 60 * 60 * 1000);
+            let eventEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), parsedEnd.h, parsedEnd.m, 0, 0);
+            eventEnd = new Date(eventEnd.getTime() + 60 * 60 * 1000);
+            if (eventStart.getTime() < start.getTime()) start = eventStart;
+            if (eventEnd.getTime() > end.getTime()) end = eventEnd;
         }
-        return slots;
-    }, [gridStart, gridEnd]);
+
+        console.log("start", start);
+        console.log("end", end);
+        setGridStart(start);
+        setGridEnd(end);
+    }, [events, currentDate, artist]);
 
     // Layout constants: each row is 30 minutes tall (40px), so 1 hour = 80px.
     const GRID_ROW_HEIGHT = 40;
@@ -101,6 +100,7 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
             ),
         [parsedEvents, dayStart, dayEnd]
     );
+
     const backgroundEvents = useMemo(
         () =>
             parsedEvents.filter(
@@ -108,6 +108,34 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
             ),
         [parsedEvents, dayStart, dayEnd]
     );
+
+    const timeSlots = useMemo(() => {
+        const slots: { hour: number; minute: number; timeString: string }[] = [];
+
+        const baseStartTotalMin = gridStart.getHours() * 60 + gridStart.getMinutes();
+        const baseEndTotalMin = gridEnd.getHours() * 60 + gridEnd.getMinutes();
+
+        let effectiveStartMin = baseStartTotalMin;
+        let effectiveEndMin = baseEndTotalMin;
+
+        const steps = Math.max(1, Math.ceil((effectiveEndMin - effectiveStartMin) / 30));
+
+        for (let i = 0; i < steps; i++) {
+            const total = effectiveStartMin + i * 30;
+            const hour24 = Math.floor(total / 60);
+            const minute = total % 60;
+
+            let displayHour = hour24 % 12;
+            if (displayHour === 0) displayHour = 12;
+            const suffix = hour24 < 12 ? "am" : "pm";
+            const minuteStr = minute.toString().padStart(2, "0");
+
+            const timeString = `${displayHour}:${minuteStr} ${suffix}`;
+            slots.push({ hour: hour24, minute, timeString });
+        }
+        return slots;
+    }, [gridStart, gridEnd]);
+
     const dayContentHeight = useMemo(() => timeSlots.length * GRID_ROW_HEIGHT, [timeSlots.length]);
 
     const handleEventClick = (source: string, source_id: string) => {
@@ -154,7 +182,6 @@ export const DayView = ({ currentDate, events }: DayViewProps) => {
             });
         }
     }
-
     return (
         <View className="flex-1 border border-border-secondary">
             {/* Header */}

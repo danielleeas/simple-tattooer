@@ -781,74 +781,71 @@ export async function createManualBooking(input: CreateManualBookingInput): Prom
         }
 
         // Create lock events for sessions (before deposit is paid)
-        if (input.source !== "quick_appointment") {
-            const lockEventsToInsert: any[] = [];
+        const eventsToInsert: any[] = [];
 
-            for (const sessionRow of sessionRows) {
-                const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
+        for (const sessionRow of sessionRows) {
+            const endTime = addMinutesToTime(sessionRow.start_time, sessionRow.duration);
 
-                // Build start/end datetimes from date + start_time + duration
-                const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
-                const addDaysToYmd = (ymd: string, days: number) => {
-                    if (!days) return ymd;
-                    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
-                    if (!m) return ymd;
-                    const y = parseInt(m[1], 10);
-                    const mo = parseInt(m[2], 10) - 1;
-                    const da = parseInt(m[3], 10);
-                    const d0 = new Date(y, mo, da);
-                    d0.setDate(d0.getDate() + days);
-                    const yy = d0.getFullYear();
-                    const mm = String(d0.getMonth() + 1).padStart(2, '0');
-                    const dd = String(d0.getDate()).padStart(2, '0');
-                    return `${yy}-${mm}-${dd}`;
-                };
+            // Build start/end datetimes from date + start_time + duration
+            const toFixedDateTime = (d: string, t: string) => `${d} ${t.padStart(5, '0')}`;
+            const addDaysToYmd = (ymd: string, days: number) => {
+                if (!days) return ymd;
+                const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+                if (!m) return ymd;
+                const y = parseInt(m[1], 10);
+                const mo = parseInt(m[2], 10) - 1;
+                const da = parseInt(m[3], 10);
+                const d0 = new Date(y, mo, da);
+                d0.setDate(d0.getDate() + days);
+                const yy = d0.getFullYear();
+                const mm = String(d0.getMonth() + 1).padStart(2, '0');
+                const dd = String(d0.getDate()).padStart(2, '0');
+                return `${yy}-${mm}-${dd}`;
+            };
 
-                const hhmm = (sessionRow.start_time || '00:00').padStart(5, '0');
-                const startDateTime = toFixedDateTime(sessionRow.date, hhmm);
-                const endDateYmd = addDaysToYmd(sessionRow.date, endTime.ymdOffset);
-                const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
+            const hhmm = (sessionRow.start_time || '00:00').padStart(5, '0');
+            const startDateTime = toFixedDateTime(sessionRow.date, hhmm);
+            const endDateYmd = addDaysToYmd(sessionRow.date, endTime.ymdOffset);
+            const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
 
-                const { data: clientRow, error: fetchClientErr } = await supabase
-                    .from('clients')
-                    .select('full_name')
-                    .eq('id', input.clientId)
-                    .single();
+            const { data: clientRow, error: fetchClientErr } = await supabase
+                .from('clients')
+                .select('full_name')
+                .eq('id', input.clientId)
+                .single();
 
-                if (fetchClientErr) {
-                    console.warn('Unable to fetch client name for session events:', fetchClientErr);
-                }
-
-                const eventTitle = clientRow?.full_name || 'Paused';
-
-                const lockEventToInsert = {
-                    artist_id: input.artistId,
-                    title: eventTitle,
-                    start_date: startDateTime,
-                    end_date: endDateTime,
-                    color: 'purple',
-                    type: 'item',
-                    source: 'lock',
-                    source_id: sessionRow.id,
-                    updated_at: new Date().toISOString(),
-                };
-                lockEventsToInsert.push(lockEventToInsert);
+            if (fetchClientErr) {
+                console.warn('Unable to fetch client name for session events:', fetchClientErr);
             }
 
-            const { error: lockEventError } = await supabase
-                .from('events')
-                .insert(lockEventsToInsert);
+            const eventTitle = clientRow?.full_name || 'Paused';
 
-            if (lockEventError) {
-                // Rollback: delete created project and sessions to avoid orphaned rows
-                await supabase.from('sessions').delete().eq('project_id', projectId);
-                await supabase.from('projects').delete().eq('id', projectId);
-                return { success: false, error: lockEventError?.message || 'Failed to create lock events' };
-            }
+            const source = input.source == 'quick_appointment' ? 'quick_appointment' : 'lock';
+            const color = input.source == 'quick_appointment' ? 'grey' : 'purple';
 
-            // Note: Lock removal is handled automatically by the remove_expired_lock_events() function
-            // which should be scheduled via pg_cron (see cron.sql for setup instructions)
-            // The function checks deposit_hold_time and removes locks when expired
+            const eventToInsert = {
+                artist_id: input.artistId,
+                title: eventTitle,
+                start_date: startDateTime,
+                end_date: endDateTime,
+                color: color,
+                type: 'item',
+                source: source,
+                source_id: sessionRow.id,
+                updated_at: new Date().toISOString(),
+            };
+            eventsToInsert.push(eventToInsert);
+        }
+
+        const { error: eventError } = await supabase
+            .from('events')
+            .insert(eventsToInsert);
+
+        if (eventError) {
+            // Rollback: delete created project and sessions to avoid orphaned rows
+            await supabase.from('sessions').delete().eq('project_id', projectId);
+            await supabase.from('projects').delete().eq('id', projectId);
+            return { success: false, error: eventError?.message || 'Failed to create events' };
         }
 
         // 3) Update link status to "need_deposit"
@@ -1127,6 +1124,117 @@ export async function getSessionById(sessionId: string): Promise<{ success: bool
     }
 }
 
+export interface AppointmentRecord {
+    client: {
+        id: string;
+        full_name: string;
+        email: string;
+        phone_number: string;
+    };
+    project: {
+        id: string;
+        waiver_signed: boolean;
+        waiver_url: string;
+    };
+    session: {
+        id: string;
+        date: string;
+        start_time: string;
+        duration: number;
+        location_id: string;
+        session_rate: number;
+        notes: string;
+    };
+}
+
+export async function getQuickAppointmentById(sessionId: string): Promise<{ success: boolean; data?: AppointmentRecord; error?: string }> {
+    try {
+        if (!sessionId) return { success: false, error: 'Missing session id' };
+        const { data, error } = await supabase
+            .from('sessions')
+            .select('id,project_id,date,start_time,duration,location_id,session_rate,notes,source,source_id,project:projects(client_id, waiver_signed, waiver_url, client:clients(id,full_name,email,phone_number))')
+            .eq('id', sessionId)
+            .single();
+        if (error) {
+            return { success: false, error: error.message };
+        }
+        if (!data) {
+            return { success: false, error: 'Appointment not found' };
+        }
+
+        console.log(data);
+
+        // Supabase's generated types suggest arrays, but the runtime data for this query
+        // is a single `project` object with a single `client` object. Support both shapes.
+        const rawProject = (data as any).project;
+        const project = Array.isArray(rawProject) ? rawProject[0] : rawProject;
+        const rawClient = project?.client;
+        const client = Array.isArray(rawClient) ? rawClient[0] : rawClient;
+
+        return {
+            success: true, data: {
+                client: {
+                    id: client?.id,
+                    full_name: client?.full_name,
+                    email: client?.email,
+                    phone_number: client?.phone_number,
+                },
+                project: {
+                    id: data.project_id,
+                    waiver_signed: project?.waiver_signed,
+                    waiver_url: project?.waiver_url,
+                },
+                session: {
+                    id: data.id,
+                    date: data.date,
+                    start_time: data.start_time,
+                    duration: data.duration,
+                    location_id: data.location_id,
+                    session_rate: data.session_rate,
+                    notes: data.notes,
+                },
+            } as AppointmentRecord
+        };
+    } catch (err: any) {
+        return { success: false, error: err?.message || 'Unexpected error fetching appointment' };
+    }
+}
+
+export async function deleteQuickAppointment(sessionId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        if (!sessionId) return { success: false, error: 'Missing session id' };
+        const { data, error } = await supabase
+            .from('sessions')
+            .select('id, project_id')
+            .eq('id', sessionId)
+            .single();
+        if (error) {
+            return { success: false, error: error.message };
+        }
+        if (!data) {
+            return { success: false, error: 'Appointment not found' };
+        }
+        const projectId = data.project_id;
+        await supabase
+            .from('projects')
+            .delete()
+            .eq('id', projectId);
+        
+        await supabase
+            .from('events')
+            .delete()
+            .eq('source_id', sessionId)
+            .eq('source', 'quick_appointment');
+        await supabase
+            .from('sessions')
+            .delete()
+            .eq('id', sessionId);
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err?.message || 'Unexpected error deleting appointment' };
+    }
+}
+
 export interface UpdateProjectSessionInput {
     artist: Artist;
     sessionId: string;
@@ -1160,10 +1268,12 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
             updated_at: new Date().toISOString(),
         };
 
-        const { error } = await supabase
+        const { error, data: sessionData } = await supabase
             .from('sessions')
             .update(payload)
-            .eq('id', input.sessionId);
+            .eq('id', input.sessionId)
+            .select('id,project_id,date,start_time,duration,location_id,session_rate,notes,source,source_id,project:projects(artist_id,client_id,title,deposit_paid,deposit_amount)')
+            .single();
 
         if (error) {
             return { success: false, error: error.message || 'Failed to update session' };
@@ -1171,28 +1281,8 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
 
         // Update or create lock date and handle calendar events
         try {
-            // Fetch project id from session and then project details
-            const { data: sessionProject, error: sessionProjectErr } = await supabase
-                .from('sessions')
-                .select('project_id,session_rate,notes,source')
-                .eq('id', input.sessionId)
-                .single();
-            if (sessionProjectErr || !sessionProject?.project_id) {
-                console.warn('Unable to resolve project for session when updating lock date/event, skipping:', sessionProjectErr);
-                return { success: true };
-            }
-            const projectId = sessionProject.project_id as string;
-            const sessionSource = sessionProject.source;
-
-            const { data: project, error: projectErr } = await supabase
-                .from('projects')
-                .select('artist_id,client_id,title,deposit_paid,deposit_amount')
-                .eq('id', projectId)
-                .single();
-            if (projectErr) {
-                console.warn('Failed to fetch project for session update, skipping:', projectErr);
-                return { success: true };
-            }
+            const rawProject = (sessionData as any).project;
+            const project = Array.isArray(rawProject) ? rawProject[0] : rawProject;
 
             // If project deposit is paid, update or create corresponding calendar event
 
@@ -1219,7 +1309,7 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
             const eventTitle = client?.full_name || 'Session';
 
             // Update or create lock event for this session (before deposit is paid, skip if source is quick_appointment)
-            if (!project?.deposit_paid && project?.artist_id && sessionSource !== "quick_appointment") {
+            if (!project?.deposit_paid && project?.artist_id) {
                 const endTime = addMinutesToTime(startTimeHhMm, input.sessionLengthMinutes);
 
                 // Build start/end datetimes from date + start_time + duration
@@ -1245,51 +1335,35 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                 const endDateTime = toFixedDateTime(endDateYmd, endTime.hhmm);
 
                 // Check if lock event exists for this session
-                const { data: existingLockEvent, error: existingLockEventErr } = await supabase
+                const { error: deleteEventErr } = await supabase
                     .from('events')
-                    .select('id')
-                    .eq('source', 'lock')
+                    .delete()
                     .eq('source_id', input.sessionId)
                     .maybeSingle();
 
-                if (existingLockEventErr) {
-                    console.warn('Failed checking existing lock event for session, will attempt insert:', existingLockEventErr);
+                if (deleteEventErr) {
+                    console.error('Failed to delete lock event for session:', deleteEventErr);
                 }
 
-                if (existingLockEvent?.id) {
-                    // Update existing lock event
-                    const { error: updateLockEventErr } = await supabase
-                        .from('events')
-                        .update({
-                            artist_id: project.artist_id,
-                            start_date: startDateTime,
-                            end_date: endDateTime,
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('id', existingLockEvent.id);
+                const source = sessionData.source == 'quick_appointment' ? 'quick_appointment' : 'lock';
+                const color = sessionData.source == 'quick_appointment' ? 'grey' : 'purple';
 
-                    if (updateLockEventErr) {
-                        console.error('Failed to update lock event for session:', updateLockEventErr);
-                    }
-                } else {
-                    // Create new lock event
-                    const { error: insertLockEventErr } = await supabase
-                        .from('events')
-                        .insert([{
-                            artist_id: project.artist_id,
-                            title: eventTitle,
-                            start_date: startDateTime,
-                            end_date: endDateTime,
-                            color: 'purple',
-                            type: 'item',
-                            source: 'lock',
-                            source_id: input.sessionId,
-                            updated_at: new Date().toISOString(),
-                        }]);
+                const { error: insertEventErr } = await supabase
+                    .from('events')
+                    .insert([{
+                        artist_id: project.artist_id,
+                        title: eventTitle,
+                        start_date: startDateTime,
+                        end_date: endDateTime,
+                        color: color,
+                        type: 'item',
+                        source: source,
+                        source_id: input.sessionId,
+                        updated_at: new Date().toISOString(),
+                    }]);
 
-                    if (insertLockEventErr) {
-                        console.error('Failed to create lock event for session:', insertLockEventErr);
-                    }
+                if (insertEventErr) {
+                    console.error('Failed to create lock event for session:', insertEventErr);
                 }
             }
 
@@ -1317,9 +1391,9 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                         startTimes: { [dateYmd]: input.startTimeDisplay },
                         sessionLength: input.sessionLengthMinutes,
                         locationId: input.locationId,
-                        notes: sessionProject.notes || '',
+                        notes: sessionData?.notes || '',
                         depositAmount: project.deposit_amount || 0,
-                        sessionRate: sessionProject.session_rate || 0,
+                        sessionRate: sessionData?.session_rate || 0,
                     };
 
                     void sendManualBookingRequestEmail({
@@ -1339,9 +1413,9 @@ export async function updateProjectSession(input: UpdateProjectSessionInput): Pr
                         startTimes: { [dateYmd]: input.startTimeDisplay },
                         sessionLength: input.sessionLengthMinutes,
                         locationId: input.locationId,
-                        notes: sessionProject.notes || '',
+                        notes: sessionData?.notes || '',
                         depositAmount: project.deposit_amount || 0,
-                        sessionRate: sessionProject.session_rate || 0,
+                        sessionRate: sessionData?.session_rate || 0,
                     };
 
                     void sendReturnClientEmail({

@@ -3,7 +3,7 @@ import { Text } from "@/components/ui/text"
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAvailableTimes } from "@/lib/services/booking-service";
 import { Artist } from "@/lib/redux/types";
-import { convertTimeToHHMMString, makeChunks, parseHhMmToMinutes, minutesToDisplay } from "@/lib/utils";
+import { convertTimeToHHMMString, makeChunks, parseHhMmToMinutes, minutesToDisplay, convertTimeToISOString } from "@/lib/utils";
 import { TimePicker } from "@/components/lib/time-picker";
 
 interface StartTimesProps {
@@ -44,13 +44,31 @@ export const StartTimes = ({ date, sessionLength, artist, locationId, selectedTi
             value: timeString,
             label: minutesToDisplay(parseHhMmToMinutes(timeString)!)
         };
-        setStartTimes((prev) =>
-            [...prev, newTime].sort(
+
+        setStartTimes((prev) => {
+            // Avoid adding duplicate time entries
+            const alreadyExists = prev.some((t) => t.value === timeString);
+            if (alreadyExists) {
+                return prev;
+            }
+
+            return [...prev, newTime].sort(
                 (a, b) => (parseHhMmToMinutes(a.value) ?? 0) - (parseHhMmToMinutes(b.value) ?? 0)
-            )
-        );
+            );
+        });
+
         onTimeSelect?.(date, timeString);
     }
+
+    useEffect(() => {
+        if (!selectedTime) return;
+        const selectedTimeIndex = startTimes.findIndex((t) => t.value === selectedTime);
+        if (selectedTimeIndex === -1) {
+            setStartTimes((prev) => [...prev, { value: selectedTime, label: minutesToDisplay(parseHhMmToMinutes(selectedTime)!) }].sort(
+                (a, b) => (parseHhMmToMinutes(a.value) ?? 0) - (parseHhMmToMinutes(b.value) ?? 0)
+            ));
+        }
+    }, [selectedTime, startTimes]);
 
     const startTimesChunks = useMemo(() => makeChunks(startTimes, 2), [startTimes]);
 

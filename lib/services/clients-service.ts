@@ -370,23 +370,30 @@ export async function updateClient(artistId: string, clientId: string, formData:
 	name: string;
 	email: string;
 	phone_number: string;
-	location: string;
-	notes: string;
+	location?: string;
+	notes?: string;
 }): Promise<boolean> {
 	if (!artistId || !clientId) return false;
 
 	const nowIso = new Date().toISOString();
 
+	let payload: any = {
+		full_name: formData.name.trim(),
+		email: formData.email.trim(),
+		phone_number: formData.phone_number.trim(),
+		updated_at: nowIso,
+	};
+	if (formData.location) {
+		payload.location = formData.location.trim();
+	}
+	if (formData.notes) {
+		payload.notes = formData.notes.trim();
+	}
+
 	// Update clients table
 	const { error: clientError } = await supabase
 		.from('clients')
-		.update({
-			full_name: formData.name.trim(),
-			email: formData.email.trim(),
-			phone_number: formData.phone_number.trim(),
-			location: formData.location.trim() || '',
-			updated_at: nowIso,
-		})
+		.update(payload)
 		.eq('id', clientId);
 
 	if (clientError) {
@@ -397,10 +404,7 @@ export async function updateClient(artistId: string, clientId: string, formData:
 	// Update links table (notes)
 	const { error: linkError } = await supabase
 		.from('links')
-		.update({
-			notes: formData.notes.trim() || null,
-			updated_at: nowIso,
-		})
+		.update({ notes: formData.notes?.trim() || null })
 		.eq('client_id', clientId)
 		.eq('artist_id', artistId);
 

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { convertTimeToISOString, convertTimeToHHMMString, truncateFileName } from "@/lib/utils";
+import { convertTimeToISOString, convertTimeToHHMMString, truncateFileName, formatDbDate, parseYmdToLocalDate, convertHhMmToDisplay } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
@@ -22,20 +22,25 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
-import { getQuickAppointmentById, updateQuickAppointment } from '@/lib/services/calendar-service';
+import { getQuickAppointmentById, updateProjectSession } from '@/lib/services/booking-service';
+import { updateClient } from '@/lib/services/clients-service';
 import { WaiverSign } from "@/components/lib/waiver-sign";
+import { StartTimes } from "@/components/pages/booking/start-times";
+import { Artist } from "@/lib/redux/types";
 
-type QuickAppointmentData = {
+interface QuickAppointmentData {
+    clientId: string;
     fullName: string;
     email: string;
     phoneNumber?: string;
     date: string;
     startTime: string;
+    locationId: string;
     sessionLength: string;
     notes: string;
     waiverSigned: boolean;
     waiverUrl?: string;
-};
+}
 
 export default function QuickAppointmentEditPage() {
     const { toast } = useToast();
@@ -60,11 +65,13 @@ export default function QuickAppointmentEditPage() {
     const waiverFileName = waiverUrl ? getFileNameFromUrl(waiverUrl) : '';
 
     const [formData, setFormData] = useState<QuickAppointmentData>({
+        clientId: '',
         fullName: '',
         email: '',
         phoneNumber: '',
         date: '',
         startTime: '09:00',
+        locationId: '',
         sessionLength: '',
         notes: '',
         waiverSigned: false,
@@ -79,15 +86,17 @@ export default function QuickAppointmentEditPage() {
             if (res.success && res.data) {
                 console.log(res.data)
                 setFormData({
-                    fullName: res.data.full_name || '',
-                    email: res.data.email || '',
-                    phoneNumber: res.data.phone_number || '',
-                    date: res.data.date || '',
-                    startTime: res.data.start_time || '09:00',
-                    sessionLength: res.data.session_length ? String(res.data.session_length) : '',
-                    notes: res.data.notes || '',
-                    waiverSigned: res.data.waiver_signed,
-                    waiverUrl: res.data.waiver_url,
+                    clientId: res.data.client.id || '',
+                    fullName: res.data.client.full_name || '',
+                    email: res.data.client.email || '',
+                    phoneNumber: res.data.client.phone_number || '',
+                    locationId: res.data.session.location_id || '',
+                    date: res.data.session.date || '',
+                    startTime: res.data.session.start_time || '09:00',
+                    sessionLength: res.data.session.duration ? String(res.data.session.duration) : '',
+                    notes: res.data.session.notes || '',
+                    waiverSigned: res.data.project.waiver_signed,
+                    waiverUrl: res.data.project.waiver_url,
                 });
             }
         } catch (e) {
@@ -116,6 +125,10 @@ export default function QuickAppointmentEditPage() {
             toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
             return;
         }
+        if (!formData.clientId) {
+            toast({ variant: 'error', title: 'Missing client ID', duration: 2500 });
+            return;
+        }
         if (!id) {
             toast({ variant: 'error', title: 'Missing appointment ID', duration: 2500 });
             return;
@@ -139,16 +152,24 @@ export default function QuickAppointmentEditPage() {
 
         setSaving(true);
         try {
-            const result = await updateQuickAppointment(id, artist.id, {
-                fullName: formData.fullName.trim(),
+            const success = await updateClient(artist.id, formData.clientId, {
+                name: formData.fullName.trim(),
                 email: formData.email.trim(),
-                phoneNumber: formData.phoneNumber?.trim(),
-                date: formData.date,
-                startTime: formData.startTime,
-                sessionLength: parseInt(formData.sessionLength),
-                notes: formData.notes,
-                waiverSigned: formData.waiverSigned,
-                waiverUrl: formData.waiverUrl || null
+                phone_number: formData.phoneNumber?.trim() || '',
+            });
+            
+            if (!success) {
+                toast({ variant: 'error', title: 'Failed to update client', duration: 2500 });
+                return;
+            }
+
+            const result = await updateProjectSession({
+                artist: artist as Artist,
+                sessionId: id,
+                date: parseYmdToLocalDate(formData.date) as Date,
+                startTimeDisplay: convertHhMmToDisplay(formData.startTime),
+                sessionLengthMinutes: parseInt(formData.sessionLength),
+                locationId: formData.locationId,
             });
 
             if (!result.success) {
@@ -191,6 +212,10 @@ export default function QuickAppointmentEditPage() {
             });
         }
     };
+
+    const handleTimeSelect = (date: string, time: string) => {
+        setFormData({ ...formData, startTime: time });
+    }
 
     if (loading) {
         return (
@@ -281,32 +306,43 @@ export default function QuickAppointmentEditPage() {
                                         />
                                     </View>
 
-                                    <View className="gap-6">
-                                        <View className="items-start gap-2">
-                                            <Collapse title="Start Time" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <TimePicker
-                                                        minuteInterval={15}
-                                                        className="w-full"
-                                                        selectedTime={formData.startTime ? convertTimeToISOString(formData.startTime) : undefined}
-                                                        onTimeSelect={(time) => setFormData({ ...formData, startTime: convertTimeToHHMMString(time) })}
-                                                    />
-                                                </View>
-                                            </Collapse>
+                                    <View className="items-start gap-2">
+                                        <Collapse title="Session length" textClassName="text-xl">
+                                            <View className="gap-2 w-full">
+                                                <TimeDurationPicker
+                                                    selectedDuration={formData.sessionLength ? parseInt(formData.sessionLength) : undefined}
+                                                    onDurationSelect={(duration) => setFormData({ ...formData, sessionLength: String(duration) })}
+                                                    minuteInterval={15}
+                                                    minDuration={15}
+                                                    maxDuration={240}
+                                                    modalTitle="Select Session Duration"
+                                                />
+                                            </View>
+                                        </Collapse>
+                                    </View>
+
+                                    <View className="gap-4">
+                                        <View className="gap-2">
+                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                                Selected date - {formatDbDate(formData.date, 'MMM DD, YYYY')}
+                                            </Text>
                                         </View>
-                                        <View className="items-start gap-2">
-                                            <Collapse title="Session length" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <TimeDurationPicker
-                                                        selectedDuration={formData.sessionLength ? parseInt(formData.sessionLength) : undefined}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, sessionLength: String(duration) })}
-                                                        minuteInterval={15}
-                                                        minDuration={15}
-                                                        maxDuration={240}
-                                                        modalTitle="Select Session Duration"
+                                        <View className="gap-4">
+                                            <View className="gap-2">
+                                                <Text variant="h5" className="text-foreground">
+                                                    {formatDbDate(formData.date, 'MMM DD, YYYY')}
+                                                </Text>
+                                                {formData.sessionLength && formData.locationId && formData.date ? (
+                                                    <StartTimes
+                                                        date={formData.date}
+                                                        sessionLength={parseInt(formData.sessionLength)}
+                                                        artist={artist as Artist}
+                                                        locationId={formData.locationId}
+                                                        selectedTime={formData.startTime}
+                                                        onTimeSelect={handleTimeSelect}
                                                     />
-                                                </View>
-                                            </Collapse>
+                                                ) : null}
+                                            </View>
                                         </View>
                                     </View>
 

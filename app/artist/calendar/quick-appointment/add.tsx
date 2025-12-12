@@ -12,14 +12,13 @@ import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb, truncateFileName, validatePhoneNumber, formatDbDate } from "@/lib/utils";
+import { parseYmdFromDb, truncateFileName, validatePhoneNumber, formatDbDate, convertHhMmToDisplay } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 import { checkArtistExists } from "@/lib/services/auth-service";
 import { createClientWithAuth, checkClientExists, checkClientExistsByPhone } from '@/lib/services/clients-service';
-import { createQuickAppointment, checkEventOverlap } from '@/lib/services/calendar-service';
+import { checkEventOverlap } from '@/lib/services/calendar-service';
 import { createManualBooking } from "@/lib/services/booking-service";
 import { WaiverSign } from "@/components/lib/waiver-sign";
 
@@ -60,18 +59,6 @@ const normalizeDateParamToYmd = (dateParam?: string): string => {
     }
     const now = new Date();
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-};
-
-// Convert HH:MM format to display format (e.g., "09:00" -> "9:00 AM")
-const convertHhMmToDisplay = (hhmm: string): string => {
-    if (!hhmm) return '';
-    const [hStr, mStr] = hhmm.split(':');
-    const h24 = Number(hStr);
-    const m = Number(mStr);
-    if (Number.isNaN(h24) || Number.isNaN(m)) return hhmm;
-    const period = h24 < 12 ? 'AM' : 'PM';
-    const h12 = ((h24 + 11) % 12) + 1;
-    return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 };
 
 // Calculate end time from start time and duration in minutes
@@ -214,7 +201,7 @@ export default function QuickAppointmentAddPage() {
                 email: existingClientData.email,
                 phoneNumber: existingClientData.phone_number,
             });
-            await handleCreateQuickAppointment(existingClientData.full_name, existingClientData.email, existingClientData.phone_number);
+            await handleCreateQuickAppointment(existingClientData.id as string);
 
             toast({ variant: 'success', title: 'Quick appointment created', duration: 2500 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
@@ -226,101 +213,26 @@ export default function QuickAppointmentAddPage() {
         setExistingClientData(null);
     };
 
-    const handleCreateQuickAppointment = async (fullName: string, email: string, phoneNumber: string) => {
+    const handleCreateQuickAppointment = async (clientId: string) => {
         try {
             setLoading(true);
             if (!artist?.id) {
                 toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
                 return;
             }
+            if (!clientId) {
+                toast({ variant: 'error', title: 'Client ID is required', duration: 2500 });
+                return;
+            }
+
             const dateStr = normalizeDateParamToYmd(date || undefined);
-
-            // Calculate end time from start time and session length
-            const sessionLengthMinutes = parseInt(formData.sessionLength);
-            const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
-
-            const break_time = (artist?.flow as any)?.break_time || 0;
-            const overlapCheck = await checkEventOverlap({
-                artistId: artist.id,
-                date: dateStr,
-                startTime: formData.startTime,
-                endTime: endTime,
-                break_time: break_time,
-                source: 'quick_appointment',
-            });
-
-            if (!overlapCheck.success) {
-                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
-                setLoading(false);
-                return;
-            }
-
-            if (overlapCheck.hasOverlap) {
-                toast({
-                    variant: 'error',
-                    title: 'Time conflict detected',
-                    description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
-                    duration: 3000
-                });
-                setLoading(false);
-                return;
-            }
-            const result = await createQuickAppointment({
-                artistId: artist.id,
-                date: dateStr,
-                fullName: fullName,
-                email: email,
-                phoneNumber: phoneNumber,
-                startTime: formData.startTime,
-                sessionLength: parseInt(formData.sessionLength),
-                notes: formData.notes,
-                waiverSigned: formData.waiverSigned,
-                waiverUrl: formData.waiverUrl
-            });
-
-            if (!result.success) {
-                toast({ variant: 'error', title: result.error || 'Failed to create appointment', duration: 2500 });
-                return;
-            }
-
-            const created = await createClientWithAuth({
-                full_name: formData.fullName.trim(),
-                email: formData.email.trim(),
-                phone_number: formData.phoneNumber?.trim() || '',
-                project_notes: formData.notes ? formData.notes : null,
-                artist_id: artist.id,
-            });
-            if (!created?.success || !created?.client?.id) {
-                toast({
-                    variant: 'error',
-                    title: 'Failed to create client',
-                    duration: 3000,
-                });
-                return;
-            }
-            const clientId: string = created.client.id as string;
-
-            const locations = Array.isArray(artist?.locations) ? artist.locations : [];
-            const mainLocation = locations.find((l: any) => (l as any)?.is_main_studio);
-            const fallbackLocation = locations[0];
-            const chosenLocation = dateLocation || mainLocation || fallbackLocation;
-            const locationId = String((chosenLocation?.id || ''));
-
-            if (!locationId) {
-                toast({
-                    variant: 'error',
-                    title: 'Missing location',
-                    duration: 3000,
-                });
-                return;
-            }
 
             const bookingResult = await createManualBooking({
                 artistId: artist.id,
                 clientId,
                 title: formData.fullName?.trim() || 'Appointment',
                 sessionLengthMinutes: parseInt(formData.sessionLength) || 0,
-                locationId,
+                locationId: dateLocation?.id || '',
                 dates: [dateStr],
                 startTimes: { [dateStr]: convertHhMmToDisplay(formData.startTime) },
                 depositAmount: 0,
@@ -328,15 +240,14 @@ export default function QuickAppointmentAddPage() {
                 notes: formData.notes || '',
                 waiverSigned: formData.waiverSigned,
                 waiverUrl: formData.waiverUrl,
-                source: 'quick_appointment',
-                sourceId: result.id,
+                source: 'quick_appointment'
             });
 
             if (!bookingResult.success) {
                 toast({
                     variant: 'error',
                     title: 'Failed to create booking',
-                    description: result.error || 'Please try again',
+                    description: bookingResult.error || 'Please try again',
                     duration: 3000,
                 });
                 return;
@@ -378,6 +289,39 @@ export default function QuickAppointmentAddPage() {
         // Check for overlapping events before creating
         try {
             setLoading(true);
+
+            const dateStr = normalizeDateParamToYmd(date || undefined);
+
+            // Calculate end time from start time and session length
+            const sessionLengthMinutes = parseInt(formData.sessionLength);
+            const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
+
+            const break_time = (artist?.flow as any)?.break_time || 0;
+            const overlapCheck = await checkEventOverlap({
+                artistId: artist.id,
+                date: dateStr,
+                startTime: formData.startTime,
+                endTime: endTime,
+                break_time: break_time,
+                source: 'quick_appointment',
+            });
+
+            if (!overlapCheck.success) {
+                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                setLoading(false);
+                return;
+            }
+
+            if (overlapCheck.hasOverlap) {
+                toast({
+                    variant: 'error',
+                    title: 'Time conflict detected',
+                    description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
+                    duration: 3000
+                });
+                setLoading(false);
+                return;
+            }
 
             // Check if an artist exists with the same email
             const artistCheck = await checkArtistExists(formData.email.trim().toLowerCase());
@@ -438,7 +382,24 @@ export default function QuickAppointmentAddPage() {
                 }
             }
 
-            await handleCreateQuickAppointment(formData.fullName.trim(), formData.email.trim(), formData.phoneNumber?.trim() || '');
+            const created = await createClientWithAuth({
+                full_name: formData.fullName.trim(),
+                email: formData.email.trim(),
+                phone_number: formData.phoneNumber?.trim() || '',
+                project_notes: formData.notes ? formData.notes : null,
+                artist_id: artist.id,
+            });
+            if (!created?.success || !created?.client?.id) {
+                toast({
+                    variant: 'error',
+                    title: 'Failed to create client',
+                    duration: 3000,
+                });
+                return;
+            }
+            const clientId: string = created.client.id as string;
+
+            await handleCreateQuickAppointment(clientId);
 
             toast({ variant: 'success', title: 'Quick appointment created', duration: 2500 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
@@ -631,7 +592,7 @@ export default function QuickAppointmentAddPage() {
                                             </Text>
                                         </View>
                                         <View className="gap-4">
-                                            <View key={date} className="gap-2">
+                                            <View className="gap-2">
                                                 <Text variant="h5" className="text-foreground">
                                                     {formatDbDate(date, 'MMM DD, YYYY')}
                                                 </Text>
@@ -644,7 +605,9 @@ export default function QuickAppointmentAddPage() {
                                                         selectedTime={formData.startTime}
                                                         onTimeSelect={handleTimeSelect}
                                                     />
-                                                ) : null}
+                                                ) : (
+                                                    <Text className="text-sm text-text-secondary text-center">Please select session length first</Text>
+                                                )}
                                             </View>
                                         </View>
                                     </View>

@@ -13,20 +13,30 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import PENCIL_SIMPLE from "@/assets/images/icons/pencil_simple.png";
 import DELETE_IMAGE from "@/assets/images/icons/delete.png";
 import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
-import { deleteQuickAppointment, getQuickAppointmentById, QuickAppointmentRecord } from "@/lib/services/calendar-service";
 import { formatTime } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { getQuickAppointmentById, deleteQuickAppointment } from "@/lib/services/booking-service";
 
 const BUTTON_ICON_STYLE: ImageStyle = {
     height: 24,
     width: 24,
 }
 
+interface QuickAppointmentData {
+    fullName: string;
+    email: string;
+    phoneNumber?: string;
+    date: string;
+    startTime: string;
+    sessionLength: number;
+    notes: string;
+}
+
 export default function QuickAppointmentDetailPage() {
     const { toast } = useToast();
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
     const { id } = useLocalSearchParams<{ id: string }>();
-    const [appointment, setAppointment] = useState<QuickAppointmentRecord | null>(null);
+    const [appointment, setAppointment] = useState<QuickAppointmentData | null>(null);
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -35,7 +45,15 @@ export default function QuickAppointmentDetailPage() {
             setLoading(true);
             const res = await getQuickAppointmentById(id);
             if (res.success && res.data) {
-                setAppointment(res.data);
+                setAppointment({
+                    fullName: res.data.client.full_name,
+                    email: res.data.client.email,
+                    phoneNumber: res.data.client.phone_number,
+                    date: res.data.session.date,
+                    startTime: res.data.session.start_time,
+                    sessionLength: res.data.session.duration,
+                    notes: res.data.session.notes,
+                });
             } else {
                 setAppointment(null);
             }
@@ -51,12 +69,6 @@ export default function QuickAppointmentDetailPage() {
             loadAppointment();
         }
     }, [id]);
-
-    useFocusEffect(
-        useCallback(() => {
-            loadAppointment();
-        }, [loadAppointment])
-    );
 
     const handleBack = () => {
         router.back();
@@ -105,7 +117,7 @@ export default function QuickAppointmentDetailPage() {
                     threshold={80}
                     enabled={true}
                 >
-                    <View className="flex-1 bg-background px-4 pt-2 pb-8 gap-6">
+                    <View className="flex-1 bg-background p-4 pt-2 gap-6">
                         <View className="flex-1">
                             <ScrollView contentContainerClassName="w-full" showsVerticalScrollIndicator={false}>
                                 <View className="gap-6">
@@ -126,24 +138,22 @@ export default function QuickAppointmentDetailPage() {
 
                                     {appointment && !loading && (
                                         <>
-                                            <View className="gap-3">
+                                            <View className="gap-1">
                                                 <Text className="text-text-secondary">Full Name</Text>
-                                                <Text variant='h5'>{appointment.full_name}</Text>
+                                                <Text variant='h5'>{appointment.fullName}</Text>
                                             </View>
 
-                                            <View className="gap-3">
+                                            <View className="gap-1">
                                                 <Text className="text-text-secondary">Email</Text>
                                                 <Text variant='h5'>{appointment.email}</Text>
                                             </View>
 
-                                            {appointment.phone_number && (
-                                                <View className="gap-3">
-                                                    <Text className="text-text-secondary">Phone Number</Text>
-                                                    <Text variant='h5'>{appointment.phone_number}</Text>
-                                                </View>
-                                            )}
+                                            <View className="gap-1">
+                                                <Text className="text-text-secondary">Phone Number</Text>
+                                                <Text variant='h5'>{appointment.phoneNumber}</Text>
+                                            </View>
 
-                                            <View className="gap-3">
+                                            <View className="gap-1">
                                                 <Text className="text-text-secondary">Label</Text>
                                                 <View className="flex-row gap-3">
                                                     <View className="w-4 h-4 bg-gray-600 rounded-full mt-1" />
@@ -151,19 +161,19 @@ export default function QuickAppointmentDetailPage() {
                                                 </View>
                                             </View>
 
-                                            <View className="gap-3">
+                                            <View className="gap-1">
                                                 <Text className="text-text-secondary">Date</Text>
                                                 <Text variant='h5'>{appointment.date}</Text>
                                             </View>
 
-                                            <View className="gap-3">
+                                            <View className="gap-1">
                                                 <Text className="text-text-secondary">Start Time</Text>
-                                                <Text variant='h5'>{formatTime(appointment.start_time)}</Text>
+                                                <Text variant='h5'>{formatTime(appointment.startTime)}</Text>
                                             </View>
 
                                             <View className="gap-3">
                                                 <Text className="text-text-secondary">Session Length</Text>
-                                                <Text variant='h5'>{formatSessionLength(appointment.session_length)}</Text>
+                                                <Text variant='h5'>{formatSessionLength(appointment.sessionLength)}</Text>
                                             </View>
 
                                             <View className="gap-3">

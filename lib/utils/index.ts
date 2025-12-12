@@ -342,3 +342,14 @@ export const parseHhMmToMinutes = (hhmm: string | undefined): number | null => {
   if (Number.isNaN(h) || Number.isNaN(m)) return null;
   return h * 60 + m;
 }
+
+export const convertHhMmToDisplay = (hhmm: string): string => {
+  if (!hhmm) return '';
+  const [hStr, mStr] = hhmm.split(':');
+  const h24 = Number(hStr);
+  const m = Number(mStr);
+  if (Number.isNaN(h24) || Number.isNaN(m)) return hhmm;
+  const period = h24 < 12 ? 'AM' : 'PM';
+  const h12 = ((h24 + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+};

@@ -14,7 +14,6 @@ import { Collapse } from "@/components/lib/collapse";
 import { useAuth, useToast } from "@/lib/contexts";
 import { Locations as ArtistLocation, Artist } from "@/lib/redux/types";
 import { getAvailableDates, getAvailableTimes, getSessionById, createProjectSession, updateProjectSession, getMonthRange } from "@/lib/services/booking-service";
-import { getQuickAppointmentById, updateQuickAppointment } from "@/lib/services/calendar-service";
 import { formatDbDate } from "@/lib/utils";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
@@ -182,7 +181,7 @@ export default function ClientEditSession() {
             return `${y}-${m}-${da}`;
         };
         const ymd = toYmdLocal(date);
-        const options = await getAvailableTimes(artist, ymd, formData.sessionDuration, artist?.flow?.break_time || 30, formData.locationId);
+        const options = await getAvailableTimes(artist, ymd, formData.sessionDuration, formData.locationId);
         const startTimes = options.map((opt, idx) => ({
             id: idx + 1,
             time: opt.label,
@@ -261,39 +260,6 @@ export default function ClientEditSession() {
                         duration: 3000,
                     });
                     return;
-                }
-
-                // If source is quick_appointment, also update the quick appointment
-                if (sessionSource === 'quick_appointment' && sessionSourceId && artist?.id) {
-                    try {
-                        // Fetch the quick appointment to get existing data
-                        const quickApptResult = await getQuickAppointmentById(sessionSourceId);
-                        if (quickApptResult.success && quickApptResult.data) {
-                            const quickAppt = quickApptResult.data;
-                            const dateYmd = toYmdLocal(formData.sessionDate as Date) || '';
-                            const startTimeHhMm = parseDisplayTimeToHhMm(formData.sessionStartTime);
-
-                            const updateResult = await updateQuickAppointment(sessionSourceId, artist.id, {
-                                fullName: quickAppt.full_name || '',
-                                email: quickAppt.email || '',
-                                phoneNumber: quickAppt.phone_number || undefined,
-                                date: dateYmd,
-                                startTime: startTimeHhMm,
-                                sessionLength: formData.sessionDuration as number,
-                                notes: quickAppt.notes || undefined,
-                                waiverSigned: quickAppt.waiver_signed || false,
-                                waiverUrl: quickAppt.waiver_url || null,
-                            });
-
-                            if (!updateResult.success) {
-                                console.warn('Failed to update quick appointment:', updateResult.error);
-                                // Don't fail the whole operation, but log the warning
-                            }
-                        }
-                    } catch (e: any) {
-                        console.warn('Error updating quick appointment:', e?.message);
-                        // Don't fail the whole operation, but log the warning
-                    }
                 }
 
                 toast({
