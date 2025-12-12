@@ -41,6 +41,10 @@ export default function MakeItYours() {
         Linking.openURL('https://simpletattooer.com/terms');
     }
 
+    const handleDirectMessage = () => {
+        Linking.openURL('https://instagram.com/simpletattooer');
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -103,7 +107,7 @@ export default function MakeItYours() {
                             </View>
                         </View>
                         <View className="bg-background pt-2 pb-8 gap-4 justify-center items-center">
-                            <Pressable style={{ height: 34, width: 160 }} className="justify-center items-center rounded-full border border-border-white">
+                            <Pressable onPress={handleDirectMessage} style={{ height: 34, width: 160 }} className="justify-center items-center rounded-full border border-border-white">
                                 <Text variant="small">Need Help? DM us!</Text>
                             </Pressable>
                             <View className="flex-row gap-1">

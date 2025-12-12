@@ -23,6 +23,7 @@ import PLUS_IMAGE from "@/assets/images/icons/plus.png";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDbDate } from "@/lib/utils";
 import { WaiverView } from "@/components/lib/waiver-view";
+import { deleteProjectById } from "@/lib/services/booking-service";
 
 
 const BUTTON_ICON_STYLE: ImageStyle = {
@@ -74,6 +75,7 @@ export default function ClientAppointments() {
     const [saving, setSaving] = useState<{ [projectId: string]: boolean }>({});
     const [visibleWaiverModal, setVisibleWaiverModal] = useState(false);
     const saveBarAnim = useRef(new Animated.Value(0)).current;
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
     const { height: screenHeight } = Dimensions.get('window');
 
     type UiSession = {
@@ -91,6 +93,7 @@ export default function ClientAppointments() {
         drawingImageUrl?: string;
         sessions: UiSession[];
         notes: string;
+        status: string;
     };
 
     const [projects, setProjects] = useState<UiProject[]>([]);
@@ -159,6 +162,7 @@ export default function ClientAppointments() {
                                 location: s.location?.address,
                             })),
                             notes: p.notes || '',
+                            status: p.status || '',
                         };
                     });
                     setProjects(mapped);
@@ -414,7 +418,7 @@ export default function ClientAppointments() {
 
     const handleVisibleWaiverModal = (waiverUrl: string | null, signedUrl: string | null) => {
         console.log(waiverUrl, signedUrl)
-        if(!waiverUrl && !signedUrl) {
+        if (!waiverUrl && !signedUrl) {
             toast({
                 variant: 'error',
                 title: 'No waiver found',
@@ -427,6 +431,26 @@ export default function ClientAppointments() {
         setVisibleWaiverUrl(signedUrl || waiverUrl || null)
         setVisibleWaiverModal(true);
     }
+
+    const handleDeleteConfirm = async () => {
+        const expandedProjectId = Object.keys(expandedProjects).find(projectId => expandedProjects[projectId]);
+        if (!expandedProjectId) {
+            setIsDeleteModalOpen(false);
+            return;
+        }
+        try {
+            const res = await deleteProjectById(String(expandedProjectId));
+            if (!res.success) {
+                toast?.({ variant: 'error', title: 'Failed to delete project', description: res.error || 'Please try again' });
+                return;
+            }
+            toast?.({ variant: 'success', title: 'Project deleted' });
+            setIsDeleteModalOpen(false);
+            router.back();
+        } catch (e: any) {
+            toast?.({ variant: 'error', title: 'Unexpected error', description: e?.message || 'Please try again' });
+        }
+    };
 
     if (loading) {
         return (
@@ -479,7 +503,7 @@ export default function ClientAppointments() {
                                 bottomOffset={80}
                                 contentContainerClassName="w-full"
                                 showsVerticalScrollIndicator={false}
-                                
+
                             >
                                 <View className="gap-6 pb-6">
                                     <View className="items-center justify-center pb-[22px] h-[120px]">
@@ -537,7 +561,24 @@ export default function ClientAppointments() {
                                                                     If you need to manually reschedule, change time/location, or see history, tap the date
                                                                 </Text>
                                                             </View>
-                                                            {project.sessions.map((session, index) => {
+                                                            {project.status === 'overdue' && (
+                                                                <View className="gap-2">
+                                                                    <Text variant="h4">Deposit Overdue</Text>
+                                                                    <View className="flex-row items-center gap-2">
+                                                                        <View className="flex-1">
+                                                                            <Pressable onPress={() => handleAddSession()} className="bg-background p-2 rounded-full border border-border-white items-center justify-center">
+                                                                                <Text variant="small">Resend Quote</Text>
+                                                                            </Pressable>
+                                                                        </View>
+                                                                        <View className="flex-1">
+                                                                            <Pressable onPress={() => setIsDeleteModalOpen(true)} className="bg-background p-2 rounded-full border border-border-white items-center justify-center">
+                                                                                <Text variant="small">Delete Project</Text>
+                                                                            </Pressable>
+                                                                        </View>
+                                                                    </View>
+                                                                </View>
+                                                            )}
+                                                            {project.status !== 'overdue' && project.sessions.map((session, index) => {
                                                                 const isExpanded = expandedSessions[project.id];
                                                                 const shouldShowSession = index < 3 || isExpanded;
 
@@ -596,6 +637,7 @@ export default function ClientAppointments() {
                                                                     </View>
                                                                 </Pressable>
                                                             </View>
+
                                                             <View className="gap-2">
                                                                 <Text className="text-text-secondary">Notes</Text>
                                                                 <Textarea
@@ -762,12 +804,41 @@ export default function ClientAppointments() {
                 </Modal>
 
                 {visibleWaiverUrl && (
-                    <WaiverView 
-                        visible={visibleWaiverModal} 
-                        onClose={() => setVisibleWaiverModal(false)} 
+                    <WaiverView
+                        visible={visibleWaiverModal}
+                        onClose={() => setVisibleWaiverModal(false)}
                         waiverUrl={visibleWaiverUrl}
                     />
                 )}
+
+                <Modal
+                    visible={isDeleteModalOpen}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setIsDeleteModalOpen(false)}
+                >
+                    <View className="flex-1 bg-black/50 justify-end items-center">
+                        <View className="w-full bg-background-secondary rounded-t-3xl p-4 pt-8 pb-8 gap-6">
+                            <View style={{ gap: 8, alignItems: 'center', height: 200 }}>
+                                <Image source={require('@/assets/images/icons/warning_circle.png')} style={{ width: 80, height: 80 }} />
+                                <Text variant="h3">Delete Project</Text>
+                                <Text className="text-text-secondary text-center text-sm leading-5">Are you sure? This action can't be undone.</Text>
+                            </View>
+                            <View style={{ gap: 8, flexDirection: 'row' }}>
+                                <View style={{ flex: 1 }}>
+                                    <Button onPress={() => setIsDeleteModalOpen(false)} variant="outline" size='lg' className='items-center justify-center'>
+                                        <Text>Cancel</Text>
+                                    </Button>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Button variant="outline" onPress={handleDeleteConfirm} size='lg' className='items-center justify-center'>
+                                        <Text>Delete</Text>
+                                    </Button>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
 
             </SafeAreaView >
         </>

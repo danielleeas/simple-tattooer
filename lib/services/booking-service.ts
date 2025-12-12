@@ -1196,6 +1196,23 @@ export async function deleteSessionById(sessionId: string): Promise<{ success: b
     }
 }
 
+export async function deleteProjectById(projectId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        if (!projectId) return { success: false, error: 'Missing project id' };
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', projectId);
+        if (error) {
+            return { success: false, error: error.message || 'Failed to delete project' };
+        }
+        return { success: true };
+    }
+    catch (err: any) {
+        return { success: false, error: err?.message || 'Unexpected error deleting project' };
+    }
+} 
+
 export interface SessionRecordMinimal {
     id: string;
     project_id: string;
