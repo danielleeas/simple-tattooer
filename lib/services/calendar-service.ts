@@ -1095,9 +1095,24 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			return { success: false, error: 'Location is required' };
 		}
 
-		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, params.location);
+		const startAt = "00:00";
+		const endAt = "23:59";
 
-		// Normalize to requested times: start at 00:00, end at 23:00
+		// Avoid mutating a potentially frozen Redux object
+		const locationWithTimes: any = { ...(params.location as any) };
+
+		if (startAt) {
+			const startAtDate = composeDateTime(params.startDate, startAt, '00:00');
+			locationWithTimes.start_at = startAtDate;
+		}
+		if (endAt) {
+			const endAtDate = composeDateTime(params.endDate, endAt, '23:59');
+			locationWithTimes.end_at = endAtDate;
+		}
+
+		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, locationWithTimes);
+
+		// Normalize to requested times: start at 00:00, end at 23:59
 
 		const insertPayload = {
 			artist_id: params.artistId,
