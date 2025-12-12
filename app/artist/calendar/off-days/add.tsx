@@ -182,6 +182,8 @@ export default function AddOffDaysPage() {
                 setShowOverlapModal(true);
                 return;
             }
+
+            await handleSave();
         } catch (error) {
             toast({ variant: 'error', title: 'Failed to check for overlaps', description: error instanceof Error ? error.message : 'Unknown error' });
         } finally {

@@ -15,7 +15,8 @@ import { DurationPicker } from "@/components/lib/duration-picker";
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Collapse } from "@/components/lib/collapse";
 import { createMarkUnavailable, getMarkUnavailableById, updateMarkUnavailable, deleteMarkUnavailable, checkSpotConventionsOverlap } from '@/lib/services/calendar-service';
-import { parseYmdFromDb } from "@/lib/utils";
+import { parseYmdFromDb, formatDate } from "@/lib/utils";
+import CustomModal from "@/components/lib/custom-modal";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
 import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
@@ -59,6 +60,8 @@ export default function MarkUnavailablePage() {
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [showOverlapModal, setShowOverlapModal] = useState(false);
+    const [overlapDates, setOverlapDates] = useState<string[]>([]);
     const { date, id } = useLocalSearchParams<{ date?: string, id?: string }>();
     const isEdit = !!id;
 
@@ -118,7 +121,27 @@ export default function MarkUnavailablePage() {
         router.back();
     };
 
+    const getDateStr = () => {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        // For edit mode, use formData.date; for add mode, use date param
+        const sourceDate = isEdit ? formData.date : date;
+        if (sourceDate) {
+            try {
+                const d = parseYmdFromDb(String(sourceDate));
+                if (!isNaN(d.getTime())) {
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                }
+            } catch { /* noop */ }
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(sourceDate));
+            if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+        }
+        const now = new Date();
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    };
+
     const handleSave = async () => {
+        setShowOverlapModal(false);
+
         if (!artist?.id) {
             toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
             return;
@@ -133,40 +156,10 @@ export default function MarkUnavailablePage() {
             return;
         }
 
-        // Derive YYYY-MM-DD directly from the input without timezone conversions
-        const dateStr = (() => {
-            const pad = (n: number) => String(n).padStart(2, '0');
-            // For edit mode, use formData.date; for add mode, use date param
-            const sourceDate = isEdit ? formData.date : date;
-            if (sourceDate) {
-                try {
-                    const d = parseYmdFromDb(String(sourceDate));
-                    if (!isNaN(d.getTime())) {
-                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                    }
-                } catch { /* noop */ }
-                const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(sourceDate));
-                if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-            }
-            const now = new Date();
-            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        })();
+        const dateStr = getDateStr();
 
         try {
             setLoading(true);
-
-            const overlapCheck = await checkSpotConventionsOverlap({
-                artistId: artist.id,
-                date: dateStr,
-            });
-            if (!overlapCheck.success) {
-                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
-                return;
-            }
-            if (overlapCheck.hasOverlap) {
-                toast({ variant: 'error', title: 'Time conflict detected', description: `This date overlaps with an existing spot convention: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`, duration: 3000 });
-                return;
-            }
 
             const params = {
                 artistId: artist.id,
@@ -189,6 +182,39 @@ export default function MarkUnavailablePage() {
 
             toast({ variant: 'success', title: isEdit ? 'Updated!' : 'Day marked unavailable!', duration: 3000 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
+        } catch (e) {
+            toast({ variant: 'error', title: e instanceof Error ? e.message : 'Unexpected error', duration: 3000 });
+        } finally {
+            setLoading(false);
+        } 
+    };
+
+    const handleCheckForOverlap = async () => {
+        if (!artist?.id) {
+            toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
+            return;
+        }
+
+        const dateStr = getDateStr();
+
+        try {
+            setLoading(true);
+
+            const overlapCheck = await checkSpotConventionsOverlap({
+                artistId: artist.id,
+                date: dateStr,
+            });
+            if (!overlapCheck.success) {
+                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                return;
+            }
+            if (overlapCheck.hasOverlap) {
+                setOverlapDates([dateStr]);
+                setShowOverlapModal(true);
+                return;
+            }
+
+            await handleSave();
         } catch (e) {
             toast({ variant: 'error', title: e instanceof Error ? e.message : 'Unexpected error', duration: 3000 });
         } finally {
@@ -320,7 +346,7 @@ export default function MarkUnavailablePage() {
                                         </View>
                                     )}
                                     <View className="flex-1">
-                                        <Button variant="outline" onPress={handleSave} disabled={loading || deleting}>
+                                        <Button variant="outline" onPress={handleCheckForOverlap} disabled={loading || deleting}>
                                             <Text variant='h5'>{loading ? 'Saving...' : 'Save'}</Text>
                                         </Button>
                                     </View>
@@ -357,6 +383,42 @@ export default function MarkUnavailablePage() {
                             </View>
                         </View>
                     </Modal>
+
+                    <CustomModal
+                        visible={showOverlapModal}
+                        onClose={() => setShowOverlapModal(false)}
+                        variant="center"
+                        showCloseButton={false}
+                        closeOnBackdrop={false}
+                    >
+                        <View className="px-6 py-6 bg-background-secondary rounded-lg">
+                            <View className="items-center gap-4 mb-6">
+                                <Text variant="h6" className="text-center">Guest spot already scheduled</Text>
+                                <Text className="text-center text-text-secondary">
+                                    These dates have an active guest spot:
+                                </Text>
+                                <Text className="text-center font-semibold">
+                                    {overlapDates.map((d) => formatDate(d, false, true)).join(', ')}
+                                </Text>
+                                <Text className="text-center text-text-secondary">
+                                    Turning off availability will disable auto booking & consults for this guest spot.
+                                </Text>
+                                <Text className="text-text-secondary text-center text-sm leading-5">Are you sure?</Text>
+                            </View>
+                            <View className="flex-row gap-3">
+                                <View className="flex-1">
+                                    <Button variant="outline" onPress={() => setShowOverlapModal(false)}>
+                                        <Text variant="h5">Cancel</Text>
+                                    </Button>
+                                </View>
+                                <View className="flex-1">
+                                    <Button variant="outline" onPress={handleSave}>
+                                        <Text variant="h5">Continue</Text>
+                                    </Button>
+                                </View>
+                            </View>
+                        </View>
+                    </CustomModal>
                 </StableGestureWrapper >
             </SafeAreaView >
         </>
