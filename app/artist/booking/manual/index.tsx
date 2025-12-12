@@ -16,13 +16,14 @@ import { Input } from "@/components/ui/input";
 import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
-import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
+import { getAvailableDatesManualBooking, getAvailableDates , getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
-import { formatDbDate, makeChunks, parseYmdFromDb } from "@/lib/utils";
+import { formatDbDate, normalizeDateParamToYmd, parseYmdFromDb, calculateEndTime } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import { checkEventOverlap } from "@/lib/services/calendar-service";
 
 interface FormDataProps {
     title: string;
@@ -94,7 +95,7 @@ export default function ManualBooking() {
         try {
             if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, locationId, start, end);
+            const days = await getAvailableDatesManualBooking(artist as any, locationId, start, end);
             setAvailableDates(days);
         } catch (e) {
             console.warn('Failed to load availability:', e);
@@ -155,13 +156,31 @@ export default function ManualBooking() {
                 return;
             }
 
-            const backToBackResult = await getBackToBackResult(artist, formData.dates, String(clientId || ''));
-            if (!backToBackResult.success) {
-                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
-                return;
-            }
+            // const backToBackResult = await getBackToBackResult(artist, formData.dates, String(clientId || ''));
+            // if (!backToBackResult.success) {
+            //     toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
+            //     return;
+            // }
 
-            console.log(backToBackResult)
+            for (const date of formData.dates) {
+                const dateStr = normalizeDateParamToYmd(date || undefined);
+                const overlapCheck = await checkEventOverlap({
+                    artistId: artist.id,
+                    date: dateStr,
+                    startTime: formData.startTimes[date],
+                    endTime: calculateEndTime(formData.startTimes[date], formData.sessionLength || 0),
+                    break_time: (artist?.flow as any)?.break_time || 0,
+                    source: 'manual',
+                });
+                if (!overlapCheck.success) {
+                    toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                    return;
+                }
+                if (overlapCheck.hasOverlap) {
+                    toast({ variant: 'error', title: 'Time conflict detected', description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`, duration: 3000 });
+                    return;
+                }
+            }
 
             const result = await createManualBooking({
                 artistId: artist.id,
@@ -407,7 +426,7 @@ export default function ManualBooking() {
                                     <Text variant='h5'>Creating...</Text>
                                 </View>
                             ) : (
-                                <Text variant='h5'>Send Quote & Deposit</Text>
+                                <Text variant='h5'>Send Quote & Deposiddt</Text>
                             )}
                         </Button>
                     </View>

@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { parseYmdFromDb, truncateFileName, validatePhoneNumber, formatDbDate, convertHhMmToDisplay } from "@/lib/utils";
+import { parseYmdFromDb, truncateFileName, validatePhoneNumber, formatDbDate, convertHhMmToDisplay, normalizeDateParamToYmd, calculateEndTime } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 import { checkArtistExists } from "@/lib/services/auth-service";
 import { createClientWithAuth, checkClientExists, checkClientExistsByPhone } from '@/lib/services/clients-service';
@@ -40,40 +40,6 @@ type QuickAppointmentData = {
     notes: string;
     waiverSigned: boolean;
     waiverUrl?: string;
-};
-
-// Normalize various date param shapes into "YYYY-MM-DD"
-const normalizeDateParamToYmd = (dateParam?: string): string => {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    if (dateParam) {
-        try {
-            const d = parseYmdFromDb(String(dateParam));
-            if (!isNaN(d.getTime())) {
-                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-            }
-        } catch {
-            // noop
-        }
-        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateParam));
-        if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    }
-    const now = new Date();
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-};
-
-// Calculate end time from start time and duration in minutes
-const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-    if (!startTime) return '';
-    const [hStr, mStr] = startTime.split(':');
-    const hours = Number(hStr);
-    const minutes = Number(mStr);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return '';
-
-    const totalMinutes = hours * 60 + minutes + durationMinutes;
-    const endHours = Math.floor(totalMinutes / 60) % 24;
-    const endMinutes = totalMinutes % 60;
-
-    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 };
 
 export default function QuickAppointmentAddPage() {

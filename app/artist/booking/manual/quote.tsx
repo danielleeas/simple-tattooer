@@ -19,11 +19,12 @@ import { useAuth, useToast } from "@/lib/contexts";
 import { Collapse } from "@/components/lib/collapse";
 import { createClientWithAuth } from "@/lib/services/clients-service";
 import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
-import { formatDbDate, parseYmdFromDb } from "@/lib/utils";
+import { calculateEndTime, formatDbDate, normalizeDateParamToYmd, parseYmdFromDb } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
 import MENU_IMAGE from "@/assets/images/icons/menu.png";
+import { checkEventOverlap } from "@/lib/services/calendar-service";
 
 interface FormDataProps {
     title: string;
@@ -164,10 +165,30 @@ export default function QuoteBooking() {
                 return;
             }
 
-            const backToBackResult = await getBackToBackResult(artist, formData.dates);
-            if (!backToBackResult.success) {
-                toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
-                return;
+            // const backToBackResult = await getBackToBackResult(artist, formData.dates);
+            // if (!backToBackResult.success) {
+            //     toast({ variant: 'error', title: backToBackResult.error || 'Failed to check back to back' });
+            //     return;
+            // }
+
+            for (const date of formData.dates) {
+                const dateStr = normalizeDateParamToYmd(date || undefined);
+                const overlapCheck = await checkEventOverlap({
+                    artistId: artist.id,
+                    date: dateStr,
+                    startTime: formData.startTimes[date],
+                    endTime: calculateEndTime(formData.startTimes[date], formData.sessionLength || 0),
+                    break_time: (artist?.flow as any)?.break_time || 0,
+                    source: 'manual',
+                });
+                if (!overlapCheck.success) {
+                    toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                    return;
+                }
+                if (overlapCheck.hasOverlap) {
+                    toast({ variant: 'error', title: 'Time conflict detected', description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`, duration: 3000 });
+                    return;
+                }
             }
 
             // Ensure we have a client; create one if not provided via params

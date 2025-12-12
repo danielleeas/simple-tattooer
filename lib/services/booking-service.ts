@@ -278,6 +278,111 @@ export const getAvailableDates = async (
     return resultWithoutPastDates;
 };
 
+export const getAvailableDatesManualBooking = async (
+    artist: Artist,
+    locationId: string | undefined,
+    startDate: string,
+    endDate: string
+): Promise<string[]> => {
+    const { start, end } = clampRange(startDate, endDate);
+    const todayYmd = toYmd(new Date());
+
+    // Return all dates in the clamped range, excluding any past dates
+    const allDates = eachDateInclusive(start, end);
+    const futureAndTodayDates = allDates.filter((d) => d >= todayYmd);
+
+    const mainLocation = artist.locations?.find(
+        (loc) => loc.is_main_studio === true
+    );
+    const isMainLocation = locationId && mainLocation?.id === locationId;
+
+    let result: string[] = [];
+    if (isMainLocation) {
+        result = futureAndTodayDates;
+    }
+
+    const start_date_Ymd = parseYmdFromDb(start);
+    const end_date_Ymd = parseYmdFromDb(end);
+    const start_date = new Date(start_date_Ymd.getFullYear(), start_date_Ymd.getMonth(), start_date_Ymd.getDate(), 0, 0, 0, 0);
+    const end_date = new Date(end_date_Ymd.getFullYear(), end_date_Ymd.getMonth(), end_date_Ymd.getDate(), 23, 59, 59, 999);
+    const eventsRes = await getEventsInRange({ artistId: artist.id, start: start_date, end: end_date })
+    const events = eventsRes.success ? eventsRes.events || [] : [];
+    const backgroundEvents = events.filter((e) => e.type === 'background');
+    const tempChangeEvents = backgroundEvents.filter((e) => e.source === 'temp_change');
+
+    const tempChangeDateRange = new Set<string>();
+    const tempChangeDatesToAdd: string[] = [];
+    const tempChangeDatesToRemove: string[] = [];
+
+    if (tempChangeEvents.length > 0) {
+        for (const e of tempChangeEvents) {
+            const tempChangeRes = await getTempChangeById(e.source_id);
+            console.log("tempChangeRes", tempChangeRes);
+            if (tempChangeRes.success && tempChangeRes.data) {
+                const tc = tempChangeRes.data;
+                const isTcLocationMatch = tc.location_id === locationId;
+                const tcDates = eachDateInclusive(tc.start_date, tc.end_date);
+
+                if (!isTcLocationMatch) {
+                    for (const d of tcDates) {
+                        if (d < todayYmd) continue; // Skip past dates
+                        if (d <= end) {
+                            tempChangeDatesToRemove.push(d);
+                        }
+                    }
+                } else {
+                    for (const d of tcDates) {
+                        if (d < todayYmd) continue; // Skip past dates
+                        if (d <= end) {
+                            tempChangeDateRange.add(d);
+                            tempChangeDatesToAdd.push(d);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let filteredResult = result;
+    filteredResult = filteredResult.filter((d) => !tempChangeDatesToRemove.includes(d));
+    filteredResult.push(...tempChangeDatesToAdd);
+
+    const spotConventionDatesToAdd: string[] = [];
+    const spotConventionDatesToRemove: string[] = [];
+    const spotConventionEvents = backgroundEvents.filter((e) => e.source === 'spot_convention');
+    for (const e of spotConventionEvents) {
+        const spotConventionRes = await getSpotConventionById(e.source_id);
+        if (spotConventionRes.success && spotConventionRes.data) {
+            const spotConvention = spotConventionRes.data;
+            // Extract date range from event (format: "YYYY-MM-DD HH:mm")
+            const startDate = e.start_date.substring(0, 10); // "YYYY-MM-DD"
+            const endDate = e.end_date.substring(0, 10); // "YYYY-MM-DD"
+            const spotConventionDates = eachDateInclusive(startDate, endDate);
+
+            const isSpotConventionLocationMatch = spotConvention.location_id === locationId;
+            if (!isSpotConventionLocationMatch) {
+                for (const d of spotConventionDates) {
+                    if (d < todayYmd) continue; // Skip past dates
+                    if (d <= end) {
+                        spotConventionDatesToRemove.push(d);
+                    }
+                }
+            } else {
+                for (const d of spotConventionDates) {
+                    if (d >= todayYmd) {
+                        spotConventionDatesToAdd.push(d);
+                    }
+                }
+            }
+        }
+    }
+
+    filteredResult = filteredResult.filter((d) => !spotConventionDatesToRemove.includes(d));
+    filteredResult.push(...spotConventionDatesToAdd);
+
+    return Array.from(new Set(filteredResult));
+}
+
 export interface StartTimeOption {
     value: string; // 'HH:mm'
     label: string; // 'h:mm AM/PM'

@@ -1417,6 +1417,8 @@ export async function checkEventOverlap(params: CheckEventOverlapParams): Promis
 			return { success: false, error: 'Missing required parameters' };
 		}
 
+		console.log("times", params.startTime, params.endTime)
+
 		// Query events for the specific date where type = 'item'
 		// Events are stored as "YYYY-MM-DD HH:mm", so we check events that overlap with this date
 		const dateStart = `${params.date} 00:00`;
