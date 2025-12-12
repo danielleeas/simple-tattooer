@@ -17,7 +17,9 @@ import { useAuth } from "@/lib/contexts/auth-context";
 import { DatePicker } from "@/components/lib/date-picker";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { Collapse } from "@/components/lib/collapse";
-import { createOffDays } from "@/lib/services/calendar-service";
+import { checkSpotConventionsOverlap, createOffDays } from "@/lib/services/calendar-service";
+import CustomModal from "@/components/lib/custom-modal";
+import { formatDate } from "@/lib/utils";
 
 const repeatTypeChunks = [
     { value: 'daily', label: 'Daily' },
@@ -44,6 +46,8 @@ export default function AddOffDaysPage() {
 
     // Form state
     const [loading, setLoading] = useState(false);
+    const [showOverlapModal, setShowOverlapModal] = useState(false);
+    const [overlapDates, setOverlapDates] = useState<string[]>([]);
     const [formData, setFormData] = useState<OffDaysFormData>({
         title: '',
         startDate: '',
@@ -147,7 +151,46 @@ export default function AddOffDaysPage() {
         router.back();
     };
 
+    const handleCheckForOverlap = async () => {
+
+        if (!artist?.id) {
+            toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const dataRange = buildRangeDates(formData.startDate, formData.endDate);
+
+            let overlaps: string[] = [];
+            for (const date of dataRange) {
+                const overlapCheck = await checkSpotConventionsOverlap({
+                    artistId: artist.id,
+                    date: date,
+                });
+                if (!overlapCheck.success) {
+                    toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                    return;
+                }
+                if (overlapCheck.hasOverlap) {
+                    overlaps.push(date);
+                }
+            }
+
+            if (overlaps.length > 0) {
+                setOverlapDates(overlaps);
+                setShowOverlapModal(true);
+                return;
+            }
+        } catch (error) {
+            toast({ variant: 'error', title: 'Failed to check for overlaps', description: error instanceof Error ? error.message : 'Unknown error' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
     const handleSave = async () => {
+        setShowOverlapModal(false)
         if (!artist?.id) {
             toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
             return;
@@ -213,7 +256,7 @@ export default function AddOffDaysPage() {
                     <KeyboardAwareScrollView
                         bottomOffset={50}
                         showsVerticalScrollIndicator={false}
-                        
+
                         className="flex-1"
                     >
                         <View className="gap-6 pb-6">
@@ -305,13 +348,49 @@ export default function AddOffDaysPage() {
                                     />
                                 </View>
 
-                                <Button onPress={handleSave} variant="outline" disabled={loading}>
+                                <Button onPress={handleCheckForOverlap} variant="outline" disabled={loading}>
                                     <Text variant='h5'>{loading ? 'Adding...' : 'Add to Calendar'}</Text>
                                 </Button>
                             </View>
                         </View>
                     </KeyboardAwareScrollView>
                 </View>
+
+                <CustomModal
+                    visible={showOverlapModal}
+                    onClose={() => setShowOverlapModal(false)}
+                    variant="center"
+                    showCloseButton={false}
+                    closeOnBackdrop={false}
+                >
+                    <View className="px-6 py-6 bg-background-secondary rounded-lg">
+                        <View className="items-center gap-4 mb-6">
+                            <Text variant="h6" className="text-center">Guest spot already scheduled</Text>
+                            <Text className="text-center text-text-secondary">
+                                These dates have an active guest spot:
+                            </Text>
+                            <Text className="text-center font-semibold">
+                                {overlapDates.map((date) => formatDate(date, false, true)).join(', ')}
+                            </Text>
+                            <Text className="text-center text-text-secondary">
+                                Turning off availability will disable auto booking & consults for this guest spot.
+                            </Text>
+                            <Text className="text-text-secondary text-center text-sm leading-5">Are you sure?</Text>
+                        </View>
+                        <View className="flex-row gap-3">
+                            <View className="flex-1">
+                                <Button variant="outline" onPress={() => setShowOverlapModal(false)}>
+                                    <Text variant="h5">Cancel</Text>
+                                </Button>
+                            </View>
+                            <View className="flex-1">
+                                <Button variant="outline" onPress={handleSave}>
+                                    <Text variant="h5">Continue</Text>
+                                </Button>
+                            </View>
+                        </View>
+                    </View>
+                </CustomModal>
             </SafeAreaView >
         </>
     );

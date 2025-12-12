@@ -2318,3 +2318,48 @@ export async function deleteMarkUnavailable(id: string): Promise<{ success: bool
 		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
 	}
 }
+
+
+export interface CheckSpotConventionsOverlapParams {
+	artistId: string;
+	date: string;
+}
+
+export interface CheckSpotConventionsOverlapResult {
+	success: boolean;
+	hasOverlap?: boolean;
+	overlappingEvent?: CalendarEvent;
+	error?: string;
+}
+
+export async function checkSpotConventionsOverlap(params: CheckSpotConventionsOverlapParams): Promise<CheckSpotConventionsOverlapResult> {
+	try {
+		if (!params.artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
+		if (!params.date) {
+			return { success: false, error: 'Missing date' };
+		}
+
+		const dayStart = `${params.date} 00:00`;
+		const dayEnd = `${params.date} 23:59`;
+
+		const { data, error } = await supabase
+			.from('events')
+			.select('*')
+			.eq('artist_id', params.artistId)
+			.eq('source', 'spot_convention')
+			.eq('type', 'background')
+			.lte('start_date', dayEnd)
+			.gte('end_date', dayStart)
+			.order('start_date', { ascending: true });
+		if (error) {
+			return { success: false, error: error.message || 'Failed to check spot conventions overlap' };
+		}
+
+		console.log("data", data);
+		return { success: true, hasOverlap: data?.length > 0, overlappingEvent: data?.[0] };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}

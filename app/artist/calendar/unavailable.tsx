@@ -14,7 +14,7 @@ import { useToast } from "@/lib/contexts/toast-context";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Collapse } from "@/components/lib/collapse";
-import { createMarkUnavailable, getMarkUnavailableById, updateMarkUnavailable, deleteMarkUnavailable } from '@/lib/services/calendar-service';
+import { createMarkUnavailable, getMarkUnavailableById, updateMarkUnavailable, deleteMarkUnavailable, checkSpotConventionsOverlap } from '@/lib/services/calendar-service';
 import { parseYmdFromDb } from "@/lib/utils";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
@@ -154,6 +154,19 @@ export default function MarkUnavailablePage() {
 
         try {
             setLoading(true);
+
+            const overlapCheck = await checkSpotConventionsOverlap({
+                artistId: artist.id,
+                date: dateStr,
+            });
+            if (!overlapCheck.success) {
+                toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                return;
+            }
+            if (overlapCheck.hasOverlap) {
+                toast({ variant: 'error', title: 'Time conflict detected', description: `This date overlaps with an existing spot convention: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`, duration: 3000 });
+                return;
+            }
 
             const params = {
                 artistId: artist.id,

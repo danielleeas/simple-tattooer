@@ -18,7 +18,8 @@ import { useToast } from "@/lib/contexts/toast-context";
 import { DatePicker } from "@/components/lib/date-picker";
 import { DurationPicker } from "@/components/lib/duration-picker";
 import { Collapse } from "@/components/lib/collapse";
-import { getOffDayById, updateOffDay } from "@/lib/services/calendar-service";
+import { checkSpotConventionsOverlap, getOffDayById, updateOffDay } from "@/lib/services/calendar-service";
+import { useAuth } from "@/lib/contexts/auth-context";
 
 const repeatTypeChunks = [
     { value: 'daily', label: 'Daily' },
@@ -29,6 +30,7 @@ const repeatTypeChunks = [
 
 export default function EditOffDaysPage() {
     const router = useRouter();
+    const { artist } = useAuth();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { toast } = useToast();
 
@@ -221,6 +223,34 @@ export default function EditOffDaysPage() {
         try {
             setLoading(true);
             if (!id) throw new Error('Missing id');
+
+            const dataRange = buildRangeDates(formData.startDate, formData.endDate);
+
+            let overlapDates: string[] = [];
+            for (const date of dataRange) {
+                const overlapCheck = await checkSpotConventionsOverlap({
+                    artistId: artist?.id || '',
+                    date: date,
+                });
+                if (!overlapCheck.success) {
+                    toast({ variant: 'error', title: overlapCheck.error || 'Failed to check for conflicts', duration: 3000 });
+                    return;
+                }
+                if (overlapCheck.hasOverlap) {
+                    overlapDates.push(date);
+                }
+            }
+
+            if (overlapDates.length > 0) {
+                toast({
+                    variant: 'error',
+                    title: 'Time conflict detected',
+                    description: `The following dates overlap with existing spot conventions: ${overlapDates.join(', ')}`,
+                    duration: 3000,
+                });
+                return;
+            }
+            
             const result = await updateOffDay(id, {
                 title: formData.title.trim(),
                 start_date: formData.startDate,
