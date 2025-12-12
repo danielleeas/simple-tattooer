@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { View, Pressable, Image, Linking } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
+import { Locations } from "@/lib/redux/types";
 
 type QuickAppointmentData = {
     fullName: string;
@@ -39,6 +40,24 @@ type QuickAppointmentData = {
     notes: string;
     waiverSigned: boolean;
     waiverUrl?: string;
+};
+
+const normalizeDateParamToYmd = (dateParam?: string): string => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    if (dateParam) {
+        try {
+            const d = parseYmdFromDb(String(dateParam));
+            if (!isNaN(d.getTime())) {
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            }
+        } catch {
+            // noop
+        }
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateParam));
+        if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    }
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
 
 // Convert HH:MM format to display format (e.g., "09:00" -> "9:00 AM")
@@ -84,6 +103,42 @@ export default function QuickAppointmentAddPage() {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
+
+    const dateLocation = useMemo<Locations | undefined>(() => {
+        const locations = Array.isArray(artist?.locations) ? artist.locations : [];
+        if (!locations.length) return undefined;
+
+        const ymd = normalizeDateParamToYmd(date || undefined);
+        const target = new Date(`${ymd}T12:00:00`);
+
+        const inRangeLocation = locations.find((loc) => {
+            if (!loc.start_at && !loc.end_at) return false;
+
+            const start = loc.start_at ? new Date(String(loc.start_at).replace(' ', 'T')) : undefined;
+            const end = loc.end_at ? new Date(String(loc.end_at).replace(' ', 'T')) : undefined;
+
+            if (start && isNaN(start.getTime())) return false;
+            if (end && isNaN(end.getTime())) return false;
+
+            if (start && end) {
+                return target >= start && target <= end;
+            }
+            if (start && !end) {
+                return target >= start;
+            }
+            if (!start && end) {
+                return target <= end;
+            }
+            return false;
+        });
+
+        if (inRangeLocation) return inRangeLocation;
+
+        const mainLocation = locations.find((l) => l.is_main_studio);
+        return mainLocation || locations[0];
+    }, [artist?.locations, date]);
+
+    console.log('dateLocation', dateLocation);
 
     // Check if form is valid
     const isFormValid = () => {
@@ -166,22 +221,7 @@ export default function QuickAppointmentAddPage() {
                 toast({ variant: 'error', title: 'Not authenticated', duration: 2500 });
                 return;
             }
-            const dateStr = (() => {
-                const pad = (n: number) => String(n).padStart(2, '0');
-                if (date) {
-                    try {
-                        const d = parseYmdFromDb(String(date));
-                        if (!isNaN(d.getTime())) {
-                            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                        }
-                    } catch { /* noop */ }
-                    // Fallback: if string starts with YYYY-MM-DD, take that portion
-                    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date));
-                    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-                }
-                const now = new Date();
-                return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-            })();
+            const dateStr = normalizeDateParamToYmd(date || undefined);
 
             // Calculate end time from start time and session length
             const sessionLengthMinutes = parseInt(formData.sessionLength);
@@ -251,7 +291,8 @@ export default function QuickAppointmentAddPage() {
             const locations = Array.isArray(artist?.locations) ? artist.locations : [];
             const mainLocation = locations.find((l: any) => (l as any)?.is_main_studio);
             const fallbackLocation = locations[0];
-            const locationId = String((mainLocation?.id || fallbackLocation?.id || ''));
+            const chosenLocation = dateLocation || mainLocation || fallbackLocation;
+            const locationId = String((chosenLocation?.id || ''));
 
             if (!locationId) {
                 toast({

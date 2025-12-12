@@ -651,11 +651,6 @@ const getNewEndAt = (locationEndAt: string | undefined, existingEndAt: string | 
 }
 
 async function resolveLocationId(artistId: string, location: CreateSpotConventionParams['location']): Promise<{ id: string; location?: Locations }> {
-	const maybeId = (location as any)?.id as string | undefined;
-	if (maybeId && typeof maybeId === 'string') {
-		return { id: maybeId };
-	}
-
 	const address = (location as any)?.address;
 	if (artistId && address) {
 		const { data: existingByAddress, error: findErr } = await supabase
@@ -669,6 +664,7 @@ async function resolveLocationId(artistId: string, location: CreateSpotConventio
 			if (!location.is_main_studio) {
 				const newStartAt = getNewStartAt(location.start_at, existingByAddress.start_at);
 				const newEndAt = getNewEndAt(location.end_at, existingByAddress.end_at);
+
 				if (newStartAt || newEndAt) {
 					const { data: updated, error: updateErr } = await supabase
 						.from('locations')
@@ -988,7 +984,7 @@ export async function updateSpotConvention(
 			const endAtDate = composeDateTime(lastDate, endAt, '23:59');
 			locationWithTimes.end_at = endAtDate;
 		}
-
+		console.log('locationWithTimes', locationWithTimes);
 		const { id: resolvedId, location: newLocation } = await resolveLocationId(artistId, locationWithTimes);
 		payload.location_id = resolvedId;
 
