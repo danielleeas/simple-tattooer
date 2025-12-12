@@ -18,7 +18,7 @@ import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
 import { Collapse } from "@/components/lib/collapse";
 import { createClientWithAuth } from "@/lib/services/clients-service";
-import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
+import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail, getAvailableDatesManualBooking } from "@/lib/services/booking-service";
 import { calculateEndTime, formatDbDate, normalizeDateParamToYmd, parseYmdFromDb } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
 
@@ -95,7 +95,7 @@ export default function QuoteBooking() {
         try {
             if (!artist?.id || !locationId) return;
             const { start, end } = getMonthRange(year, monthZeroBased);
-            const days = await getAvailableDates(artist as any, locationId, start, end);
+            const days = await getAvailableDatesManualBooking(artist as any, locationId, start, end);
             console.log(days);
             setAvailableDates(days);
         } catch (e) {

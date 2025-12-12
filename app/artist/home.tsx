@@ -20,6 +20,8 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { formatYmd } from '@/lib/utils';
 import { useToast } from '@/lib/contexts/toast-context';
+import { UserCircle } from 'lucide-react-native';
+import { AccountSwitcherModal } from '@/components/lib/account-switcher-modal';
 
 const ICON_STYLE: ImageStyle = {
     height: 56,
@@ -27,11 +29,11 @@ const ICON_STYLE: ImageStyle = {
 };
 
 export default function ProductionHome() {
-    const { showSplash, showWelcome } = useAppSelector((state: RootState) => state.ui);
+    const { showSplash, showWelcome } = useAppSelector((state: RootState) => state.ui as { showSplash: boolean, showWelcome: boolean });
     const { artist, mode } = useAuth();
     const { toast } = useToast();
     const [showTooltip, setShowTooltip] = useState(false);
-    const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+    const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
 
     useEffect(() => {
         AsyncStorage.getItem('today_tooltip_dismissed').then((value) => {
@@ -87,6 +89,10 @@ export default function ProductionHome() {
         router.push('/artist/settings');
     };
 
+    const handleAccountSwitcher = () => {
+        setShowAccountSwitcher(true);
+    };
+
     return (
         <StableGestureWrapper
             onSwipeLeft={handleMenu}
@@ -97,6 +103,29 @@ export default function ProductionHome() {
                 {showSplash && <Splash isAuthenticated={true} welcome_enabled={welcomeEnabled} mode={mode} />}
 
                 {welcomeEnabled && showWelcome && <Welcome />}
+
+                <Pressable
+                    onPress={handleAccountSwitcher}
+                    className="absolute top-4 right-4 z-10"
+                    style={{ width: 44, height: 44 }}
+                >
+                    {artist?.avatar ? (
+                        <Image
+                            source={{ uri: artist.avatar }}
+                            className="w-11 h-11 rounded-full border-2 border-primary"
+                        />
+                    ) : artist?.photo ? (
+                        <Image
+                            source={{ uri: artist.photo }}
+                            style={{objectFit: 'cover'}}
+                            className="w-11 h-11 rounded-full border-2 border-primary"
+                        />
+                    ) : (
+                        <View className="w-11 h-11 rounded-full bg-border border-2 border-primary items-center justify-center">
+                            <UserCircle size={28} color="#888" />
+                        </View>
+                    )}
+                </Pressable>
 
                 <View className="flex-1 items-center justify-center gap-11 p-4 pb-6 bg-background">
                     <View className="gap-4 flex-1 w-full min-h-32 max-h-44 items-center justify-center flex-row">
@@ -154,6 +183,11 @@ export default function ProductionHome() {
                         </View>
                     </View>
                 </View>
+
+                <AccountSwitcherModal
+                    visible={showAccountSwitcher}
+                    onClose={() => setShowAccountSwitcher(false)}
+                />
             </View>
         </StableGestureWrapper>
     )

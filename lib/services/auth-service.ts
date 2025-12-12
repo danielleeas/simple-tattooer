@@ -88,7 +88,7 @@ export const generateBookingLink = async (fullName: string) => {
 }
 
 // Create user profile in custom users table
-export const createArtistProfile = async (userId: string, artistData: { full_name: string; email: string }): Promise<Artist | null> => {
+export const createArtistProfile = async (userId: string, artistData: { full_name: string; email: string; temp: string }): Promise<Artist | null> => {
   try {
     const bookingLinkString = await generateBookingLink(artistData.full_name);
     const booking_link = buildFullBookingLink(BASE_URL, bookingLinkString);
@@ -100,6 +100,7 @@ export const createArtistProfile = async (userId: string, artistData: { full_nam
       booking_link: booking_link,
       subscription_active: false, // Will be updated when subscription is saved
       created_at: new Date().toISOString(),
+      temp: artistData.temp,
     };
 
     const { data, error } = await supabase
@@ -211,7 +212,6 @@ export const getClientProfile = async (clientId: string): Promise<Client | null>
     const { data, error } = await supabase
       .from('clients')
       .select('id, full_name, email, phone_number, location, links!inner(artist_id, status, artist:artists(*))')
-      .eq('links.status', 'deposit_paid')
       .eq('id', clientId)
       .single();
 

@@ -385,3 +385,20 @@ export const calculateEndTime = (startTime: string, durationMinutes: number): st
 
   return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 };
+
+export const encodeTemp = (temp: string): string => {
+  // Convert UTF-8 string to a binary string compatible with btoa, without using deprecated unescape
+  const utf8ToBinary = encodeURIComponent(temp).replace(/%([0-9A-F]{2})/g, (_, p1: string) =>
+    String.fromCharCode(parseInt(p1, 16))
+  );
+  return btoa(utf8ToBinary);
+};
+
+export const decodeTemp = (temp: string): string => {
+  // Convert btoa's binary output back to a UTF-8 string, without using deprecated escape
+  const binary = atob(temp);
+  const percentEncoded = Array.from(binary)
+    .map((char) => '%' + char.charCodeAt(0).toString(16).padStart(2, '0'))
+    .join('');
+  return decodeURIComponent(percentEncoded);
+}

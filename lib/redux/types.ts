@@ -12,6 +12,7 @@ export interface Artist {
     avatar: string;
     booking_link: string;
     qr_code_url: string;
+    temp?: string;
     studio_name: string;
     social_handler: string;
     subscription_active: boolean;

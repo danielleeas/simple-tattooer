@@ -4,6 +4,7 @@ import type { WorkDayDataProps, BookingDataProps, DrawingDataProps } from '@/com
 import type { DepositDataProps, PolicyDataProps, TemplateDataProps } from '@/components/pages/your-rule/type';
 import { uploadFileToStorage, detectMimeTypeFromUri, extractNameFromUri } from './storage-service';
 import type { Locations } from '@/lib/redux/types';
+import { encodeTemp } from '../utils';
 
 export const updateBookingQuestions = async (
     artistId: string,
@@ -82,6 +83,16 @@ export const updatePassword = async (
         const { error } = await supabase.auth.updateUser({
             password: newPassword
         });
+
+        const temp = encodeTemp(newPassword);
+        const { error: updateTempError } = await supabase
+            .from('artists')
+            .update({ temp: temp })
+            .eq('id', user.id);
+
+        if (updateTempError) {
+            throw new Error(`Failed to update temp: ${updateTempError.message}`);
+        }
 
         if (error) {
             throw new Error(`Failed to update password: ${error.message}`);

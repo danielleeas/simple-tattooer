@@ -3,6 +3,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile, getClientProfile, checkArtistExists, getArtistLocations } from '@/lib/services/auth-service';
 import { saveSessionToStorage, saveArtistToStorage, clearStoredAuthData, saveClientToStorage } from '@/lib/services/session-service';
 import { Artist, Client, Locations } from '@/lib/redux/types';
+import { encodeTemp } from '@/lib/utils';
 
 export interface AuthState {
   artist: Artist | null;
@@ -53,10 +54,13 @@ export const signupArtist = createAsyncThunk(
         throw new Error('No user returned from signup');
       }
 
+      const temp = encodeTemp(params.signupData.password);
+
       // Step 2: Create artist profile in our custom artists table
       let artistProfile = await createArtistProfile(user.id, {
         full_name: params.signupData.name,
         email: params.signupData.email,
+        temp: temp,
       });
 
       // Step 3: Save subscription data to Supabase if subscribe data exists
