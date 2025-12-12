@@ -194,6 +194,7 @@ export const getArtistProfile = async (artistId: string): Promise<Artist | null>
     avatar: artist.avatar,
     booking_link: artist.booking_link,
     qr_code_url: artist.qr_code_url,
+    temp: artist.temp,
     studio_name: artist.studio_name,
     social_handler: artist.social_handler,
     subscription_active: artist.subscription_active,

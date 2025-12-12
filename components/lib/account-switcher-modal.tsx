@@ -9,6 +9,7 @@ import { useToast } from '@/lib/contexts';
 import { router } from 'expo-router';
 import { UserCircle, X, Plus, LogOut } from 'lucide-react-native';
 import { getAllClients } from '@/lib/services/clients-service';
+import { RootState } from '@/lib/redux/store';
 
 interface AccountSwitcherModalProps {
   visible: boolean;
@@ -18,7 +19,7 @@ interface AccountSwitcherModalProps {
 export function AccountSwitcherModal({ visible, onClose }: AccountSwitcherModalProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
-  const { artist, client, isAuthenticated } = useAppSelector((state) => state.auth);
+  const { artist, client, isAuthenticated } = useAppSelector((state: RootState) => state.auth);
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);

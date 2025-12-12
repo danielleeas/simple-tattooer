@@ -20,7 +20,7 @@ begin
   -- Find all lock events where:
   -- 1. The associated session's project has deposit_paid = false
   -- 2. The hold time has expired based on project.created_at + deposit_hold_time
-  
+
   for session_record in
     select distinct s.id as session_id, s.project_id, p.artist_id, p.created_at as project_created_at
     from events e
@@ -48,6 +48,10 @@ begin
       delete from events
       where source = 'lock'
         and source_id = session_record.session_id;
+
+      -- Also delete the associated session once the hold has expired
+      delete from sessions
+      where id = session_record.session_id;
     end if;
   end loop;
 end;

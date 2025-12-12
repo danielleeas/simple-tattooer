@@ -46,7 +46,11 @@ export default function ClientHome({ mode, clientId }: ClientHomeProps) {
 
     // Handle artist selection logic
     useEffect(() => {
-        if (authLoading || selectedArtist || !client) return;
+        console.log('linkedArtists', linkedArtists);
+        console.log('selectedArtist', selectedArtist);
+        console.log('authLoading', authLoading);
+        console.log('client', client);
+        if (authLoading || !client) return;
 
         if (linkedArtists.length === 1) {
             // Auto-select single artist
