@@ -50,7 +50,7 @@ export default function Flash() {
   }, [artist?.id]);
 
   const loadWatermarkDimensions = async () => {
-    const appSettings = Array.isArray(artist?.app) ? artist.app[0] : artist?.app;
+    const appSettings = artist?.app;
     if (!appSettings?.watermark_image) return;
 
     try {
@@ -149,7 +149,7 @@ export default function Flash() {
     console.log("here called");
     console.log("artist?.app ====?>", artist?.app);
 
-    const appSettings = Array.isArray(artist?.app) ? artist.app[0] : artist?.app;
+    const appSettings = artist?.app;
     console.log("appSettings?.watermark_enabled ====?>", appSettings?.watermark_enabled);
 
     if (!appSettings?.watermark_enabled) return null;

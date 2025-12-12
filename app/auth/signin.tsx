@@ -68,7 +68,7 @@ export default function SigninPage() {
 
         // Check if signin was successful
         if (signinWithAuth.fulfilled.match(resultAction)) {
-          const { artist, session } = resultAction.payload;
+          const { artist, client, session } = resultAction.payload;
 
           // Show success message
           toast({
@@ -78,8 +78,18 @@ export default function SigninPage() {
             duration: 3000,
           });
 
-          // Determine app mode based on subscription status
-          const appMode = artist?.subscription_active ? 'production' : 'preview';
+          // Determine app mode based on user type
+          let appMode: 'preview' | 'production' | 'client';
+          if (client) {
+            // User is a client
+            appMode = 'client';
+          } else if (artist) {
+            // User is an artist, determine mode based on subscription status
+            appMode = artist.subscription_active ? 'production' : 'preview';
+          } else {
+            // Fallback to preview
+            appMode = 'preview';
+          }
 
           // Set the app mode in Redux state
           dispatch(setMode(appMode));

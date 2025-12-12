@@ -556,7 +556,7 @@ export default function YourDatesPage() {
                                                 </Button>
                                             </View>
                                         </View>
-                                        {projects.length > 0 && (artist?.rule as any)?.[0]?.waiver_text && (
+                                        {projects.length > 0 && artist?.rule?.waiver_text && (
                                             <View className="gap-4">
                                                 <View className="flex-row items-center justify-start gap-2">
                                                     <Text variant="h4">Your Waiver:</Text>

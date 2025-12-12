@@ -400,22 +400,22 @@ export async function clientHasProjectNeedingDrawing(artistId: string, clientId:
 /**
  * Update client information
  */
-export async function updateClient(clientId: string, updates: Record<string, any>): Promise<UpdateClientResult> {
-	try {
-		const { error } = await supabase
-			.from('clients')
-			.update(updates)
-			.eq('id', clientId);
+// export async function updateClient(clientId: string, updates: Record<string, any>): Promise<UpdateClientResult> {
+// 	try {
+// 		const { error } = await supabase
+// 			.from('clients')
+// 			.update(updates)
+// 			.eq('id', clientId);
 
-		if (error) {
-			return { success: false, error: error.message };
-		}
+// 		if (error) {
+// 			return { success: false, error: error.message };
+// 		}
 
-		return { success: true };
-	} catch (error: any) {
-		return { success: false, error: error.message || 'Failed to update client' };
-	}
-}
+// 		return { success: true };
+// 	} catch (error: any) {
+// 		return { success: false, error: error.message || 'Failed to update client' };
+// 	}
+// }
 
 /**
  * Fetch all projects for a client (scoped to artist), including sessions.

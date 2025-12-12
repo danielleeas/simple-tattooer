@@ -229,7 +229,22 @@ export const getClientProfile = async (clientId: string): Promise<Client | null>
       return null;
     }
 
-    return data as unknown as Client;
+    // Transform arrays to single objects for one-to-one relationships
+    const transformedData = {
+      ...data,
+      links: data.links?.map((link: any) => ({
+        ...link,
+        artist: {
+          ...link.artist,
+          app: Array.isArray(link.artist.app) ? link.artist.app[0] || null : link.artist.app,
+          rule: Array.isArray(link.artist.rule) ? link.artist.rule[0] || null : link.artist.rule,
+          flow: Array.isArray(link.artist.flow) ? link.artist.flow[0] || null : link.artist.flow,
+          template: Array.isArray(link.artist.template) ? link.artist.template[0] || null : link.artist.template,
+        }
+      }))
+    };
+
+    return transformedData as unknown as Client;
   } catch (error) {
     console.error('Error getting client profile:', error);
     return null;
