@@ -27,6 +27,7 @@ export type TimePickerProps = {
     pmLabel?: string;
     className?: string;
     initialTime?: Date;
+    customHandle?: boolean;
 };
 
 function pad2(n?: number) {
@@ -57,6 +58,7 @@ export const TimePicker = ({
     pmLabel = "PM",
     className,
     initialTime,
+    customHandle
 }: TimePickerProps) => {
     const [isVisible, setIsVisible] = useState(false);
     const [localSelectedTime, setLocalSelectedTime] = useState<Date | undefined>(selectedTime ?? initialTime);
@@ -92,28 +94,37 @@ export const TimePicker = ({
 
     return (
         <>
-
-            <Pressable
-                className={cn(
-                    'flex-row items-center justify-between h-10 px-3 py-2 border border-border-white rounded-sm',
-                    disabled && 'opacity-50'
-                )}
-                disabled={disabled}
-                onPress={() => setIsVisible(true)}
-            >
-                <View className="flex-row items-center gap-2">
-                    <Text
-                        className='leading-none'
-                        style={{
-                            color: display === placeholder ? THEME.dark.textSecondary : THEME.dark.foreground,
-                        }}
-                    >
-                        {display}
+            {customHandle ? (
+                <Pressable
+                    onPress={() => setIsVisible(true)}
+                    className="rounded-full border items-center justify-center h-8 flex-1 border-border-white"
+                >
+                    <Text variant="small" className="text-foreground">
+                        Add Custom Time
                     </Text>
-                </View>
-                <Icon as={ChevronDown} size={16} color={THEME.dark.textSecondary} />
-            </Pressable>
-
+                </Pressable>
+            ) : (
+                <Pressable
+                    className={cn(
+                        'flex-row items-center justify-between h-10 px-3 py-2 border border-border-white rounded-sm',
+                        disabled && 'opacity-50'
+                    )}
+                    disabled={disabled}
+                    onPress={() => setIsVisible(true)}
+                >
+                    <View className="flex-row items-center gap-2">
+                        <Text
+                            className='leading-none'
+                            style={{
+                                color: display === placeholder ? THEME.dark.textSecondary : THEME.dark.foreground,
+                            }}
+                        >
+                            {display}
+                        </Text>
+                    </View>
+                    <Icon as={ChevronDown} size={16} color={THEME.dark.textSecondary} />
+                </Pressable>
+            )}
             <Modal
                 visible={isVisible}
                 animationType="fade"

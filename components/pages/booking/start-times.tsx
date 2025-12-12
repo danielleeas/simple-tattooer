@@ -1,28 +1,29 @@
-import { ActivityIndicator, View, Pressable } from "react-native"
+import { ActivityIndicator, View, Pressable, Modal } from "react-native"
 import { Text } from "@/components/ui/text"
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAvailableTimes } from "@/lib/services/booking-service";
 import { Artist } from "@/lib/redux/types";
-import { makeChunks } from "@/lib/utils";
+import { convertTimeToHHMMString, makeChunks, parseHhMmToMinutes, minutesToDisplay } from "@/lib/utils";
+import { TimePicker } from "@/components/lib/time-picker";
 
 interface StartTimesProps {
     date: string;
     sessionLength: number;
-    breakTime: number;
     artist: Artist;
     locationId: string;
     selectedTime?: string; // HH:mm format
     onTimeSelect?: (date: string, time: string) => void;
 }
 
-export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId, selectedTime, onTimeSelect }: StartTimesProps) => {
+export const StartTimes = ({ date, sessionLength, artist, locationId, selectedTime, onTimeSelect }: StartTimesProps) => {
     const [loading, setLoading] = useState(false);
     const [startTimes, setStartTimes] = useState<{ value: string; label: string }[]>([]);
+    const [customTime, setCustomTime] = useState<Date | undefined>(undefined);
 
     const startTimesForDate = useCallback(async () => {
         try {
             setLoading(true);
-            const times = await getAvailableTimes(artist, date, sessionLength, breakTime, locationId);
+            const times = await getAvailableTimes(artist, date, sessionLength, locationId);
             setStartTimes(times);
         } catch (error) {
             console.warn('Failed to load start times:', error);
@@ -30,11 +31,26 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
         } finally {
             setLoading(false);
         }
-    }, [artist, sessionLength, breakTime, date, locationId]);
+    }, [artist, sessionLength, date, locationId]);
 
     useEffect(() => {
         startTimesForDate();
     }, [startTimesForDate]);
+
+    const handleCustomTimeSelect = (time: Date) => {
+        setCustomTime(time)
+        const timeString = convertTimeToHHMMString(time);
+        const newTime = {
+            value: timeString,
+            label: minutesToDisplay(parseHhMmToMinutes(timeString)!)
+        };
+        setStartTimes((prev) =>
+            [...prev, newTime].sort(
+                (a, b) => (parseHhMmToMinutes(a.value) ?? 0) - (parseHhMmToMinutes(b.value) ?? 0)
+            )
+        );
+        onTimeSelect?.(date, timeString);
+    }
 
     const startTimesChunks = useMemo(() => makeChunks(startTimes, 2), [startTimes]);
 
@@ -47,13 +63,6 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
                 </View>
             ) : (
                 (() => {
-                    if (startTimes.length === 0) {
-                        return (
-                            <View className="items-center justify-center py-4">
-                                <Text variant="small" className="text-text-secondary">No available start times</Text>
-                            </View>
-                        );
-                    }
                     return (
                         <View className="gap-2">
                             {startTimesChunks.map((times, index) => (
@@ -62,16 +71,15 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
                                         const isSelected = selectedTime === time.value;
                                         return (
                                             <Pressable
-                                                key={index+i}
+                                                key={index + i}
                                                 onPress={() => onTimeSelect?.(date, time.value)}
-                                                className={`rounded-full border items-center justify-center h-8 flex-1 ${
-                                                    isSelected 
-                                                        ? 'border-foreground bg-foreground' 
-                                                        : 'border-border-white'
-                                                }`}
+                                                className={`rounded-full border items-center justify-center h-8 flex-1 ${isSelected
+                                                    ? 'border-foreground bg-foreground'
+                                                    : 'border-border-white'
+                                                    }`}
                                             >
-                                                <Text 
-                                                    variant="small" 
+                                                <Text
+                                                    variant="small"
                                                     className={isSelected ? 'text-background' : 'text-foreground'}
                                                 >
                                                     {time.label}
@@ -81,6 +89,14 @@ export const StartTimes = ({ date, sessionLength, breakTime, artist, locationId,
                                     })}
                                 </View>
                             ))}
+                            <View className="flex-row items-center gap-2">
+                                <TimePicker
+                                    minuteInterval={15}
+                                    selectedTime={customTime}
+                                    onTimeSelect={handleCustomTimeSelect}
+                                    customHandle={true}
+                                />
+                            </View>
                         </View>
                     );
                 })()

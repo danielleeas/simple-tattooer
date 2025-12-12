@@ -325,3 +325,20 @@ export const validatePhoneNumber = (phoneNumber: string): boolean => {
   // - length between 6 and 15 digits (covers most landline & mobile formats)
   return digitsOnly.length >= 6 && digitsOnly.length <= 15;
 };
+
+export const minutesToDisplay = (totalMinutes: number): string => {
+  const h24 = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  const period = h24 < 12 ? 'AM' : 'PM';
+  const h12 = ((h24 + 11) % 12) + 1;
+  return `${String(h12)}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+export const parseHhMmToMinutes = (hhmm: string | undefined): number | null => {
+  if (!hhmm) return null;
+  const [hStr, mStr] = hhmm.split(':');
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}

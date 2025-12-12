@@ -28,7 +28,8 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import { TimeDurationPicker } from "@/components/lib/time-duration-picker";
 import { Icon } from "@/components/ui/icon";
 import { FileText, FileSearch } from "lucide-react-native";
-import { Locations } from "@/lib/redux/types";
+import { Artist, Locations } from "@/lib/redux/types";
+import { StartTimes } from "@/components/pages/booking/start-times";
 
 type QuickAppointmentData = {
     fullName: string;
@@ -510,6 +511,10 @@ export default function QuickAppointmentAddPage() {
         }
     }
 
+    const handleTimeSelect = (date: string, time: string) => {
+        setFormData({ ...formData, startTime: time });
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
@@ -630,7 +635,16 @@ export default function QuickAppointmentAddPage() {
                                                 <Text variant="h5" className="text-foreground">
                                                     {formatDbDate(date, 'MMM DD, YYYY')}
                                                 </Text>
-                                                {formData.sessionLength  }
+                                                {formData.sessionLength && dateLocation && date && dateLocation.id ? (
+                                                    <StartTimes
+                                                        date={date}
+                                                        sessionLength={parseInt(formData.sessionLength)}
+                                                        artist={artist as Artist}
+                                                        locationId={dateLocation.id}
+                                                        selectedTime={formData.startTime}
+                                                        onTimeSelect={handleTimeSelect}
+                                                    />
+                                                ) : null}
                                             </View>
                                         </View>
                                     </View>

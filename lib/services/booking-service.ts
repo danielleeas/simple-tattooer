@@ -1,6 +1,6 @@
 import { Artist, Locations as ArtistLocation } from "../redux/types";
 import { supabase } from "../supabase";
-import { parseYmdFromDb } from "../utils";
+import { minutesToDisplay, parseYmdFromDb, parseHhMmToMinutes } from "../utils";
 import { getEventsInRange, getOffDayById, getSpotConventionById, getTempChangeById } from "./calendar-service";
 import { defaultTemplateData } from "@/components/pages/your-rule/type";
 import { getClientProjectsWithSessions } from "./clients-service";
@@ -34,27 +34,10 @@ function parseYmd(ymd: string): Date {
     return new Date(y, (m || 1) - 1, d || 1);
 }
 
-function parseHhMmToMinutes(hhmm: string | undefined): number | null {
-    if (!hhmm) return null;
-    const [hStr, mStr] = hhmm.split(':');
-    const h = Number(hStr);
-    const m = Number(mStr);
-    if (Number.isNaN(h) || Number.isNaN(m)) return null;
-    return h * 60 + m;
-}
-
 function minutesToHhMm(totalMinutes: number): string {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function minutesToDisplay(totalMinutes: number): string {
-    const h24 = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    const period = h24 < 12 ? 'AM' : 'PM';
-    const h12 = ((h24 + 11) % 12) + 1;
-    return `${String(h12)}:${String(m).padStart(2, '0')} ${period}`;
 }
 
 export const getMonthRange = (year: number, monthZeroBased: number) => {
@@ -304,7 +287,6 @@ export const getAvailableTimes = async (
     artist: Artist,
     dateYmd: string,
     duration: number,
-    breakTime: number,
     locationId: string
 ): Promise<StartTimeOption[]> => {
     if (!artist.id) throw new Error('artist is required');
@@ -321,6 +303,7 @@ export const getAvailableTimes = async (
         end_times: Record<string, string>;
         multiple_sessions_enabled: boolean;
         sessions_per_day: number;
+        break_time: number;
         back_to_back_enabled: boolean;
         max_back_to_back: number;
         buffer_between_sessions: number;
@@ -417,7 +400,7 @@ export const getAvailableTimes = async (
         startTimes.push(minutesToHhMm(currentMinutes));
 
         // Calculate next start time: current + sessionLength + breakTime
-        const nextStartMinutes = currentMinutes + duration + breakTime;
+        const nextStartMinutes = currentMinutes + duration + flows.break_time;
 
         // Check if we can fit another session after this one
         if (nextStartMinutes + duration > endMinutes) {
@@ -477,8 +460,8 @@ export const getAvailableTimes = async (
                 //   startTimeMinutes >= appt.end + breakTime    (enough break after the appointment)
                 //
                 // Otherwise it conflicts.
-                const latestAllowedEndBeforeAppt = appt.start - breakTime;
-                const earliestAllowedStartAfterAppt = appt.end + breakTime;
+                const latestAllowedEndBeforeAppt = appt.start - flows.break_time;
+                const earliestAllowedStartAfterAppt = appt.end + flows.break_time;
 
                 const hasEnoughBreakBefore =
                     sessionEndMinutes <= latestAllowedEndBeforeAppt;
