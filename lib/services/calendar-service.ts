@@ -1253,16 +1253,32 @@ export type UpdateTempChangeInput = {
 	different_time_enabled?: boolean;
 	start_times?: Record<string, string>;
 	end_times?: Record<string, string>;
-	location_id?: string;
+	location?: CreateTempChangeParams['location'];
 	notes?: string | null;
 };
 
 export async function updateTempChange(
 	id: string,
 	input: UpdateTempChangeInput
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; location?: Locations }> {
 	try {
 		if (!id) return { success: false, error: 'Missing id' };
+
+		// Fetch current row so we have artist_id (needed for resolving location)
+		const { data: row, error: fetchErr } = await supabase
+			.from('temp_changes')
+			.select('artist_id, start_date, end_date, location_id')
+			.eq('id', id)
+			.single();
+
+		if (fetchErr || !row) {
+			return { success: false, error: fetchErr?.message || 'Temp change not found' };
+		}
+
+		const artistId = (row as any)?.artist_id as string | undefined;
+		if (!artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
 
 		const payload: Record<string, unknown> = {};
 		if (typeof input.start_date === 'string' || input.start_date === null) payload.start_date = input.start_date;
@@ -1271,7 +1287,32 @@ export async function updateTempChange(
 		if (typeof input.different_time_enabled === 'boolean') payload.different_time_enabled = input.different_time_enabled;
 		if (input.start_times) payload.start_times = input.start_times;
 		if (input.end_times) payload.end_times = input.end_times;
-		if (typeof input.location_id === 'string') payload.location_id = input.location_id;
+
+		const oldLocationId = (row as any)?.location_id as string | undefined;
+		let newLocation: Locations | undefined;
+
+		// Handle location if provided
+		if (input.location) {
+			const startDate = input.start_date ?? ((row as any)?.start_date as string);
+			const endDate = input.end_date ?? ((row as any)?.end_date as string);
+			const startAt = "00:00";
+			const endAt = "23:59";
+
+			const locationWithTimes: any = { ...(input.location as any) };
+			if (startAt && startDate) {
+				const startAtDate = composeDateTime(startDate, startAt, '00:00');
+				locationWithTimes.start_at = startAtDate;
+			}
+			if (endAt && endDate) {
+				const endAtDate = composeDateTime(endDate, endAt, '23:59');
+				locationWithTimes.end_at = endAtDate;
+			}
+
+			const { id: resolvedId, location } = await resolveLocationId(artistId, locationWithTimes);
+			payload.location_id = resolvedId;
+			newLocation = location;
+		}
+
 		if (typeof input.notes !== 'undefined') payload.notes = input.notes ?? null;
 
 		const { error } = await supabase
@@ -1283,15 +1324,13 @@ export async function updateTempChange(
 			return { success: false, error: error.message || 'Failed to update temp change' };
 		}
 
-		// Recreate background event for this temp change
-		// 1) Fetch current values needed (artist_id, start_date, end_date)
-		const { data: row } = await supabase
-			.from('temp_changes')
-			.select('artist_id, start_date, end_date')
-			.eq('id', id)
-			.single();
+		// Fire-and-forget cleanup of the old location; do not block the main flow.
+		if (oldLocationId && payload.location_id && oldLocationId !== payload.location_id) {
+			await removeLocation(oldLocationId);
+		}
 
-		const artistId = (row as any)?.artist_id as string | undefined;
+		// Recreate background event for this temp change
+		// 1) Use current values (artistId already fetched, and start_date, end_date)
 		const startDate = (typeof input.start_date === 'string' ? input.start_date : ((row as any)?.start_date as string | undefined));
 		const endDate = (typeof input.end_date === 'string' ? input.end_date : ((row as any)?.end_date as string | undefined));
 
@@ -1323,7 +1362,7 @@ export async function updateTempChange(
 			}
 		}
 
-		return { success: true };
+		return { success: true, location: newLocation };
 	} catch (err) {
 		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
 	}

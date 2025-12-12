@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Pressable } from "react-native";
+import { View, Pressable, Keyboard } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -24,10 +24,9 @@ import { Collapse } from "@/components/lib/collapse";
 import type { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { LocationModal } from "@/components/lib/location-modal";
-import { addTemporaryLocation } from "@/lib/services/setting-service";
 import { getTempChangeById, updateTempChange } from "@/lib/services/calendar-service";
 import { useAppDispatch } from "@/lib/redux/hooks";
-import { setArtist } from "@/lib/redux/slices/auth-slice";
+import { updateArtistLocations } from "@/lib/redux/slices/auth-slice";
 
 export default function EditTempChangePage() {
     const router = useRouter();
@@ -187,7 +186,7 @@ export default function EditTempChangePage() {
                 different_time_enabled: formData.different_time_enabled || false,
                 start_times: formData.start_times || {},
                 end_times: formData.end_times || {},
-                location_id: formData.location?.id ?? formData.location?.place_id ?? '',
+                location: formData.location as any,
                 notes: formData.notes?.trim() ?? null,
             });
             if (!result.success) {
@@ -195,23 +194,7 @@ export default function EditTempChangePage() {
                 return;
             }
 
-            // Sync newly added location into artist state (same behavior as add page)
-            if (artist && formData.location) {
-                const existingLocations = artist.locations ? [...artist.locations] : [];
-                const exists = existingLocations.some(
-                    loc =>
-                        (loc.id ?? loc.place_id) ===
-                        (formData.location?.id ?? formData.location?.place_id),
-                );
-                if (!exists) {
-                    dispatch(
-                        setArtist({
-                            ...artist,
-                            locations: [...existingLocations, formData.location],
-                        }),
-                    );
-                }
-            }
+            dispatch(updateArtistLocations(artist.id));
 
             toast({ variant: 'success', title: 'Changes saved!', duration: 3000 });
             router.dismissTo({ pathname: '/artist/calendar', params: { mode: 'month' } });
@@ -251,37 +234,10 @@ export default function EditTempChangePage() {
         });
     };
 
-    const handleLocationSelect = async (location: ArtistLocation) => {
-        if (!artist?.id) {
-            toast({ variant: 'error', title: 'Error', description: 'Missing artist.' });
-            return;
-        }
-        const locationData = {
-            address: location.address,
-            place_id: location.place_id,
-            coordinates: location.coordinates,
-            is_main_studio: false,
-            is_temporary: true,
-        };
-        const result = await addTemporaryLocation(artist.id, locationData);
-        if (!result.success) {
-            toast({
-                variant: 'error',
-                title: 'Error',
-                description: result.error || 'Failed to add temporary location',
-            });
-        }
-        setLocationData((prev) => {
-            const newLoc = result.location as ArtistLocation | undefined;
-            if (!newLoc) return prev;
-            const newKey = newLoc.id ?? newLoc.place_id;
-            const exists = prev.some(l => (l.id ?? l.place_id) === newKey);
-            return exists ? prev : [...prev, newLoc];
-        });
-        setFormData(prev => ({
-            ...prev,
-            location: result.location as ArtistLocation | undefined,
-        }));
+    const handleLocationSelect = (location: ArtistLocation) => {
+        Keyboard.dismiss();
+        setFormData(prev => ({ ...prev, location }));
+        setLocationData(prev => [...prev, location]);
         setOpenTempLocationModal(false);
     };
 
@@ -601,7 +557,10 @@ export default function EditTempChangePage() {
 
                 <LocationModal
                     visible={openTempLocationModal}
-                    onClose={() => setOpenTempLocationModal(false)}
+                    onClose={() => {
+                        Keyboard.dismiss();
+                        setOpenTempLocationModal(false);
+                    }}
                     onLocationSelect={(loc) =>
                         handleLocationSelect({
                             address: loc.address,
