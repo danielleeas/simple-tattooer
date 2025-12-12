@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile, getClientProfile, checkArtistExists } from '@/lib/services/auth-service';
+import { signUpUser, createArtistProfile, signOutArtist, getCurrentArtist, signInUser, getArtistProfile, getClientProfile, checkArtistExists, getArtistLocations } from '@/lib/services/auth-service';
 import { saveSessionToStorage, saveArtistToStorage, clearStoredAuthData, saveClientToStorage } from '@/lib/services/session-service';
-import { Artist, Client } from '@/lib/redux/types';
+import { Artist, Client, Locations } from '@/lib/redux/types';
 
 export interface AuthState {
   artist: Artist | null;
@@ -177,6 +177,21 @@ export const signOut = createAsyncThunk(
   }
 );
 
+export const updateArtistLocations = createAsyncThunk(
+  'auth/updateArtistLocations',
+  async (artistId: string, { rejectWithValue }) => {
+    try {
+      const locations = await getArtistLocations(artistId);
+      if (!locations) {
+        throw new Error('Failed to get artist locations');
+      }
+      return locations as Locations[];
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to get artist locations');
+    }
+  }
+);
+
 export const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -342,7 +357,21 @@ export const authSlice = createSlice({
       .addCase(fetchUpdatedArtistProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
-      });
+      })
+      // Update artist locations
+      .addCase(updateArtistLocations.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateArtistLocations.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.artist = { ...(state.artist as Artist), locations: action.payload };
+        state.error = null;
+      })
+      .addCase(updateArtistLocations.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
   },
 });
 

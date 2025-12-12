@@ -1,7 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { uuidv4 } from '@/lib/utils';
 import type { Locations } from '@/lib/redux/types';
-import { createClientWithAuth } from './clients-service';
 
 export interface CalendarEvent {
 	id: string;
@@ -202,7 +200,7 @@ export async function createOffDays(params: CreateOffDaysParams): Promise<Create
 			return { success: false, error: 'Missing artist id' };
 		}
 		if (!params.title?.trim()) {
-		 return { success: false, error: 'Title is required' };
+			return { success: false, error: 'Title is required' };
 		}
 		if (!params.startDate || !params.endDate) {
 			return { success: false, error: 'Start and end dates are required' };
@@ -436,7 +434,7 @@ export async function updateOffDay(
 
 		// If both dates provided, validate ordering
 		if (input.start_date && input.end_date && input.end_date < input.start_date) {
-		 return { success: false, error: 'End date must be after start date' };
+			return { success: false, error: 'End date must be after start date' };
 		}
 
 		// Normalize repeat fields
@@ -511,7 +509,7 @@ export async function updateOffDay(
 			const y = d.getFullYear();
 			const m = String(d.getMonth() + 1).padStart(2, '0');
 			const day = String(d.getDate()).padStart(2, '0');
-		 return `${y}-${m}-${day}`;
+			return `${y}-${m}-${day}`;
 		}
 
 		// Build occurrences from updated row
@@ -617,7 +615,39 @@ function normalizeLocationForInsert(artistId: string, loc: CreateSpotConventionP
 			longitude: (coordinates as any)?.longitude,
 		},
 		is_main_studio,
+		start_at: (loc as any).start_at,
+		end_at: (loc as any).end_at,
 	};
+}
+
+const getNewStartAt = (locationStartAt: string | undefined, existingStartAt: string | undefined): string | null => {
+	if (!locationStartAt && !existingStartAt) return null;
+	if (locationStartAt && !existingStartAt) return locationStartAt;
+	if (!locationStartAt && existingStartAt) return existingStartAt;
+	if (locationStartAt && existingStartAt) {
+		const locationStartAtDate = new Date(locationStartAt);
+		const existingStartAtDate = new Date(existingStartAt);
+		if (locationStartAtDate < existingStartAtDate) {
+			return locationStartAt;
+		}
+		return existingStartAt;
+	}
+	return null;
+}
+
+const getNewEndAt = (locationEndAt: string | undefined, existingEndAt: string | undefined): string | null => {
+	if (!locationEndAt && !existingEndAt) return null;
+	if (locationEndAt && !existingEndAt) return locationEndAt;
+	if (!locationEndAt && existingEndAt) return existingEndAt;
+	if (locationEndAt && existingEndAt) {
+		const locationEndAtDate = new Date(locationEndAt);
+		const existingEndAtDate = new Date(existingEndAt);
+		if (locationEndAtDate > existingEndAtDate) {
+			return locationEndAt;
+		}
+		return existingEndAt;
+	}
+	return null;
 }
 
 async function resolveLocationId(artistId: string, location: CreateSpotConventionParams['location']): Promise<{ id: string; location?: Locations }> {
@@ -630,11 +660,28 @@ async function resolveLocationId(artistId: string, location: CreateSpotConventio
 	if (artistId && address) {
 		const { data: existingByAddress, error: findErr } = await supabase
 			.from('locations')
-			.select('id, address, place_id, coordinates, is_main_studio')
+			.select('id, address, place_id, coordinates, is_main_studio, start_at, end_at')
 			.eq('artist_id', artistId)
 			.eq('address', address)
 			.maybeSingle();
+
 		if (!findErr && existingByAddress?.id) {
+			if (!location.is_main_studio) {
+				const newStartAt = getNewStartAt(location.start_at, existingByAddress.start_at);
+				const newEndAt = getNewEndAt(location.end_at, existingByAddress.end_at);
+				if (newStartAt || newEndAt) {
+					const { data: updated, error: updateErr } = await supabase
+						.from('locations')
+						.update({ start_at: newStartAt, end_at: newEndAt })
+						.eq('id', existingByAddress.id)
+						.select('id, address, place_id, coordinates, is_main_studio, start_at, end_at')
+						.single();
+					if (updateErr) {
+						throw new Error(updateErr.message || 'Failed to update location');
+					}
+					return { id: updated.id as string, location: updated as unknown as Locations };
+				}
+			}
 			return { id: existingByAddress.id };
 		}
 	}
@@ -643,7 +690,7 @@ async function resolveLocationId(artistId: string, location: CreateSpotConventio
 	const { data: created, error: insErr } = await supabase
 		.from('locations')
 		.insert([payload])
-		.select('id, address, place_id, coordinates, is_main_studio')
+		.select('id, address, place_id, coordinates, is_main_studio, start_at, end_at')
 		.single();
 	if (insErr) {
 		throw new Error(insErr.message || 'Failed to create location');
@@ -666,7 +713,25 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 			return { success: false, error: 'Location is required' };
 		}
 
-		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, params.location);
+		const sortedDates = [...params.dates].sort();
+		const firstDate = sortedDates[0];
+		const lastDate = sortedDates[sortedDates.length - 1];
+		const startAt = "00:00";
+		const endAt = "23:59";
+
+		// Avoid mutating a potentially frozen Redux object
+		const locationWithTimes: any = { ...(params.location as any) };
+
+		if (startAt) {
+			const startAtDate = composeDateTime(firstDate, startAt, '00:00');
+			locationWithTimes.start_at = startAtDate;
+		}
+		if (endAt) {
+			const endAtDate = composeDateTime(lastDate, endAt, '23:59');
+			locationWithTimes.end_at = endAtDate;
+		}
+
+		const { id: locationId, location: newLocation } = await resolveLocationId(params.artistId, locationWithTimes);
 
 		const insertPayload = {
 			artist_id: params.artistId,
@@ -693,10 +758,6 @@ export async function createSpotConvention(params: CreateSpotConventionParams): 
 
 		// Best-effort: create a single multi-day event spanning the selected range
 		if (spotConventionId && params.dates.length > 0) {
-			const sortedDates = [...params.dates].sort();
-			const firstDate = sortedDates[0];
-			const lastDate = sortedDates[sortedDates.length - 1];
-
 			const start = composeDateTime(firstDate, params.startTimes?.[firstDate], '09:00');
 			const end = composeDateTime(lastDate, params.endTimes?.[lastDate], '17:00');
 
@@ -793,22 +854,115 @@ export async function getSpotConventionById(id: string): Promise<{ success: bool
 	}
 }
 
+const removeLocation = async (id: string): Promise<{ success: boolean; error?: string }> => {
+	try {
+		if (!id) return { success: false, error: 'Missing id' };
+
+		// Load the location so we can respect flags like is_main_studio
+		const { data: location, error: locationErr } = await supabase
+			.from('locations')
+			.select('id, is_main_studio')
+			.eq('id', id)
+			.maybeSingle();
+
+		if (locationErr) {
+			return { success: false, error: locationErr.message || 'Failed to load location' };
+		}
+
+		// Nothing to remove
+		if (!location) {
+			return { success: true };
+		}
+
+		// Do not auto-remove main studio locations
+		if ((location as any).is_main_studio) {
+			return { success: true };
+		}
+
+		// Check if any spot conventions still reference this location
+		const { count: spotCount, error: spotErr } = await supabase
+			.from('spot_conventions')
+			.select('id', { count: 'exact', head: true })
+			.eq('location_id', id);
+
+		if (spotErr) {
+			return { success: false, error: spotErr.message || 'Failed to check spot conventions for location' };
+		}
+		if ((spotCount ?? 0) > 0) {
+			// Location is still in use by a spot convention – do not delete
+			return { success: true };
+		}
+
+		// Check if any temp changes still reference this location
+		const { count: tempCount, error: tempErr } = await supabase
+			.from('temp_changes')
+			.select('id', { count: 'exact', head: true })
+			.eq('location_id', id);
+
+		if (tempErr) {
+			return { success: false, error: tempErr.message || 'Failed to check temp changes for location' };
+		}
+		if ((tempCount ?? 0) > 0) {
+			// Location is still in use by a temp change – do not delete
+			return { success: true };
+		}
+
+		// Safe to delete – no spot conventions or temp changes use this location
+		const { error: deleteErr } = await supabase
+			.from('locations')
+			.delete()
+			.eq('id', id);
+
+		if (deleteErr) {
+			return { success: false, error: deleteErr.message || 'Failed to remove location' };
+		}
+
+		return { success: true };
+	} catch (err) {
+		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+	}
+}
+
 export type UpdateSpotConventionInput = {
-	title?: string;
-	dates?: string[];
-	diffTimeEnabled?: boolean;
-	startTimes?: Record<string, string>;
-	endTimes?: Record<string, string>;
-	locationId?: string;
-	notes?: string;
+	title: string;
+	dates: string[];
+	diffTimeEnabled: boolean;
+	startTimes: Record<string, string>;
+	endTimes: Record<string, string>;
+	location: CreateSpotConventionParams['location'];
+	notes: string;
 };
 
 export async function updateSpotConvention(
 	id: string,
 	input: UpdateSpotConventionInput
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; location?: Locations }> {
 	try {
 		if (!id) return { success: false, error: 'Missing id' };
+		if (!input.title?.trim()) return { success: false, error: 'Title is required' };
+		if (!Array.isArray(input.dates) || input.dates.length === 0) return { success: false, error: 'At least one date is required' };
+		if (!input.location) return { success: false, error: 'Location is required' };
+		if (typeof input.diffTimeEnabled !== 'boolean') return { success: false, error: 'Diff time enabled must be a boolean' };
+		if (typeof input.startTimes !== 'object') return { success: false, error: 'Start times must be an object' };
+		if (typeof input.endTimes !== 'object') return { success: false, error: 'End times must be an object' };
+		if (typeof input.notes !== 'string') return { success: false, error: 'Notes must be a string' };
+
+		// Fetch current row so we have artist_id (needed for resolving location)
+		// and a baseline snapshot for calendar event recreation.
+		const { data: row, error: fetchErr } = await supabase
+			.from('spot_conventions')
+			.select('artist_id, title, dates, diff_time_enabled, start_times, end_times, location_id, notes')
+			.eq('id', id)
+			.single();
+
+		if (fetchErr || !row) {
+			return { success: false, error: fetchErr?.message || 'Spot convention not found' };
+		}
+
+		const artistId = (row as any)?.artist_id as string | undefined;
+		if (!artistId) {
+			return { success: false, error: 'Missing artist id' };
+		}
 
 		// Build payload with only provided fields
 		const payload: Record<string, unknown> = {};
@@ -817,7 +971,27 @@ export async function updateSpotConvention(
 		if (typeof input.diffTimeEnabled === 'boolean') payload.diff_time_enabled = input.diffTimeEnabled;
 		if (input.startTimes) payload.start_times = input.startTimes;
 		if (input.endTimes) payload.end_times = input.endTimes;
-		if (typeof input.locationId === 'string') payload.location_id = input.locationId;
+
+		const oldLocationId = (row as any)?.location_id as string | undefined;
+		const sortedDates = [...input.dates].sort();
+		const firstDate = sortedDates[0];
+		const lastDate = sortedDates[sortedDates.length - 1];
+		const startAt = "00:00";
+		const endAt = "23:59";
+
+		const locationWithTimes: any = { ...(input.location as any) };
+		if (startAt) {
+			const startAtDate = composeDateTime(firstDate, startAt, '00:00');
+			locationWithTimes.start_at = startAtDate;
+		}
+		if (endAt) {
+			const endAtDate = composeDateTime(lastDate, endAt, '23:59');
+			locationWithTimes.end_at = endAtDate;
+		}
+
+		const { id: resolvedId, location: newLocation } = await resolveLocationId(artistId, locationWithTimes);
+		payload.location_id = resolvedId;
+
 		if (typeof input.notes !== 'undefined') payload.notes = input.notes?.trim() || null;
 
 		const { error } = await supabase
@@ -829,15 +1003,13 @@ export async function updateSpotConvention(
 			return { success: false, error: error.message || 'Failed to update spot convention' };
 		}
 
-		// Recreate background calendar event for this spot convention
-		// 1) Fetch current values needed (artist_id, dates, start_times, end_times, title)
-		const { data: row } = await supabase
-			.from('spot_conventions')
-			.select('artist_id, title, dates, start_times, end_times')
-			.eq('id', id)
-			.single();
+		// Fire-and-forget cleanup of the old location; do not block the main flow.
+		if (oldLocationId && oldLocationId !== resolvedId) {
+			await removeLocation(oldLocationId);
+		}
 
-		const artistId = (row as any)?.artist_id as string | undefined;
+		// Recreate background calendar event for this spot convention
+		// 1) Use current values (artist_id, dates, start_times, end_times, title)
 		const currentTitle: string = (typeof input.title === 'string' ? input.title : ((row as any)?.title ?? '')) || 'Guest Spot/Convention';
 		const currentDates: string[] = Array.isArray(input.dates) ? input.dates : (((row as any)?.dates ?? []) as string[]);
 		const currentStartTimes: Record<string, string> = input.startTimes ?? (((row as any)?.start_times ?? {}) as Record<string, string>);
@@ -852,9 +1024,7 @@ export async function updateSpotConvention(
 
 		// 3) Create a new spanning event if we have sufficient data
 		if (artistId && currentDates.length > 0) {
-			const sorted = [...currentDates].sort();
-			const firstDate = sorted[0];
-			const lastDate = sorted[sorted.length - 1];
+
 			const start = composeDateTime(firstDate, currentStartTimes?.[firstDate], '09:00');
 			const end = composeDateTime(lastDate, currentEndTimes?.[lastDate], '17:00');
 
@@ -875,7 +1045,7 @@ export async function updateSpotConvention(
 			}
 		}
 
-		return { success: true };
+		return { success: true, location: newLocation };
 	} catch (err) {
 		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
 	}
@@ -913,7 +1083,7 @@ export async function createTempChange(params: CreateTempChangeParams): Promise<
 			return { success: false, error: 'Missing artist id' };
 		}
 		if (!params.startDate || !params.endDate) {
-		 return { success: false, error: 'Start and end dates are required' };
+			return { success: false, error: 'Start and end dates are required' };
 		}
 		if (params.endDate < params.startDate) {
 			return { success: false, error: 'End date must be after start date' };
@@ -1578,7 +1748,7 @@ export async function updateEventBlockTime(
 		// Validate times if provided
 		if (input.start_time && input.end_time) {
 			const [sh, sm] = String(input.start_time).split(':').map(n => parseInt(n, 10));
-		 const [eh, em] = String(input.end_time).split(':').map(n => parseInt(n, 10));
+			const [eh, em] = String(input.end_time).split(':').map(n => parseInt(n, 10));
 			if ((eh * 60 + em) <= (sh * 60 + sm)) {
 				return { success: false, error: 'End time must be after start time' };
 			}
@@ -1904,7 +2074,7 @@ export async function updateQuickAppointment(
 ): Promise<{ success: boolean; error?: string }> {
 	try {
 		if (!id) return { success: false, error: 'Missing id' };
-		
+
 		// 1) Update quick_appointments table
 		const { error } = await supabase
 			.from('quick_appointments')
@@ -1934,7 +2104,7 @@ export async function updateQuickAppointment(
 			})
 			.eq('source', 'quick_appointment')
 			.eq('source_id', id);
-		
+
 		if (sessionsError) {
 			console.warn('Failed to update related sessions:', sessionsError);
 			// Don't fail the whole operation, but log the warning
@@ -1976,7 +2146,7 @@ export async function updateQuickAppointment(
 export async function deleteQuickAppointment(id: string): Promise<{ success: boolean; error?: string }> {
 	try {
 		if (!id) return { success: false, error: 'Missing id' };
-		
+
 		// Delete the quick_appointment (events with source='quick_appointment' will need separate cleanup or cascade)
 		const { error } = await supabase
 			.from('quick_appointments')
@@ -1985,14 +2155,14 @@ export async function deleteQuickAppointment(id: string): Promise<{ success: boo
 		if (error) {
 			return { success: false, error: error.message || 'Failed to delete quick appointment' };
 		}
-		
+
 		// Delete associated event
 		await supabase
 			.from('events')
 			.delete()
 			.eq('source', 'quick_appointment')
 			.eq('source_id', id);
-		
+
 		return { success: true };
 	} catch (err) {
 		return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };

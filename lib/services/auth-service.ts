@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { SignupData, Artist, Subscriptions, Client } from '@/lib/redux/types';
+import { SignupData, Artist, Subscriptions, Client, Locations } from '@/lib/redux/types';
 import { withRetryAndTimeout, safeAsync, buildFullBookingLink } from '@/lib/utils';
 import { BASE_URL } from '@/lib/constants';
 
@@ -421,3 +421,22 @@ export const checkBookingLinkAvailability = async (
     };
   }
 };
+
+export const getArtistLocations = async (artistId: string): Promise<Locations[] | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('artist_id', artistId);
+
+    if (error) {
+      console.error('Error getting artist locations:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting artist locations:', error);
+    return null;
+  }
+}

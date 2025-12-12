@@ -154,6 +154,7 @@ export default function AddSpotConventionPage() {
                 location: formData.location,
                 notes: formData.notes?.trim() || undefined,
             });
+
             if (!result.success) {
                 toast({ variant: 'error', title: 'Failed to add spot convention', description: result.error });
                 return;

@@ -175,7 +175,6 @@ export interface Locations {
         longitude: number;
     };
     is_main_studio: boolean;
-    source?: string;
-    source_id?: string;
-    source_end?: string;
+    start_at?: string;
+    end_at?: string;
 }
