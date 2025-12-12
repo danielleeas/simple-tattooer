@@ -111,8 +111,13 @@ export default function QuickAppointmentAddPage() {
         const ymd = normalizeDateParamToYmd(date || undefined);
         const target = new Date(`${ymd}T12:00:00`);
 
+        // First, try to find a temporary location (with start_at/end_at) that matches the date
         const inRangeLocation = locations.find((loc) => {
+            // Skip if no date range defined
             if (!loc.start_at && !loc.end_at) return false;
+
+            // Skip main studio (main studio should not have date ranges)
+            if (loc.is_main_studio) return false;
 
             const start = loc.start_at ? new Date(String(loc.start_at).replace(' ', 'T')) : undefined;
             const end = loc.end_at ? new Date(String(loc.end_at).replace(' ', 'T')) : undefined;
@@ -134,6 +139,7 @@ export default function QuickAppointmentAddPage() {
 
         if (inRangeLocation) return inRangeLocation;
 
+        // Fallback to main studio
         const mainLocation = locations.find((l) => l.is_main_studio);
         return mainLocation || locations[0];
     }, [artist?.locations, date]);
