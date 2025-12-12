@@ -447,6 +447,7 @@ CREATE TABLE IF NOT EXISTS event_block_times (
   repeat_type TEXT NOT NULL DEFAULT 'daily',
   repeat_duration INTEGER NOT NULL DEFAULT 1,
   repeat_duration_unit TEXT NOT NULL DEFAULT 'weeks',
+  location TEXT,
   notes TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

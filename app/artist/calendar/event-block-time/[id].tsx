@@ -14,7 +14,7 @@ import PENCIL_SIMPLE from "@/assets/images/icons/pencil_simple.png";
 import DELETE_IMAGE from "@/assets/images/icons/delete.png";
 import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
 import { deleteEventBlockTime, EventBlockTimeRecord, getEventBlockTimeById } from "@/lib/services/calendar-service";
-import { formatTime } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 
 const BUTTON_ICON_STYLE: ImageStyle = {
@@ -131,6 +131,16 @@ export default function EventBlockTimeDetailPage() {
                                             </View>
 
                                             <View className="gap-3">
+                                                <Text className="text-text-secondary">Date</Text>
+                                                <Text variant='h5'>{formatDate(event?.date || '', false, true)}</Text>
+                                            </View>
+
+                                            <View className="gap-3">
+                                                <Text className="text-text-secondary">Location</Text>
+                                                <Text variant='h5'>{event?.location || ''}</Text>
+                                            </View>
+
+                                            <View className="gap-3">
                                                 <Text className="text-text-secondary">Start Time</Text>
                                                 <Text variant='h5'>{formatTime(event?.start_time || '')}</Text>
                                             </View>
@@ -139,6 +149,7 @@ export default function EventBlockTimeDetailPage() {
                                                 <Text className="text-text-secondary">End Time</Text>
                                                 <Text variant='h5'>{formatTime(event?.end_time || '')}</Text>
                                             </View>
+
                                             <View className="gap-3">
                                                 <Text className="text-text-secondary">Notes</Text>
                                                 <Textarea

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Pressable, Image } from "react-native";
+import { View, Pressable, Image, Keyboard } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -18,9 +18,11 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { createEventBlockTime, checkEventOverlap } from '@/lib/services/calendar-service';
 import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
+import { LocationModal } from "@/components/lib/location-modal";
 
 import X_IMAGE from "@/assets/images/icons/x.png";
 import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
+import { Locations } from "@/lib/redux/types";
 
 const repeatTypeChunks = [
     { value: 'daily', label: 'Daily' },
@@ -33,6 +35,7 @@ type EventBlockTimeData = {
     title: string;
     startTime?: string;
     endTime?: string;
+    location?: string;
     isRepeat: boolean;
     repeatType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     repeatLength?: number;
@@ -61,6 +64,7 @@ export default function AddEventBlockTimePage() {
     const { artist } = useAuth();
     const [loading, setLoading] = useState(false);
     const { date } = useLocalSearchParams<{ date?: string }>();
+    const [openTempLocationModal, setOpenTempLocationModal] = useState(false);
 
     console.log(date)
 
@@ -68,6 +72,7 @@ export default function AddEventBlockTimePage() {
         title: '',
         startTime: "08:00",
         endTime: "10:00",
+        location: '',
         isRepeat: false,
         repeatType: undefined,
         repeatLength: undefined,
@@ -151,11 +156,11 @@ export default function AddEventBlockTimePage() {
             }
 
             if (overlapCheck.hasOverlap) {
-                toast({ 
-                    variant: 'error', 
-                    title: 'Time conflict detected', 
+                toast({
+                    variant: 'error',
+                    title: 'Time conflict detected',
                     description: `This time overlaps with an existing event: ${overlapCheck.overlappingEvent?.title || 'Unknown'}`,
-                    duration: 3000 
+                    duration: 3000
                 });
                 setLoading(false);
                 return;
@@ -172,6 +177,7 @@ export default function AddEventBlockTimePage() {
                 repeatDuration: formData.isRepeat ? (formData.repeatLength ?? 1) : undefined,
                 repeatDurationUnit: formData.isRepeat ? formData.repeatUnit : undefined,
                 notes: formData.eventNotes?.trim() || undefined,
+                location: formData.location?.trim() || undefined,
             });
 
             if (!result.success) {
@@ -186,6 +192,12 @@ export default function AddEventBlockTimePage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleLocationSelect = async (location: Locations) => {
+        Keyboard.dismiss();
+        setFormData(prev => ({ ...prev, location: location.address }));
+        setOpenTempLocationModal(false);
     };
 
     return (
@@ -205,7 +217,7 @@ export default function AddEventBlockTimePage() {
                         <KeyboardAwareScrollView
                             bottomOffset={50}
                             showsVerticalScrollIndicator={false}
-                            
+
                         >
                             <View className="gap-6 pb-6">
                                 <View className="items-center justify-center pb-9">
@@ -228,6 +240,16 @@ export default function AddEventBlockTimePage() {
                                             onChangeText={(text) => setFormData({ ...formData, title: text })}
                                             className="w-full"
                                         />
+                                    </View>
+
+                                    <View className="items-start gap-2">
+                                        <Collapse title="Location" textClassName="text-xl">
+                                            <View className="gap-2 w-full">
+                                                <Pressable onPress={() => setOpenTempLocationModal(true)} className="bg-background h-10 px-3 rounded-sm border border-border-white items-start justify-center">
+                                                    <Text className={`${formData.location ? 'text-foreground' : 'text-muted-foreground'}`}>{formData.location || 'Select location'}</Text>
+                                                </Pressable>
+                                            </View>
+                                        </Collapse>
                                     </View>
 
                                     <View className="gap-6">
@@ -318,6 +340,23 @@ export default function AddEventBlockTimePage() {
                         </KeyboardAwareScrollView>
                     </View>
                 </StableGestureWrapper >
+
+                <LocationModal
+                    visible={openTempLocationModal}
+                    onClose={() => {
+                        Keyboard.dismiss();
+                        setOpenTempLocationModal(false);
+                    }}
+                    selectedAddress={formData.location}
+                    onLocationSelect={(loc) =>
+                        handleLocationSelect({
+                            address: loc.address,
+                            place_id: loc.placeId,
+                            coordinates: loc.coordinates,
+                            is_main_studio: loc.isMainStudio,
+                        })
+                    }
+                />
             </SafeAreaView >
         </>
     );

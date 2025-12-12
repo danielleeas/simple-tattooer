@@ -1551,6 +1551,7 @@ export interface CreateEventBlockTimeParams {
 	repeatDuration?: number;
 	repeatDurationUnit?: 'days' | 'weeks' | 'months' | 'years';
 	notes?: string;
+	location?: string;
 }
 
 export interface CreateEventBlockTimeResult {
@@ -1600,6 +1601,7 @@ export async function createEventBlockTime(params: CreateEventBlockTimeParams): 
 			repeat_duration: resolvedDuration,
 			repeat_duration_unit: resolvedUnit,
 			notes: params.notes?.trim() || null,
+			location: params.location?.trim() || null,
 		};
 
 		const { data: blockRow, error: blockErr } = await supabase
@@ -1731,6 +1733,7 @@ export interface EventBlockTimeRecord {
 	repeat_duration?: number | null;
 	repeat_duration_unit?: 'days' | 'weeks' | 'months' | 'years' | null;
 	notes?: string | null;
+	location?: string | null;
 }
 
 export async function getEventBlockTimeById(id: string): Promise<{ success: boolean; data?: EventBlockTimeRecord; error?: string }> {
@@ -1784,6 +1787,7 @@ export type UpdateEventBlockTimeInput = Pick<
 	| 'repeat_duration'
 	| 'repeat_duration_unit'
 	| 'notes'
+	| 'location'
 > & {
 	// Allow passthrough to avoid excess property errors from callers spreading an existing record
 	id?: string;
@@ -1825,6 +1829,7 @@ export async function updateEventBlockTime(
 			repeat_duration: resolvedRepeatDuration,
 			repeat_duration_unit: resolvedRepeatUnit,
 			notes: input.notes?.trim() ?? null,
+			location: input.location?.trim() ?? null,
 		};
 
 		const { error } = await supabase

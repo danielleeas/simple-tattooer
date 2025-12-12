@@ -371,8 +371,7 @@ export default function ManualBooking() {
                                                         </Text>
                                                         <StartTimes 
                                                             date={date} 
-                                                            sessionLength={formData.sessionLength || 0} 
-                                                            breakTime={30} 
+                                                            sessionLength={formData.sessionLength || 0}
                                                             artist={artist} 
                                                             locationId={formData.locationId}
                                                             selectedTime={formData.startTimes[date]}

@@ -22,6 +22,7 @@ interface LocationModalProps {
   onClose: () => void;
   onLocationSelect: (location: Omit<LocationData, 'id'>) => void;
   selectedLocation?: LocationData | null;
+  selectedAddress?: string;
 }
 
 interface SearchResult {
@@ -40,7 +41,8 @@ export function LocationModal({
   visible,
   onClose,
   onLocationSelect,
-  selectedLocation
+  selectedLocation,
+  selectedAddress
 }: LocationModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -54,8 +56,10 @@ export function LocationModal({
     } else if (selectedLocation) {
       // Pre-fill search query when editing
       setSearchQuery(selectedLocation.address);
+    } else if (selectedAddress) {
+      setSearchQuery(selectedAddress);
     }
-  }, [visible, selectedLocation]);
+  }, [visible, selectedLocation, selectedAddress]);
 
   // Debounced search function
   useEffect(() => {
