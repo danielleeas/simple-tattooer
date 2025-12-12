@@ -313,3 +313,15 @@ export const truncateFileName = (fileName: string): string => {
 
   return `${nameWithoutExt.slice(0, 6)}....${nameWithoutExt.slice(-6)}${extension}`;
 };
+
+export const validatePhoneNumber = (phoneNumber: string): boolean => {
+  if (!phoneNumber) return false;
+
+  // Strip all non-digit characters so we can validate both raw and formatted inputs
+  const digitsOnly = phoneNumber.replace(/\D/g, '');
+
+  // Very generic international-friendly rule:
+  // - must contain only digits (after stripping formatting)
+  // - length between 6 and 15 digits (covers most landline & mobile formats)
+  return digitsOnly.length >= 6 && digitsOnly.length <= 15;
+};

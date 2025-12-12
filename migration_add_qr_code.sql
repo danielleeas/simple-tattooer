@@ -6,6 +6,8 @@
 
 -- Add qr_code_url column to artists table
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS qr_code_url TEXT;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS start_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS end_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
 -- Update the get_artist_full_data function to include qr_code_url
 CREATE OR REPLACE FUNCTION get_artist_full_data(artist_uuid UUID)

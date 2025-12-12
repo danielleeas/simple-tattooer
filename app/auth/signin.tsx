@@ -88,7 +88,7 @@ export default function SigninPage() {
 
         // Check if signin was successful
         if (signinWithAuth.fulfilled.match(resultAction)) {
-          const { artist, session } = resultAction.payload;
+          const { artist, session, client } = resultAction.payload;
 
           // Save credentials for future autofill
           await saveCredentials(formData.email, formData.password);
@@ -103,8 +103,6 @@ export default function SigninPage() {
 
           // Determine app mode based on subscription status
           const appMode = artist?.subscription_active ? 'production' : 'preview';
-
-          console.log("appMode", appMode);
 
           // Set the app mode in Redux state
           dispatch(setMode(appMode));

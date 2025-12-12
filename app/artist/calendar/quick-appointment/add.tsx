@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Pressable, Image } from "react-native";
+import { View, Pressable, Image, Linking } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from "expo-router";
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { TimePicker } from '@/components/lib/time-picker';
 import { useToast } from "@/lib/contexts/toast-context";
 import { useAuth } from '@/lib/contexts/auth-context';
-import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb, truncateFileName } from "@/lib/utils";
+import { convertTimeToISOString, convertTimeToHHMMString, parseYmdFromDb, truncateFileName, validatePhoneNumber, formatDbDate } from "@/lib/utils";
 import { Collapse } from "@/components/lib/collapse";
 import { checkArtistExists } from "@/lib/services/auth-service";
 import { createClientWithAuth, checkClientExists, checkClientExistsByPhone } from '@/lib/services/clients-service';
@@ -182,7 +182,7 @@ export default function QuickAppointmentAddPage() {
                 const now = new Date();
                 return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
             })();
-    
+
             // Calculate end time from start time and session length
             const sessionLengthMinutes = parseInt(formData.sessionLength);
             const endTime = calculateEndTime(formData.startTime, sessionLengthMinutes);
@@ -420,6 +420,44 @@ export default function QuickAppointmentAddPage() {
 
     };
 
+    const handleCall = async (phone_number: string) => {
+        if (!validatePhoneNumber(phone_number)) {
+            toast({
+                variant: 'error',
+                title: 'Invalid phone number',
+            });
+            return;
+        }
+        const url = `tel:${phone_number}`;
+        if (await Linking.canOpenURL(url)) {
+            await Linking.openURL(url);
+        } else {
+            toast({
+                variant: 'error',
+                title: 'Cannot open phone app',
+            });
+        }
+    }
+
+    const handleMessage = async (phone_number: string) => {
+        if (!validatePhoneNumber(phone_number)) {
+            toast({
+                variant: 'error',
+                title: 'Invalid phone number',
+            });
+            return;
+        }
+        const url = `sms:${phone_number}`;
+        if (await Linking.canOpenURL(url)) {
+            await Linking.openURL(url);
+        } else {
+            toast({
+                variant: 'error',
+                title: 'Cannot open message app',
+            });
+        }
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
@@ -500,37 +538,51 @@ export default function QuickAppointmentAddPage() {
                                             onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
                                             className="w-full"
                                         />
+                                        {formData.phoneNumber && validatePhoneNumber(formData.phoneNumber) && (
+                                            <View className="flex-row items-center gap-4">
+                                                <Pressable className="flex-row items-center gap-1" onPress={() => handleCall(formData.phoneNumber || '')}>
+                                                    <Image source={require('@/assets/images/icons/phone_thick.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                                                    <Text variant="h5">Call</Text>
+                                                </Pressable>
+                                                <Pressable className="flex-row items-center gap-1" onPress={() => handleMessage(formData.phoneNumber || '')}>
+                                                    <Image source={require('@/assets/images/icons/chat.png')} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                                                    <Text variant="h5">Message</Text>
+                                                </Pressable>
+                                            </View>
+                                        )}
                                     </View>
 
-                                    <View className="gap-6">
-                                        <View className="items-start gap-2">
-                                            <Collapse title="Start Time" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <TimePicker
-                                                        minuteInterval={15}
-                                                        className="w-full"
-                                                        selectedTime={formData.startTime ? convertTimeToISOString(formData.startTime) : undefined}
-                                                        onTimeSelect={(time) => setFormData({ ...formData, startTime: convertTimeToHHMMString(time) })}
-                                                    />
-                                                </View>
-                                            </Collapse>
-                                        </View>
-                                        <View className="items-start gap-2">
-                                            <Collapse title="Session length" textClassName="text-xl">
-                                                <View className="gap-2 w-full">
-                                                    <TimeDurationPicker
-                                                        selectedDuration={formData.sessionLength ? parseInt(formData.sessionLength) : undefined}
-                                                        onDurationSelect={(duration) => setFormData({ ...formData, sessionLength: String(duration) })}
-                                                        minuteInterval={15}
-                                                        minDuration={15}
-                                                        maxDuration={240}
-                                                        modalTitle="Select Session Duration"
-                                                    />
-                                                </View>
-                                            </Collapse>
-                                        </View>
+                                    <View className="items-start gap-2">
+                                        <Collapse title="Session length" textClassName="text-xl">
+                                            <View className="gap-2 w-full">
+                                                <TimeDurationPicker
+                                                    selectedDuration={formData.sessionLength ? parseInt(formData.sessionLength) : undefined}
+                                                    onDurationSelect={(duration) => setFormData({ ...formData, sessionLength: String(duration) })}
+                                                    minuteInterval={15}
+                                                    minDuration={15}
+                                                    maxDuration={240}
+                                                    modalTitle="Select Session Duration"
+                                                />
+                                            </View>
+                                        </Collapse>
                                     </View>
 
+                                    <View className="gap-4">
+                                        <View className="gap-2">
+                                            <Text variant="small" className="font-thin leading-5 text-text-secondary">
+                                                Selected date - {formatDbDate(date, 'MMM DD, YYYY')}
+                                            </Text>
+                                        </View>
+                                        <View className="gap-4">
+                                            <View key={date} className="gap-2">
+                                                <Text variant="h5" className="text-foreground">
+                                                    {formatDbDate(date, 'MMM DD, YYYY')}
+                                                </Text>
+                                                {formData.sessionLength  }
+                                            </View>
+                                        </View>
+                                    </View>
+                                    
                                     <View className="gap-2">
                                         <Text variant="h5">Notes</Text>
                                         <Textarea

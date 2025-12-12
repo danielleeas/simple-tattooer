@@ -61,9 +61,8 @@ CREATE TABLE IF NOT EXISTS locations (
   place_id TEXT NOT NULL,
   coordinates JSONB NOT NULL,
   is_main_studio BOOLEAN DEFAULT FALSE,
-  source TEXT,
-  source_id TEXT,
-  source_end TEXT,
+  start_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  end_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(artist_id, address)
