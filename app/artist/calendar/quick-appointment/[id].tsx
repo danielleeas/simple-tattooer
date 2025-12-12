@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Image, type ImageStyle, ScrollView, Modal, ActivityIndicator } from "react-native";
+import { View, Image, type ImageStyle, ScrollView, Modal, ActivityIndicator, Pressable, Linking } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
@@ -13,7 +13,7 @@ import APPOINTMENT_IMAGE from "@/assets/images/icons/appointment.png";
 import PENCIL_SIMPLE from "@/assets/images/icons/pencil_simple.png";
 import DELETE_IMAGE from "@/assets/images/icons/delete.png";
 import { StableGestureWrapper } from "@/components/lib/stable-gesture-wrapper";
-import { formatTime } from "@/lib/utils";
+import { formatTime, validatePhoneNumber } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { getQuickAppointmentById, deleteQuickAppointment } from "@/lib/services/booking-service";
 
@@ -23,6 +23,7 @@ const BUTTON_ICON_STYLE: ImageStyle = {
 }
 
 interface QuickAppointmentData {
+    clientId: string;
     fullName: string;
     email: string;
     phoneNumber?: string;
@@ -46,6 +47,7 @@ export default function QuickAppointmentDetailPage() {
             const res = await getQuickAppointmentById(id);
             if (res.success && res.data) {
                 setAppointment({
+                    clientId: res.data.client.id,
                     fullName: res.data.client.full_name,
                     email: res.data.client.email,
                     phoneNumber: res.data.client.phone_number,
@@ -107,6 +109,51 @@ export default function QuickAppointmentDetailPage() {
         return `${mins}m`;
     };
 
+    const openClientProfile = (clientId: string) => {
+        router.push({
+            pathname: '/artist/clients/[id]',
+            params: { id: clientId }
+        });
+    }
+
+    const handleCall = async (phone_number: string) => {
+        if (!validatePhoneNumber(phone_number)) {
+            toast({
+                variant: 'error',
+                title: 'Invalid phone number',
+            });
+            return;
+        }
+        const url = `tel:${phone_number}`;
+        if (await Linking.canOpenURL(url)) {
+            await Linking.openURL(url);
+        } else {
+            toast({
+                variant: 'error',
+                title: 'Cannot open phone app',
+            });
+        }
+    }
+
+    const handleMessage = async (phone_number: string) => {
+        if (!validatePhoneNumber(phone_number)) {
+            toast({
+                variant: 'error',
+                title: 'Invalid phone number',
+            });
+            return;
+        }
+        const url = `sms:${phone_number}`;
+        if (await Linking.canOpenURL(url)) {
+            await Linking.openURL(url);
+        } else {
+            toast({
+                variant: 'error',
+                title: 'Cannot open message app',
+            });
+        }
+    }
+
     return (
         <>
             <Stack.Screen options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -138,10 +185,10 @@ export default function QuickAppointmentDetailPage() {
 
                                     {appointment && !loading && (
                                         <>
-                                            <View className="gap-1">
+                                            <Pressable className="gap-1" onPress={() => openClientProfile(appointment.clientId)}>
                                                 <Text className="text-text-secondary">Full Name</Text>
                                                 <Text variant='h5'>{appointment.fullName}</Text>
-                                            </View>
+                                            </Pressable>
 
                                             <View className="gap-1">
                                                 <Text className="text-text-secondary">Email</Text>
@@ -151,6 +198,18 @@ export default function QuickAppointmentDetailPage() {
                                             <View className="gap-1">
                                                 <Text className="text-text-secondary">Phone Number</Text>
                                                 <Text variant='h5'>{appointment.phoneNumber}</Text>
+                                                {appointment.phoneNumber && validatePhoneNumber(appointment.phoneNumber) && (
+                                                    <View className="flex-row items-center gap-4">
+                                                        <Pressable className="flex-row items-center gap-1" onPress={() => handleCall(appointment.phoneNumber || '')}>
+                                                            <Image source={require('@/assets/images/icons/phone_thick.png')} style={{ width: 13, height: 13 }} resizeMode="contain" />
+                                                            <Text variant="h6">Call</Text>
+                                                        </Pressable>
+                                                        <Pressable className="flex-row items-center gap-1" onPress={() => handleMessage(appointment.phoneNumber || '')}>
+                                                            <Image source={require('@/assets/images/icons/chat.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                                                            <Text variant="h6">Message</Text>
+                                                        </Pressable>
+                                                    </View>
+                                                )}
                                             </View>
 
                                             <View className="gap-1">

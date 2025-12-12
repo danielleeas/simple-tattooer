@@ -578,7 +578,7 @@ export default function QuickAppointmentAddPage() {
                                                     onDurationSelect={(duration) => setFormData({ ...formData, sessionLength: String(duration) })}
                                                     minuteInterval={15}
                                                     minDuration={15}
-                                                    maxDuration={240}
+                                                    maxDuration={525}
                                                     modalTitle="Select Session Duration"
                                                 />
                                             </View>

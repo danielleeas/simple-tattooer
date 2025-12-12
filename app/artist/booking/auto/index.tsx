@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { View, Image } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import { DropdownPicker } from "@/components/lib/dropdown-picker";
 import { useAuth, useToast } from "@/lib/contexts";
 import { DatePicker } from "@/components/lib/date-picker";
 import { createProjectRequest } from "@/lib/services/booking-service";
+import { parseYmdFromDb } from "@/lib/utils";
 
 interface FormDataProps {
     title: string;
@@ -50,6 +51,38 @@ export default function AutoBooking() {
         sessionRate: '',
         notes: '',
     });
+
+    const locationOptions = useMemo(
+        () => {
+            if (!artist?.locations) return [];
+
+            // Build a "today" Date in local time (no implicit UTC conversion)
+            const now = new Date();
+            const todayLocal = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                12,
+                0,
+                0,
+                0
+            );
+
+            return artist.locations
+                .filter((location: ArtistLocation) => {
+                    if (!location.end_at) return true;
+                    const end = parseYmdFromDb(String(location.end_at));
+                    if (!end || isNaN(end.getTime())) return true;
+                    // Hide locations whose end date is already past "today" (local time)
+                    return todayLocal <= end;
+                })
+                .map((location: ArtistLocation) => ({
+                    label: location.address,
+                    value: (location as any).id ?? (location as any).place_id
+                }));
+        },
+        [artist?.locations]
+    );
 
     const handleHome = () => {
         router.dismissAll();
@@ -249,7 +282,7 @@ export default function AutoBooking() {
                                 <View className="items-start gap-2">
                                     <Collapse title="Location" textClassName="text-xl">
                                         <DropdownPicker
-                                            options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
+                                            options={locationOptions}
                                             value={formData.locationId}
                                             onValueChange={(value) => setFormData(prev => ({ ...prev, locationId: value }))}
                                             placeholder="Select location"

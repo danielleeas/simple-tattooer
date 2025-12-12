@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, Image, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ import { useAuth, useToast } from "@/lib/contexts";
 import { Collapse } from "@/components/lib/collapse";
 import { createClientWithAuth } from "@/lib/services/clients-service";
 import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
-import { formatDbDate } from "@/lib/utils";
+import { formatDbDate, parseYmdFromDb } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
@@ -55,6 +55,38 @@ export default function QuoteBooking() {
         sessionRate: '',
         notes: '',
     });
+
+    const locationOptions = useMemo(
+        () => {
+            if (!artist?.locations) return [];
+
+            // Build a "today" Date in local time (no implicit UTC conversion)
+            const now = new Date();
+            const todayLocal = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                12,
+                0,
+                0,
+                0
+            );
+
+            return artist.locations
+                .filter((location: ArtistLocation) => {
+                    if (!location.end_at) return true;
+                    const end = parseYmdFromDb(String(location.end_at));
+                    if (!end || isNaN(end.getTime())) return true;
+                    // Hide locations whose end date is already past "today" (local time)
+                    return todayLocal <= end;
+                })
+                .map((location: ArtistLocation) => ({
+                    label: location.address,
+                    value: (location as any).id ?? (location as any).place_id
+                }));
+        },
+        [artist?.locations]
+    );
 
     const loadAvailabilityForMonth = async (year: number, monthZeroBased: number, locationId: string) => {
         setLoadingAvailability(true);
@@ -297,7 +329,7 @@ export default function QuoteBooking() {
                                 <View className="items-start gap-2">
                                     <Collapse title="Location" textClassName="text-xl">
                                         <DropdownPicker
-                                            options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
+                                            options={locationOptions}
                                             value={formData.locationId}
                                             onValueChange={(value: string) => onChangeLocation(value as string)}
                                             placeholder="Select location"
@@ -368,8 +400,7 @@ export default function QuoteBooking() {
                                                         </Text>
                                                         <StartTimes 
                                                             date={date} 
-                                                            sessionLength={formData.sessionLength || 0} 
-                                                            breakTime={30} 
+                                                            sessionLength={formData.sessionLength || 0}
                                                             artist={artist} 
                                                             locationId={formData.locationId}
                                                             selectedTime={formData.startTimes[date]}

@@ -18,7 +18,7 @@ import { Locations as ArtistLocation } from "@/lib/redux/types";
 import { useAuth, useToast } from "@/lib/contexts";
 import { getAvailableDates, getBackToBackResult, getMonthRange, createManualBooking, sendManualBookingRequestEmail } from "@/lib/services/booking-service";
 import { Collapse } from "@/components/lib/collapse";
-import { formatDbDate, makeChunks } from "@/lib/utils";
+import { formatDbDate, makeChunks, parseYmdFromDb } from "@/lib/utils";
 import { StartTimes } from "@/components/pages/booking/start-times";
 
 import HOME_IMAGE from "@/assets/images/icons/home.png";
@@ -44,6 +44,38 @@ export default function ManualBooking() {
     const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
     const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    const locationOptions = useMemo(
+        () => {
+            if (!artist?.locations) return [];
+
+            // Build a "today" Date in local time (no implicit UTC conversion)
+            const now = new Date();
+            const todayLocal = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                12,
+                0,
+                0,
+                0
+            );
+
+            return artist.locations
+                .filter((location: ArtistLocation) => {
+                    if (!location.end_at) return true;
+                    const end = parseYmdFromDb(String(location.end_at));
+                    if (!end || isNaN(end.getTime())) return true;
+                    // Hide locations whose end date is already past "today" (local time)
+                    return todayLocal <= end;
+                })
+                .map((location: ArtistLocation) => ({
+                    label: location.address,
+                    value: (location as any).id ?? (location as any).place_id
+                }));
+        },
+        [artist?.locations]
+    );
 
     const [formData, setFormData] = useState<FormDataProps>({
         title: '',
@@ -259,7 +291,7 @@ export default function ManualBooking() {
                                 <View className="items-start gap-2">
                                     <Collapse title="Location" textClassName="text-xl">
                                         <DropdownPicker
-                                            options={artist?.locations?.map((location: ArtistLocation) => ({ label: location.address, value: (location as any).id ?? (location as any).place_id })) || []}
+                                            options={locationOptions}
                                             value={formData.locationId}
                                             onValueChange={(value: string) => onChangeLocation(value as string)}
                                             placeholder="Select location"
