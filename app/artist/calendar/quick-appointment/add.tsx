@@ -42,6 +42,7 @@ type QuickAppointmentData = {
     waiverUrl?: string;
 };
 
+// Normalize various date param shapes into "YYYY-MM-DD"
 const normalizeDateParamToYmd = (dateParam?: string): string => {
     const pad = (n: number) => String(n).padStart(2, '0');
     if (dateParam) {
@@ -108,8 +109,14 @@ export default function QuickAppointmentAddPage() {
         const locations = Array.isArray(artist?.locations) ? artist.locations : [];
         if (!locations.length) return undefined;
 
-        const ymd = normalizeDateParamToYmd(date || undefined);
-        const target = new Date(`${ymd}T12:00:00`);
+        // Build a local-time Date from the selected YYYY-MM-DD (avoid implicit UTC parsing)
+        const ymd = normalizeDateParamToYmd(typeof date === 'string' ? date : undefined);
+        const [yStr, mStr, dStr] = ymd.split('-');
+        const y = Number(yStr);
+        const m = Number(mStr) - 1; // monthIndex
+        const dNum = Number(dStr);
+        if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(dNum)) return undefined;
+        const target = new Date(y, m, dNum, 12, 0, 0, 0);
 
         // First, try to find a temporary location (with start_at/end_at) that matches the date
         const inRangeLocation = locations.find((loc) => {
@@ -119,8 +126,8 @@ export default function QuickAppointmentAddPage() {
             // Skip main studio (main studio should not have date ranges)
             if (loc.is_main_studio) return false;
 
-            const start = loc.start_at ? new Date(String(loc.start_at).replace(' ', 'T')) : undefined;
-            const end = loc.end_at ? new Date(String(loc.end_at).replace(' ', 'T')) : undefined;
+            const start = loc.start_at ? parseYmdFromDb(String(loc.start_at)) : undefined;
+            const end = loc.end_at ? parseYmdFromDb(String(loc.end_at)) : undefined;
 
             if (start && isNaN(start.getTime())) return false;
             if (end && isNaN(end.getTime())) return false;
@@ -143,8 +150,6 @@ export default function QuickAppointmentAddPage() {
         const mainLocation = locations.find((l) => l.is_main_studio);
         return mainLocation || locations[0];
     }, [artist?.locations, date]);
-
-    console.log('dateLocation', dateLocation);
 
     // Check if form is valid
     const isFormValid = () => {
